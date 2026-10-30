@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+.env
+.pytest_cache/
+.mypy_cache/
+coverage.xml
+.DS_Store
+
+# project data
+/data/raw/*.csv
+/data/raw/*.json
+/data/raw/*.txt
+*.egg-info/
