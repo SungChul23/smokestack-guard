@@ -4,6 +4,7 @@ import argparse
 import csv
 import json
 import os
+import re
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Iterable
@@ -16,6 +17,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 EPA_API_ENV_KEYS = ("EPA_API_KEY", "CAMD_API_KEY", "EPA_CAMD_API_KEY")
+_SAFE_ID = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def _safe_id(value: Any, name: str) -> str:
+    """IDs from the EPA API end up in file names, so reject anything but [A-Za-z0-9_-]."""
+    text = str(value)
+    if not _SAFE_ID.fullmatch(text):
+        raise ValueError(f"Unsafe {name}: {text!r}")
+    return text
 
 
 def _raise_for_http_error(response: requests.Response, *, context: str) -> None:
@@ -239,6 +249,7 @@ def fetch_epa_emissions_export(
     reported_values_only: bool = True,
 ) -> Path:
     """Fetch a live EPA emissions export by monitorPlanId and save the flattened rows."""
+    monitor_plan_id = _safe_id(monitor_plan_id, "monitor_plan_id")
     if not api_url:
         api_url = "https://api.epa.gov/easey/emissions-mgmt/emissions/export"
 
@@ -301,6 +312,7 @@ def list_active_monitor_plan_ids(batch_size: int = 50) -> list[str]:
 
 def fetch_campd_apportioned_hourly(output_dir: Path, oris_code: int | str, year: int, quarter: int) -> Path:
     """Fetch CAMPD hourly apportioned emissions (mass/rate/load per unit) for one facility-quarter."""
+    oris_code = _safe_id(oris_code, "oris_code")
     api_key = next((os.getenv(key) for key in EPA_API_ENV_KEYS + ("CAMPD_API_KEY",) if os.getenv(key)), None)
     headers = {"accept": "application/json", **({"x-api-key": api_key} if api_key else {})}
     start_month = 3 * (quarter - 1) + 1

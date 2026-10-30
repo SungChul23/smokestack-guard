@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from smokestack_guard.data.collector import _record_identity, build_parser, collect_epa_all, extract_rows
+from smokestack_guard.data.collector import _record_identity, _safe_id, build_parser, collect_epa_all, extract_rows
 
 
 class CollectorTests(unittest.TestCase):
@@ -47,6 +47,12 @@ class CollectorTests(unittest.TestCase):
             saved, failures = collect_epa_all(Path("."), [(2024, 3)])
         self.assertEqual(saved, 1)
         self.assertEqual(len(failures), 1)
+
+    def test_safe_id_rejects_path_characters(self):
+        self.assertEqual(_safe_id("MDC-0AD7_f", "id"), "MDC-0AD7_f")
+        for bad in ("../x", "a/b", "a\b", "", "a b"):
+            with self.assertRaises(ValueError):
+                _safe_id(bad, "id")
 
 
 if __name__ == "__main__":
