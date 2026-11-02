@@ -84,7 +84,7 @@ services/
 - 허용: `git status`, `git diff`, `git log` 같은 읽기 명령.
 - 커밋 메시지는 `feat:`, `fix:`, `chore:` 같은 유형 뒤에 한국어로 무엇을 왜 바꿨는지 쓴다. push는 사용자가 직접 한다.
 - 작업 환경: Claude Code는 WSL에서만 실행한다. 사용자는 Git 작업을 PowerShell에서 한다.
-- `main`은 보호됨: PR 필수, 승인 1명, Squash merge만 허용.
+- `main`은 보호됨: PR 필수, 승인 1명. Merge commit / Squash / Rebase 세 방식 모두 허용되어 있다. 커밋은 작업 단위로 나눠서 만든다.
 - 브랜치: `<유형>/<범위>-<내용>` (예: `infra/tms-collection-terraform`, `feat/collector-ssm-key`, `fix/collector-hash-state`)
 
 ## 하지 말 것
