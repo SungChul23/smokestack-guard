@@ -1,0 +1,24 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+
+# 비밀값
+.env
+
+# Claude Code 개인 설정
+.claude/settings.local.json
+CLAUDE.local.md
+
+# 빌드 산출물
+services/**/*.zip
+__pycache__/
+
+# OS
+.DS_Store
+
+# Spec Kit 프리셋 카탈로그 캐시 (specify preset search 실행 시 생성)
+.specify/presets/.cache/
