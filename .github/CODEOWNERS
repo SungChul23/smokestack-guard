@@ -18,15 +18,9 @@
 # 원칙은 팀 전체가 본다
 /.specify/memory/constitution.md  @SungChul23 @olchangiagi @gjfeel4512 @jaeyan42 @doeun-1202
 
-# spec 번호 대역 (specs/README.md): A 001–100, B 101–200, C 201–300, D 301–400, E 401–500
-# 앞자리로 먼저 나누고, 대역 끝 번호(100·200·300·400·500)를 아래에서 다시 지정한다.
-/specs/0*/                      @SungChul23
-/specs/1*/                      @olchangiagi
-/specs/2*/                      @gjfeel4512
-/specs/3*/                      @jaeyan42
-/specs/4*/                      @doeun-1202
-/specs/100-*/                   @SungChul23
-/specs/200-*/                   @olchangiagi
-/specs/300-*/                   @gjfeel4512
-/specs/400-*/                   @jaeyan42
-/specs/500-*/                   @doeun-1202
+# 역할별 spec 폴더 (specs/README.md)
+/specs/a-platform/              @SungChul23
+/specs/b-collection/            @olchangiagi
+/specs/c-contract/              @gjfeel4512
+/specs/d-analytics/             @jaeyan42
+/specs/e-ml/                    @doeun-1202

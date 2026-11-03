@@ -13,13 +13,13 @@ Claude Code는 `.claude/CLAUDE.md`를 통해, Codex는 이 파일을 직접 읽�
 
 ## 팀 역할
 
-| 담당 | GitHub | 역할 | 한 줄 미션 | 부담당 | spec 번호 대역 |
-|---|---|---|---|---|---|
-| A | `SungChul23` | 플랫폼·AWS·통합 | 모두가 같은 환경에서, AWS든 대체 경로든 끊김 없이 돌게 한다 | B | 001–100 |
-| B | `olchangiagi` | 수집·Bronze (+Kafka) | 놓친 데이터는 다시 못 받는다 — 누락을 1% 이하로 | C | 101–200 |
-| C | `gjfeel4512` | 데이터 계약·Silver·Iceberg | 모두가 같은 약속(계약)으로 데이터를 읽고 쓰게 한다 | A | 201–300 |
-| D | `jaeyan42` | 분석·화면·RAG | 결과를 보이게, 설명되게 한다 | E | 301–400 |
-| E | `doeun-1202` | 판정·AI 경고·MLOps | 규칙과 모델을 같은 조건에서 정직하게 비교한다 | D | 401–500 |
+| 담당 | GitHub | 역할 | 한 줄 미션 | 부담당 | spec 폴더 | spec 번호 대역 |
+|---|---|---|---|---|---|---|
+| A | `SungChul23` | 플랫폼·AWS·통합 | 모두가 같은 환경에서, AWS든 대체 경로든 끊김 없이 돌게 한다 | B | `specs/a-platform/` | 001–100 |
+| B | `olchangiagi` | 수집·Bronze (+Kafka) | 놓친 데이터는 다시 못 받는다 — 누락을 1% 이하로 | C | `specs/b-collection/` | 101–200 |
+| C | `gjfeel4512` | 데이터 계약·Silver·Iceberg | 모두가 같은 약속(계약)으로 데이터를 읽고 쓰게 한다 | A | `specs/c-contract/` | 201–300 |
+| D | `jaeyan42` | 분석·화면·RAG | 결과를 보이게, 설명되게 한다 | E | `specs/d-analytics/` | 301–400 |
+| E | `doeun-1202` | 판정·AI 경고·MLOps | 규칙과 모델을 같은 조건에서 정직하게 비교한다 | D | `specs/e-ml/` | 401–500 |
 
 - 담당 폴더별 리뷰어는 `.github/CODEOWNERS`에 있다. 새 작업 폴더를 만들면 담당자가 그 파일에 한 줄 추가한다.
 
@@ -29,14 +29,14 @@ Claude Code는 `.claude/CLAUDE.md`를 통해, Codex는 이 파일을 직접 읽�
 
 | 단계 | Claude Code | Codex | 결과 |
 |---|---|---|---|
-| 무엇을·왜 | `/speckit-specify` | `$speckit-specify` | `specs/NNN-이름/spec.md` |
+| 무엇을·왜 | `/speckit-specify` | `$speckit-specify` | `specs/<역할 폴더>/NNN-이름/spec.md` |
 | (선택) 모호한 점 정리 | `/speckit-clarify` | `$speckit-clarify` | spec.md 보강 |
 | 어떻게 | `/speckit-plan` | `$speckit-plan` | `plan.md` (+ 원칙 점검) |
 | 작업 목록 | `/speckit-tasks` | `$speckit-tasks` | `tasks.md` |
 | 구현 | `/speckit-implement` | `$speckit-implement` | 코드 |
 
 - **언제 쓰나:** 새 기능, 새 스택, 데이터 계약 변경처럼 리뷰가 필요한 작업. 오타·설정값·작은 버그 수정은 spec 없이 바로 한다.
-- **번호는 자기 대역에서만 쓴다.** `specify`를 실행할 때 AI 에이전트는 `specs/`에서 해당 담당 대역의 가장 큰 번호를 찾아 다음 번호로 `SPECIFY_FEATURE_DIRECTORY=specs/<번호>-<짧은-이름>`을 지정한다. 기본 동작(저장소 전체에서 가장 큰 번호 + 1)을 쓰지 않는다. 담당을 모르면 먼저 사용자에게 묻는다.
+- **spec은 자기 역할 폴더에, 번호는 자기 대역에서만 쓴다.** `specify`를 실행할 때 AI 에이전트는 담당의 역할 폴더(위 팀 역할 표)에서 가장 큰 번호를 찾아 다음 번호로 `SPECIFY_FEATURE_DIRECTORY=specs/<역할 폴더>/<번호>-<짧은-이름>`을 지정한다. (예: E의 다음 spec → `specs/e-ml/404-...`) 기본 동작(`specs/` 바로 아래에 저장소 전체 최대 번호 + 1)을 쓰지 않는다. 담당을 모르면 먼저 사용자에게 묻는다.
 - **브랜치는 사람이 만든다.** Spec Kit의 git 확장은 설치하지 않았다. spec 폴더와 브랜치는 서로 독립이며, 브랜치는 PR 단위로 아래 Git 규칙의 이름 형식을 따른다. 작은 spec 여러 개를 한 브랜치에 넣어도 된다.
 - **PR에는 spec·plan·tasks와 코드를 함께 올린다.** 리뷰어는 `spec.md`부터 읽는다.
 - `/speckit-implement`를 포함한 모든 Spec Kit 명령은 이 파일의 금지 사항을 그대로 따른다. (예: `terraform apply` 금지)
@@ -54,7 +54,7 @@ Claude Code는 `.claude/CLAUDE.md`를 통해, Codex는 이 파일을 직접 읽�
 ```
 AGENTS.md                 # 팀 공통 규칙 (이 파일)
 .specify/                 # Spec Kit: 원칙(memory/constitution.md), 양식, 스크립트
-specs/                    # 기능별 spec·plan·tasks (번호 대역은 팀 역할 표 참고)
+specs/                    # 기능별 spec·plan·tasks. 역할 폴더(a-platform … e-ml) 아래에 둔다
 infra/
 ├── bootstrap/            # Terraform 상태용 S3 버킷 (로컬 상태, 최초 1회)
 ├── stacks/

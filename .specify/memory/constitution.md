@@ -67,7 +67,7 @@ Sync Impact Report
 ## 작업 절차
 
 - 새 기능, 새 스택, 계약 변경은 Spec Kit(`specify → plan → tasks → implement`)을 거친다. 작은 수정은 예외다.
-- spec 번호는 담당별 대역(A 001–100, B 101–200, C 201–300, D 301–400, E 401–500)에서만 쓴다.
+- spec은 담당 역할 폴더(`specs/a-platform` … `specs/e-ml`)에 두고, 번호는 담당별 대역(A 001–100, B 101–200, C 201–300, D 301–400, E 401–500)에서만 쓴다.
 - 모든 변경은 PR과 1명 이상의 승인을 거쳐 `main`에 들어간다. 리뷰어는 spec과 이 원칙 위반 여부를 먼저 본다.
 
 ## Governance
