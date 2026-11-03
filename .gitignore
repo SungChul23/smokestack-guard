@@ -15,3 +15,4 @@ coverage.xml
 /data/raw/*.json
 /data/raw/*.txt
 *.egg-info/
+/data/silver/
