@@ -19,7 +19,7 @@ docker compose up -d airflow-webserver airflow-scheduler
 ```
 
 ## 3. 접속
-- Airflow: http://localhost:8000, admin, admin
+- Airflow: http://localhost:8080, admin, admin
 - MinIO: http://localhost:9001, .env의 MINIO_ROOT_...
 
 ## 4. 프로젝트 구조
@@ -37,7 +37,6 @@ k_tms_pipeline/
 ├── scripts/                  프로브/시험 스크립트 (수동 실행용)
 └── requirements.txt
 ```
-
 
 
 
