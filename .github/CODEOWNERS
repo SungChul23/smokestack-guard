@@ -1,0 +1,26 @@
+# 담당 폴더 → 리뷰어 자동 요청
+# 역할 표: AGENTS.md "팀 역할". 아래로 갈수록 우선한다 (마지막으로 일치한 줄이 적용).
+# 지금은 리뷰 요청만 자동으로 건다. 담당자 승인 강제는 브랜치 보호에서 "Require review from Code Owners"를 켤 때만 적용된다.
+# 새 작업 폴더가 생기면 담당자가 이 파일에 한 줄 추가한다.
+
+# A — 플랫폼·AWS·통합: 공통 규칙, Spec Kit, 공통 인프라
+/AGENTS.md                      @SungChul23
+/.claude/                       @SungChul23
+/.agents/                       @SungChul23
+/.specify/                      @SungChul23
+/.github/                       @SungChul23
+/infra/                         @SungChul23
+
+# B — 수집·Bronze: 수집 코드와 수집 스택 (부담당 A)
+/services/tms-collector/        @olchangiagi @SungChul23
+/infra/stacks/tms-collection/   @olchangiagi @SungChul23
+
+# 원칙은 팀 전체가 본다
+/.specify/memory/constitution.md  @SungChul23 @olchangiagi @gjfeel4512 @jaeyan42 @doeun-1202
+
+# 역할별 spec 폴더 (specs/README.md)
+/specs/a-platform/              @SungChul23
+/specs/b-collection/            @olchangiagi
+/specs/c-contract/              @gjfeel4512
+/specs/d-analytics/             @jaeyan42
+/specs/e-ml/                    @doeun-1202

@@ -19,3 +19,6 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# Spec Kit 프리셋 카탈로그 캐시 (specify preset search 실행 시 생성)
+.specify/presets/.cache/
