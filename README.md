@@ -28,3 +28,4 @@ PYTHONPATH=src python -m pytest -q
 1. 대만 CEMS 15분 → 30분 정제 규칙을 월 단위로 안정화
 2. K-TMS 상태/비율 값 정제를 검증
 3. 187 기반 고급 구간 검증은 이후 단계에서 진행
+

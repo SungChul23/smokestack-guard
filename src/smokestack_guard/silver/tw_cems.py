@@ -41,6 +41,7 @@ def to_silver(df: pd.DataFrame) -> pd.DataFrame:
     df = df[df["record_state"] == "NORMAL"]
     df["measure_value"] = pd.to_numeric(df["m_value"], errors="coerce")
     df["standard_value"] = pd.to_numeric(df["std"], errors="coerce").where(lambda s: s > 0)
+    df = df[df["standard_value"].notna()].copy()
     df["measured_at"] = pd.to_datetime(df["m_time"]) - pd.Timedelta(hours=8)  # UTC+8 -> UTC
     df["slot"] = df["measured_at"].dt.floor("30min")
     df["stack_code"] = "TW-" + df["cno"] + "-" + df["polno"]
@@ -55,21 +56,40 @@ def to_silver(df: pd.DataFrame) -> pd.DataFrame:
         n_values=("measure_value", "size"),
         n_standards=("standard_value", "nunique"),
     ).reset_index()
-    out = out[(out["n_values"] == 2) & (out["n_standards"] <= 1)].rename(columns={"slot": "measured_at"})
+    out = out[(out["n_values"] == 2) & (out["n_standards"] == 1)].rename(columns={"slot": "measured_at"})
     out["ratio_pct"] = out["measure_value"] / out["standard_value"] * 100
     out.insert(0, "data_origin", ORIGIN)
     return out.drop(columns=["n_values", "n_standards"]).sort_values(["stack_code", "item_code", "measured_at"]).reset_index(drop=True)
 
 
 def build(source: Path, silver_dir: Path) -> Path:
-    # ponytail: whole month in memory (~230MB JSON for 3 days of 15-min rows), chunk by stack if monthly files get too big
-    raw = pd.DataFrame(json.loads(source.read_text(encoding="utf-8-sig")))
-    silver = to_silver(raw)
+    raw_rows = 0
+    silver_frames = []
+
+    try:
+        chunks = pd.read_json(source, lines=True, chunksize=250_000, dtype=False)
+        for chunk in chunks:
+            raw_rows += len(chunk)
+            silver = to_silver(chunk)
+            if not silver.empty:
+                silver_frames.append(silver)
+    except ValueError:
+        raw = pd.DataFrame(json.loads(source.read_text(encoding="utf-8-sig")))
+        raw_rows = len(raw)
+        silver = to_silver(raw)
+        silver_frames.append(silver)
+
+    if not silver_frames:
+        silver = pd.DataFrame(columns=["data_origin", "stack_code", "item_code", "measured_at", "measure_value", "standard_value", "std_basis", "ratio_pct"])
+    else:
+        silver = pd.concat(silver_frames, ignore_index=True)
+
     out = silver_dir / "tw_cems" / "part.parquet"
     out.parent.mkdir(parents=True, exist_ok=True)
     silver.to_parquet(out, index=False)
-    print(f"tw_cems: {len(raw):,} raw rows -> {len(silver):,} 30-min rows, {silver['stack_code'].nunique()} stacks")
-    print(silver.groupby("item_code")["ratio_pct"].agg(rows="size", has_std="count", ge90=lambda s: (s >= 90).sum()).to_string())
+    print(f"tw_cems: {raw_rows:,} raw rows -> {len(silver):,} 30-min rows, {silver['stack_code'].nunique() if 'stack_code' in silver.columns else 0} stacks")
+    if not silver.empty:
+        print(silver.groupby("item_code")["ratio_pct"].agg(rows="size", has_std="count", ge90=lambda s: (s >= 90).sum()).to_string())
     return out
 
 

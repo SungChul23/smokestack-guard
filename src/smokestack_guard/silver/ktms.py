@@ -57,6 +57,12 @@ def read_bronze(bucket: str = "bronze") -> pd.DataFrame:
 
 
 def to_silver(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    for item in ITEMS:
+        for suffix in ("_mesure_value", "_exhst_perm_stdr_value"):
+            if f"{item}{suffix}" not in df.columns:
+                df[f"{item}{suffix}"] = pd.NA
+
     df = df.dropna(subset=STACK + ["mesure_dt"])
     parts = []
     for item in ITEMS:
@@ -65,6 +71,7 @@ def to_silver(df: pd.DataFrame) -> pd.DataFrame:
         part = df[STACK + ["mesure_dt", "snapshot"]].assign(item=item, value=pd.to_numeric(raw, errors="coerce"), limit=limit)
         text = raw.where(raw.notna() & part["value"].isna())
         part["status"] = text.map(STATUS).fillna("other").where(text.notna(), "ok")
+        part.loc[part["status"].eq("ok") & (part["value"].isna() | part["limit"].isna()), "status"] = "not_monitored"
         parts.append(part[raw.notna() | limit.notna()])
     out = pd.concat(parts, ignore_index=True)
     out["ts_kst"] = pd.to_datetime(out["mesure_dt"], format="%Y-%m-%d %H:%M", errors="coerce")
