@@ -1,37 +1,30 @@
 # smokestack-guard
 
-[SK 플래닛 - 파이널 프로젝트] EPA CAMPD/ECMPS 배출 데이터를 전국 단위로 RAW 누적 수집하는 파이프라인. TMS는 제외하고 정제 단계에서 재검토한다.
+이 브랜치는 EPA 데이터 수집을 사용하지 않고, 대만 CEMS와 K-TMS 정제 파이프라인에 집중합니다.
 
 ## 방향
 
-- 메인 소스: EPA CAMPD / ECMPS (규제 기준, 장기 이력이 정형화되어 있음)
-- 실데이터만 사용 (샘플/가짜 데이터 경로 없음), append-only RAW 저장
-- Airflow DAG `smokestack_guard_epa_daily`: 하루 1회, 활성 monitoring plan 전체의 직전·현재 분기 export
+- 메인 소스: 대만 CEMS 월별 JSONL, K-TMS 10분 스냅샷
+- 출력: Silver Parquet 파티션 (`data/silver/tw_cems`, `data/silver/ktms`)
+- 원본 데이터는 읽기 전용으로 유지하고, 정제 단계에서 필요한 값만 Silver로 생성
 
 ## 빠른 시작
 
 ```bash
 python -m venv .venv && .venv\Scripts\activate
 pip install -r requirements.txt
-copy .env.example .env   # EPA_API_KEY 입력
-python -m pytest -q
-```
-
-emissions export 수집 (유효한 monitorPlanId 필요):
-
-```bash
-PYTHONPATH=src python -m smokestack_guard.data.collector --source epa \
-  --monitor-plan-id <ID> --year 2025 --quarter 1 --output-dir data/raw
+copy .env.example .env
+PYTHONPATH=src python -m pytest -q
 ```
 
 ## 구조
 
-- `src/smokestack_guard/data/collector.py`: 수집 + RAW 누적 저장
-- `src/smokestack_guard/data/epa_probe.py`: 엔드포인트 상태 점검
-- `src/smokestack_guard/data/pipeline.py`: 위험도/경고 계산 (data.go.kr TMS 스키마 기준, EPA 스키마로 재작성 예정)
-- `dags/smokestack_guard_daily.py`: EPA 일 1회 DAG
-- `dags/smokestack_guard_ktms_30min.py`: K-TMS(data.go.kr) 30분 스냅샷 DAG
-- `data/raw/`: RAW CSV/JSON (git 제외)
+- `src/smokestack_guard/silver/tw_cems.py`: 15분 관측 데이터를 30분 Silver로 변환
+- `src/smokestack_guard/silver/ktms.py`: K-TMS 스냅샷을 long-form Silver로 변환
+- `data/silver/`: Silver parquet 출력 디렉터리
 
-## 할 일
-1. 정제(Silver) 스키마 및 경고 로직을 EPA 구조로 재작성, TMS 도입 재검토 (RAW 데이터를 확인한 뒤 판단)
+## 현재 목표
+
+1. 대만 CEMS 15분 → 30분 정제 규칙을 월 단위로 안정화
+2. K-TMS 상태/비율 값 정제를 검증
+3. 187 기반 고급 구간 검증은 이후 단계에서 진행
