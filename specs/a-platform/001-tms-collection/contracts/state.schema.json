@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tms_cleansys/_state/latest.json",
+  "title": "CleanSYS 수집 상태",
+  "type": "object",
+  "required": ["sha256_raw", "last_changed_at", "last_checked_at", "raw_key"],
+  "properties": {
+    "sha256_raw": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "마지막으로 점검을 통과해 저장된 원문의 해시" },
+    "last_changed_at": { "type": "string", "format": "date-time", "description": "원문이 마지막으로 바뀐 회차 (UTC)" },
+    "last_checked_at": { "type": "string", "format": "date-time", "description": "마지막으로 실행된 회차 (UTC), 매 실행 갱신" },
+    "raw_key": { "type": "string", "description": "마지막 원문 S3 키" }
+  }
+}

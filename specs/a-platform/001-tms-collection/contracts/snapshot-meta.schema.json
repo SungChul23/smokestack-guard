@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tms_cleansys/snapshot.meta.json",
+  "title": "CleanSYS 스냅샷 메타",
+  "type": "object",
+  "required": [
+    "source", "run_ts", "requested_at", "saved_at", "status_code", "elapsed_ms",
+    "attempts", "raw_bytes", "gz_bytes", "sha256_raw", "raw_key", "inspect"
+  ],
+  "properties": {
+    "source": { "const": "data.go.kr/B552584/cleansys/rltmMesureResult" },
+    "run_ts": { "type": "string", "format": "date-time", "description": "회차 시각 (UTC, 10분 단위)" },
+    "requested_at": { "type": "string", "format": "date-time" },
+    "saved_at": { "type": "string", "format": "date-time" },
+    "status_code": { "type": "integer" },
+    "elapsed_ms": { "type": "integer", "minimum": 0 },
+    "attempts": { "type": "integer", "minimum": 1, "maximum": 3 },
+    "raw_bytes": { "type": "integer", "minimum": 0 },
+    "gz_bytes": { "type": "integer", "minimum": 0 },
+    "sha256_raw": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "raw_key": { "type": "string", "pattern": "^tms_cleansys/ingest_date=\\d{4}-\\d{2}-\\d{2}/hour=\\d{2}/run_ts=\\d{8}T\\d{6}Z/snapshot\\.json\\.gz$" },
+    "inspect": {
+      "type": "object",
+      "required": ["ok", "reason"],
+      "properties": {
+        "ok": { "type": "boolean", "description": "resultCode == \"0\" 이고 totalCount == items 개수" },
+        "result_code": { "type": ["string", "null"] },
+        "total_count": { "type": ["integer", "null"] },
+        "item_count": { "type": "integer" },
+        "reason": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
