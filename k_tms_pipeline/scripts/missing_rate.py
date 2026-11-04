@@ -122,7 +122,7 @@ def lambda_metric_sum(function_name: str, metric: str, start: datetime, end: dat
         Period = 86400,
         Statistics = ["Sum"]
     )
-    return int(sum(["Sum"] for p in res["Datapoints"]))                      # 반환된 데이터 포인트에서 각 구간의 Sum 값을 모두 더한 후 점수로 반환
+    return int(sum(p["Sum"] for p in res["Datapoints"]))                      # 반환된 데이터 포인트에서 각 구간의 Sum 값을 모두 더한 후 점수로 반환
 
 # 특정 날짜의 Lambda 함수 지표 불러오기
 def report_calls(function_name: str, day: str) -> None:

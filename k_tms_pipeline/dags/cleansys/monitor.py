@@ -57,7 +57,7 @@ def summarize_run(run_prefix: str) -> dict:
 
     body = hook.get_key(raw_key, BUCKET).get()["Body"].read()                                       # 압축 데이터 파일 내용 읽어오기
     items = json.loads(gzip.decompress(body))["response"]["body"]["items"]                          # gzip 압축 해제 후 JSON으로 변환해 실제 데이터 items 추출
-    latest = max((i["mesure_dt"] for i in items if i.get("mesure_dy")), default = None)      # 데이터 측정날짜가 유효한 항목의 측정시간이 가장 최신인 값 찾기
+    latest = max((i["mesure_dt"] for i in items if i.get("mesure_dt")), default = None)      # 데이터 측정날짜가 유효한 항목의 측정시간이 가장 최신인 값 찾기
     return {"run": run_prefix, "status": "ok", "latest": latest}                                         # inspect 상태가 ok인 가장 최신 측정 시각 반환
 
 
