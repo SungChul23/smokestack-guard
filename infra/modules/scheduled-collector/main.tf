@@ -18,14 +18,17 @@ data "aws_region" "current" {}
 
 # 파라미터 값이 상태 파일에 남지 않도록 SSM 파라미터 자체는 조회하지 않는다.
 # IAM의 KMS 권한은 별칭이 아니라 키 ARN이 필요하다.
+# API 키를 쓰지 않는 함수(api_key_parameter_name = null)는 조회하지 않는다.
 data "aws_kms_alias" "ssm" {
+  count = var.api_key_parameter_name == null ? 0 : 1
+
   name = "alias/aws/ssm"
 }
 
 locals {
   account_id    = data.aws_caller_identity.current.account_id
   region        = data.aws_region.current.region
-  parameter_arn = "arn:aws:ssm:${local.region}:${local.account_id}:parameter/${trimprefix(var.api_key_parameter_name, "/")}"
+  parameter_arn = var.api_key_parameter_name == null ? null : "arn:aws:ssm:${local.region}:${local.account_id}:parameter/${trimprefix(var.api_key_parameter_name, "/")}"
 }
 
 data "archive_file" "code" {
@@ -60,22 +63,55 @@ data "aws_iam_policy_document" "lambda" {
     resources = ["${aws_cloudwatch_log_group.this.arn}:*"]
   }
 
-  statement {
-    sid       = "ReadWriteRawObjects"
-    actions   = ["s3:GetObject", "s3:PutObject"]
-    resources = ["${var.bucket_arn}/*"]
+  # 아래 문장의 순서와 sid를 바꾸면 기존 함수의 정책이 바뀐다.
+  dynamic "statement" {
+    for_each = var.bucket_arn == null ? [] : [var.bucket_arn]
+
+    content {
+      sid       = "ReadWriteRawObjects"
+      actions   = ["s3:GetObject", "s3:PutObject"]
+      resources = ["${statement.value}/*"]
+    }
   }
 
-  statement {
-    sid       = "ReadApiKey"
-    actions   = ["ssm:GetParameter"]
-    resources = [local.parameter_arn]
+  dynamic "statement" {
+    for_each = local.parameter_arn == null ? [] : [local.parameter_arn]
+
+    content {
+      sid       = "ReadApiKey"
+      actions   = ["ssm:GetParameter"]
+      resources = [statement.value]
+    }
   }
 
-  statement {
-    sid       = "DecryptApiKey"
-    actions   = ["kms:Decrypt"]
-    resources = [data.aws_kms_alias.ssm.target_key_arn]
+  dynamic "statement" {
+    for_each = data.aws_kms_alias.ssm
+
+    content {
+      sid       = "DecryptApiKey"
+      actions   = ["kms:Decrypt"]
+      resources = [statement.value.target_key_arn]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = var.additional_policy_statements
+
+    content {
+      sid       = statement.value.sid
+      actions   = statement.value.actions
+      resources = statement.value.resources
+
+      dynamic "condition" {
+        for_each = statement.value.conditions
+
+        content {
+          test     = condition.value.test
+          variable = condition.value.variable
+          values   = condition.value.values
+        }
+      }
+    }
   }
 }
 
@@ -109,6 +145,14 @@ resource "aws_lambda_function" "this" {
     aws_cloudwatch_log_group.this,
     aws_iam_role_policy.lambda,
   ]
+}
+
+# 재시도해도 결과가 같은 함수는 자동 재시도를 끈다. null이면 AWS 기본값(2회)을 쓴다.
+resource "aws_lambda_function_event_invoke_config" "this" {
+  count = var.maximum_retry_attempts == null ? 0 : 1
+
+  function_name          = aws_lambda_function.this.function_name
+  maximum_retry_attempts = var.maximum_retry_attempts
 }
 
 # 스케줄러 전용 호출 역할
@@ -164,11 +208,12 @@ resource "aws_scheduler_schedule" "this" {
   }
 }
 
-# 호출이 멈추면 Errors 지표가 비므로, 값 없음도 경보로 본다.
-# 기간을 수집 주기보다 길게 잡아 정상 실행 중에 빈 구간이 생기지 않게 한다.
+# breaching(기본): 호출이 멈추면 Errors 지표가 비므로, 값 없음도 경보로 본다.
+# 기간을 실행 주기보다 길게 잡아 정상 실행 중에 빈 구간이 생기지 않게 한다.
+# 하루 한 번 도는 함수처럼 대부분의 구간에 값이 없는 함수는 notBreaching으로 실패만 본다.
 resource "aws_cloudwatch_metric_alarm" "errors" {
   alarm_name          = "${var.name}-errors"
-  alarm_description   = "${var.name} 실행 실패 또는 호출 중단"
+  alarm_description   = coalesce(var.alarm_description, "${var.name} 실행 실패 또는 호출 중단")
   namespace           = "AWS/Lambda"
   metric_name         = "Errors"
   statistic           = "Sum"
@@ -176,7 +221,7 @@ resource "aws_cloudwatch_metric_alarm" "errors" {
   evaluation_periods  = 1
   threshold           = 1
   comparison_operator = "GreaterThanOrEqualToThreshold"
-  treat_missing_data  = "breaching"
+  treat_missing_data  = var.alarm_treat_missing_data
 
   dimensions = {
     FunctionName = aws_lambda_function.this.function_name

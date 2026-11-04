@@ -13,6 +13,7 @@
 
 # B — 수집·Bronze: 수집 코드와 수집 스택 (부담당 A)
 /services/tms-collector/        @olchangiagi @SungChul23
+/services/tms-missing-rate/     @SungChul23 @olchangiagi
 /infra/stacks/tms-collection/   @olchangiagi @SungChul23
 
 # 원칙은 팀 전체가 본다
