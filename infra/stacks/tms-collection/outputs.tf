@@ -17,3 +17,8 @@ output "alert_topic_arn" {
   description = "수집 알림 SNS 토픽 ARN"
   value       = aws_sns_topic.alerts.arn
 }
+
+output "missing_rate_function_name" {
+  description = "누락률 리포트 Lambda 함수 이름"
+  value       = module.missing_rate.function_name
+}
