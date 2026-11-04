@@ -57,3 +57,24 @@ class KtmsSilverTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TwCemsSilverTests(unittest.TestCase):
+    def test_pairs_into_30min_utc_and_filters_state(self):
+        from smokestack_guard.silver import tw_cems
+
+        def row(t, v, code="NA10", item="923", unit="ppm", std="100"):
+            return {"cno": "X1", "polno": "P1", "item": item, "m_time": t, "m_value": v, "std": std, "std_s": "電力", "unit": unit, "code2": code}
+
+        df = pd.DataFrame([
+            row("2026-11-02T08:00:00", "40"), row("2026-11-02T08:15:00", "50"),   # -> 00:00 UTC, mean 45
+            row("2026-11-02T08:30:00", "60"), row("2026-11-02T08:45:00", "70", code="NA30"),  # invalid -> slot empty
+            row("2026-11-02T09:00:00", "80", code="FA10"), row("2026-11-02T09:15:00", "90", code="FA10"),  # not operating
+            row("2026-11-02T09:30:00", "11", unit="mg"), row("2026-11-02T09:45:00", "12", item="999"),  # dropped
+        ])
+        out = tw_cems.to_silver(df)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out.iloc[0]["stack_code"], "TW-X1-P1")
+        self.assertEqual(out.iloc[0]["measured_at"], pd.Timestamp("2026-11-02 00:00"))
+        self.assertEqual(out.iloc[0]["measure_value"], 45)
+        self.assertEqual(out.iloc[0]["ratio_pct"], 45)
