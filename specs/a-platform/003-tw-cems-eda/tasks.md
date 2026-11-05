@@ -270,8 +270,8 @@ description: "003 TW CEMS Athena EDA 환경 작업 목록"
   - 원본 버킷에 붙는 리소스가 없다.
   - Job의 `default_arguments`에 `--year`·`--month`가 없다.
 - [x] T030 `services/tms-eda/` 안에서 `ruff check .`와 `pytest -q`를 전체 실행해 통과를 확인한다. 이어서 [quickstart.md §1](quickstart.md)의 수동 로컬 실행을 한 번 돌려 결과 폴더(`part-*.parquet` 2개 + `_SUCCESS`)를 확인한다.
-- [ ] T031 🧑 사용자가 PowerShell에서 `terraform apply`를 실행한다.
-- [ ] T032 🧑 raw 업로드(2026-10분)가 끝난 뒤 사용자가 백필을 실행한다.
+- [x] T031 🧑 사용자가 PowerShell에서 `terraform apply`를 실행한다.
+- [x] T032 🧑 raw 업로드(2026-10분)가 끝난 뒤 사용자가 백필을 실행한다.
   - `run_backfill.py --dry-run`으로 대상이 24개월인지 확인
   - 실행
   - 필요하면 `--only-missing`으로 다시 실행
