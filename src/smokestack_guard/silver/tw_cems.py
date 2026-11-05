@@ -6,7 +6,7 @@ One row per stack x item x 30-minute slot:
 
 Rules:
 - keep NOX(923) / SOX(922) rows in ppm only; other units are dropped, never converted.
-- a 15-minute row is usable when code2 is [N|A]?10 / [N|A]?11 (11 = over the limit, kept), the value is numeric and the limit > 0.
+- a 15-minute row is usable when code2 is NA10 / NA11 (11 = over the limit, kept; NB/AA/FA... are invalid), the value is numeric and the limit > 0.
 - M_Time is the interval start in Taiwan time (UTC+8) [assumed, unverified]; ts_local keeps it, ts_kst is +1h like K-TMS. A 30-minute slot is the :00 and :15 row.
 - slot is ok only with both usable rows and one limit: value = their mean, ratio = value / limit. Nothing is filled or interpolated.
 - code2 is kept ("NA10|NA11" when the pair differs); NA10 with ratio >= 1 or NA11 with ratio < 1 is flagged, never dropped.
@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 
 ITEMS = {"923": "nox", "922": "sox"}  # the ML targets; add "924": "co" here if CO is needed
-USABLE_CODE2 = r"[NA].(?:10|11)"
+USABLE_CODE2 = r"NA(?:10|11)"  # initial policy: normal operation + normal measurement only; NB/AA are kept out for now
 STACK = ["area_nm", "fact_manage_nm", "stack_code"]
 COLUMNS = STACK + ["item", "value", "limit", "status", "ts_kst", "ratio", "ts_local", "code2", "flag_code_ratio_mismatch"]
 RAW = ["cno", "polno", "item", "unit", "m_time", "m_value", "std", "code2", "abbr", "epb_county"]

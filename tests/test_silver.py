@@ -99,6 +99,8 @@ class TwCemsSilverTests(unittest.TestCase):
             self.row("2026-11-02T08:30:00", "11", unit="mg"), self.row("2026-11-02T08:45:00", "12", item="999"),  # dropped
         )
         self.assertEqual(list(out["status"]), ["invalid"])
+        nb = self.silver(self.row("2026-11-02T08:00:00", "40", code="NB10"), self.row("2026-11-02T08:15:00", "50", code="AA11"))
+        self.assertEqual(nb.iloc[0]["status"], "invalid")  # only NA10 / NA11 are usable
 
     def test_duplicate_row_is_not_a_pair(self):
         r = self.row("2026-11-02T08:00:00", "40")
@@ -147,7 +149,7 @@ class TwCemsMlReadyTests(unittest.TestCase):
         times = [t0 + pd.Timedelta(minutes=30 * i) for i in (0, 1, 2, 8, 9, 10)]  # 3-hour hole after the 3rd row
         out = to_ml_ready(self._silver([10, 20, 30, 95, 96, 97], times=times))
         self.assertEqual(len(out), 6)  # grid rows are not leaked into the output
-        row = out[out["measured_at"] == pd.Timestamp("2026-11-02 04:00", tz="UTC")].iloc[0]  # first row after the hole
+        row = out[out["measured_at"] == pd.Timestamp("2026-11-02 04:00")].iloc[0]  # first row after the hole
         self.assertTrue(pd.isna(row["ratio_lag_30m"]))  # not 30.0 from before the hole
         self.assertFalse(row["feature_valid"])
         first = out.iloc[0]
@@ -190,3 +192,12 @@ class TwCemsMlReadyTests(unittest.TestCase):
         self.assertEqual(out["day_of_week"], 0)
         self.assertTrue(out["classification_eligible"] and out["regression_eligible"])
         self.assertFalse(to_ml_ready(self._silver([95] * 8)).iloc[5]["classification_eligible"])  # already >= 90
+
+    def test_hour_features_use_the_taiwan_wall_clock(self):
+        import math
+
+        from smokestack_guard.silver.ml_ready import to_ml_ready
+
+        out = to_ml_ready(self._silver([10], start="2026-11-02 08:00")).iloc[0]
+        self.assertAlmostEqual(out["hour_sin"], math.sin(2 * math.pi * 8 / 24))
+        self.assertIsNone(out["measured_at"].tzinfo)  # a local clock, not UTC

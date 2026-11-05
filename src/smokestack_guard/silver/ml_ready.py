@@ -67,7 +67,9 @@ def to_ml_ready(df: pd.DataFrame) -> pd.DataFrame:
     if missing:
         raise ValueError(f"Missing required ML-ready input columns: {missing}")
 
-    out["measured_at"] = pd.to_datetime(out["measured_at"], utc=True)
+    out["measured_at"] = pd.to_datetime(out["measured_at"])
+    if out["measured_at"].dt.tz is not None:  # always a naive Taiwan wall clock, so hour/month features are local
+        out["measured_at"] = out["measured_at"].dt.tz_convert("Asia/Taipei").dt.tz_localize(None)
     out["ratio_pct"] = pd.to_numeric(out["ratio_pct"], errors="coerce")
     out["measure_value"] = pd.to_numeric(out.get("measure_value", pd.Series(np.nan, index=out.index)), errors="coerce")
     out["standard_value"] = pd.to_numeric(out.get("standard_value", pd.Series(np.nan, index=out.index)), errors="coerce")
