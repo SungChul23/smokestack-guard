@@ -15,20 +15,34 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+ENTRY_PCT = 90.0
+WINDOW = 6  # 3 hours of 30-min slots
+
+
+FEATURE_VERSION = LABEL_VERSION = QUALITY_POLICY_VERSION = "v1"
+LAGS = [30, 60, 90, 120, 150]
+COLUMNS = (
+    ["stack_code", "item_code", "measured_at", "ratio_pct", "headroom_pct", "measure_value", "standard_value"]
+    + [f"ratio_lag_{m}m" for m in LAGS]
+    + ["ratio_diff_30m", "ratio_diff_60m", "ratio_rolling_mean_1h", "ratio_rolling_mean_3h", "ratio_rolling_std_3h",
+       "ratio_rolling_max_3h", "ratio_range_3h", "ratio_slope_3h", "rise_count_3h", "ratio_acceleration",
+       "hour_sin", "hour_cos", "month_sin", "month_cos", "day_of_week",
+       "label_entry_60m", "label_ratio_60m",
+       "feature_valid", "classification_eligible", "regression_eligible",
+       "feature_version", "label_version", "quality_policy_version"]
+)
+
 
 def _time_features(ts: pd.DatetimeIndex) -> pd.DataFrame:
     hours = ts.hour.to_numpy(dtype=float)
     months = ts.month.to_numpy(dtype=float)
-    dow = ts.dayofweek.to_numpy(dtype=float)
-
     return pd.DataFrame(
         {
             "hour_sin": np.sin(2 * np.pi * hours / 24.0),
             "hour_cos": np.cos(2 * np.pi * hours / 24.0),
             "month_sin": np.sin(2 * np.pi * months / 12.0),
             "month_cos": np.cos(2 * np.pi * months / 12.0),
-            "dow_sin": np.sin(2 * np.pi * dow / 7.0),
-            "dow_cos": np.cos(2 * np.pi * dow / 7.0),
+            "day_of_week": ts.dayofweek.to_numpy(dtype=float),
         },
         index=ts,
     )
@@ -41,39 +55,13 @@ def to_ml_ready(df: pd.DataFrame) -> pd.DataFrame:
       stack_code, item_code, measured_at, measure_value, standard_value, ratio_pct
     """
     if df.empty:
-        return pd.DataFrame(
-            columns=[
-                "stack_code",
-                "item_code",
-                "measured_at",
-                "measure_value",
-                "standard_value",
-                "ratio_pct",
-                "headroom_pct",
-                "lag_30m",
-                "lag_60m",
-                "lag_90m",
-                "lag_120m",
-                "lag_150m",
-                "delta_30m",
-                "delta_60m",
-                "rolling_mean_180m",
-                "rolling_std_180m",
-                "hour_sin",
-                "hour_cos",
-                "month_sin",
-                "month_cos",
-                "dow_sin",
-                "dow_cos",
-                "feature_valid",
-                "label_ratio_60m",
-                "label_entry_60m",
-                "label_valid",
-            ]
-        )
+        return pd.DataFrame(columns=COLUMNS)
 
+    if "ts_kst" in df.columns:  # silver in the K-TMS contract (tw_cems.py): usable rows only, ratio as a fraction; local clock drives hour features
+        df = df[df["status"] == "ok"].rename(
+            columns={"ts_local": "measured_at", "item": "item_code", "value": "measure_value", "limit": "standard_value"}
+        ).assign(ratio_pct=lambda x: x["ratio"] * 100)
     out = df.copy()
-    out = out.rename(columns={"measured_at": "measured_at"})
     required = {"stack_code", "item_code", "measured_at", "ratio_pct"}
     missing = sorted(required - set(out.columns))
     if missing:
@@ -87,76 +75,63 @@ def to_ml_ready(df: pd.DataFrame) -> pd.DataFrame:
 
     frames = []
     for (stack_code, item_code), g in out.groupby(["stack_code", "item_code"], sort=False):
-        g = g.sort_values("measured_at").copy()
-        g = g.set_index("measured_at")
+        g = g.drop_duplicates("measured_at").set_index("measured_at").sort_index()
+        # Silver leaves missing slots empty, so shift by time, not by row: put the group on a full 30-minute grid.
+        observed = pd.Series(True, index=g.index)
+        g = g.reindex(pd.date_range(g.index[0], g.index[-1], freq="30min"))
+        observed = observed.reindex(g.index, fill_value=False)
 
-        g["headroom_pct"] = 100.0 - g["ratio_pct"]
-        for minutes, periods in [(30, 1), (60, 2), (90, 3), (120, 4), (150, 5)]:
-            g[f"lag_{minutes}m"] = g["ratio_pct"].shift(periods)
+        r = g["ratio_pct"]
+        g["headroom_pct"] = ENTRY_PCT - r  # distance to the 90% entry line
+        for minutes in LAGS:
+            g[f"ratio_lag_{minutes}m"] = r.shift(minutes // 30)
 
-        g["delta_30m"] = g["ratio_pct"] - g["ratio_pct"].shift(1)
-        g["delta_60m"] = g["ratio_pct"] - g["ratio_pct"].shift(2)
-
-        window = 6
-        g["rolling_mean_180m"] = g["ratio_pct"].rolling(window=window, min_periods=window).mean()
-        g["rolling_std_180m"] = g["ratio_pct"].rolling(window=window, min_periods=window).std()
-
-        time_df = _time_features(g.index)
-        for col in time_df.columns:
-            g[col] = time_df[col].to_numpy()
-
-        valid_window = g["ratio_pct"].notna().rolling(window=window, min_periods=window).sum()
-        g["feature_valid"] = valid_window.eq(window)
-
-        # 60-minute label target, represented as two 30-minute steps ahead.
-        g["label_ratio_60m"] = g["ratio_pct"].shift(-2)
-        label_valid = g["label_ratio_60m"].notna()
-        current_below = g["ratio_pct"] < 90
-        g["label_entry_60m"] = np.where(
-            label_valid & current_below,
-            np.where(g["label_ratio_60m"] < 90, 1, 0),
-            np.nan,
+        d = r.diff()  # grid-based, so a missing slot gives NaN instead of bridging the gap
+        g["ratio_diff_30m"] = d
+        g["ratio_diff_60m"] = r - r.shift(2)
+        g["ratio_acceleration"] = d - d.shift(1)
+        g["ratio_rolling_mean_1h"] = r.rolling(2, min_periods=2).mean()
+        win = r.rolling(WINDOW, min_periods=WINDOW)
+        g["ratio_rolling_mean_3h"] = win.mean()
+        g["ratio_rolling_std_3h"] = win.std()
+        g["ratio_rolling_max_3h"] = win.max()
+        g["ratio_range_3h"] = g["ratio_rolling_max_3h"] - win.min()
+        # least-squares slope per 30-min slot over the last 6 points: sum((x - mean_x) * y) / sum((x - mean_x)^2)
+        g["ratio_slope_3h"] = sum((WINDOW - 1 - j - (WINDOW - 1) / 2) * r.shift(j) for j in range(WINDOW)) / sum(
+            (k - (WINDOW - 1) / 2) ** 2 for k in range(WINDOW)
         )
-        g["label_valid"] = label_valid & g["feature_valid"]
+        g["rise_count_3h"] = d.gt(0).astype(float).where(d.notna()).rolling(WINDOW - 1, min_periods=WINDOW - 1).sum()
 
+        for col, values in _time_features(g.index).items():
+            g[col] = values.to_numpy()
+
+        # feature: current and the 5 previous slots must all exist (past values only, no future info)
+        g["feature_valid"] = r.notna().rolling(WINDOW, min_periods=WINDOW).sum().eq(WINDOW)
+
+        # label: looks only forward from t, judged separately from the features
+        g["label_ratio_60m"] = r.shift(-2)
+        ahead = pd.concat([r.shift(-1), r.shift(-2)], axis=1)
+        reached = ahead.ge(ENTRY_PCT).any(axis=1)
+        known = reached | ahead.notna().all(axis=1)  # a miss is only certain when both slots exist
+        below = r < ENTRY_PCT
+        # 1 = a new entry at +30 or +60 min; 0 = no entry; NaN = already >= 90 now, or not decidable
+        g["label_entry_60m"] = np.where(below & known, np.where(reached, 1.0, 0.0), np.nan)
+        g["classification_eligible"] = g["feature_valid"] & g["label_entry_60m"].notna()
+        g["regression_eligible"] = g["feature_valid"] & g["label_ratio_60m"].notna() & below  # initial scope: current < 90%
+
+        g = g[observed.to_numpy()]
         g["stack_code"] = stack_code
         g["item_code"] = item_code
-        g = g.reset_index().rename(columns={"index": "measured_at"})
+        g = g.rename_axis("measured_at").reset_index()
         frames.append(g)
 
     if not frames:
-        return pd.DataFrame(columns=[
-            "stack_code",
-            "item_code",
-            "measured_at",
-            "measure_value",
-            "standard_value",
-            "ratio_pct",
-            "headroom_pct",
-            "lag_30m",
-            "lag_60m",
-            "lag_90m",
-            "lag_120m",
-            "lag_150m",
-            "delta_30m",
-            "delta_60m",
-            "rolling_mean_180m",
-            "rolling_std_180m",
-            "hour_sin",
-            "hour_cos",
-            "month_sin",
-            "month_cos",
-            "dow_sin",
-            "dow_cos",
-            "feature_valid",
-            "label_ratio_60m",
-            "label_entry_60m",
-            "label_valid",
-        ])
+        return pd.DataFrame(columns=COLUMNS)
 
     result = pd.concat(frames, ignore_index=True)
     result = result.sort_values(["stack_code", "item_code", "measured_at"]).reset_index(drop=True)
-    return result
+    result["feature_version"], result["label_version"], result["quality_policy_version"] = FEATURE_VERSION, LABEL_VERSION, QUALITY_POLICY_VERSION
+    return result[COLUMNS]
 
 
 def build(source: Path, output_dir: Path) -> Path:
