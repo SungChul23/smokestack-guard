@@ -81,6 +81,10 @@ class TwCemsSilverTests(unittest.TestCase):
         self.assertEqual((r["value"], r["limit"], r["ratio"]), (45, 100, 0.45))
         self.assertEqual(r["code2"], "NA10|NA11")  # mixed codes are fine and both are kept
 
+    def test_mixed_timestamp_separators_pair_up(self):
+        out = self.silver(self.row("2026-11-02T08:00:00", "40"), self.row("2026-11-02 08:15:00", "50"))  # a month can mix "T" and space
+        self.assertEqual(out.iloc[0]["status"], "ok")
+
     def test_co_is_not_a_target_and_code_ratio_mismatch_is_flagged(self):
         self.assertEqual(len(self.silver(self.row("2026-11-02T08:00:00", "5", item="924"), self.row("2026-11-02T08:15:00", "5", item="924"))), 0)
         out = self.silver(self.row("2026-11-02T08:00:00", "120"), self.row("2026-11-02T08:15:00", "130"))  # NA10 but over the limit

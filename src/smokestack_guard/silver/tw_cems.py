@@ -7,7 +7,7 @@ One row per stack x item x 30-minute slot:
 Rules:
 - keep NOX(923) / SOX(922) rows in ppm only; other units are dropped, never converted.
 - a 15-minute row is usable when code2 is NA10 / NA11 (11 = over the limit, kept; NB/AA/FA... are invalid), the value is numeric and the limit > 0.
-- M_Time is the interval start in Taiwan time (UTC+8) [assumed, unverified]; ts_local keeps it, ts_kst is +1h like K-TMS. A 30-minute slot is the :00 and :15 row.
+- M_Time is the interval start in Taiwan time (UTC+8) [verified against the hourly dataset AQX_P_187, 2025-10: hourly T == mean of the 15-min rows T, T+15, T+30, T+45]; ts_local keeps it, ts_kst is +1h like K-TMS. A 30-minute slot is the :00 and :15 row.
 - slot is ok only with both usable rows and one limit: value = their mean, ratio = value / limit. Nothing is filled or interpolated.
 - code2 is kept ("NA10|NA11" when the pair differs); NA10 with ratio >= 1 or NA11 with ratio < 1 is flagged, never dropped.
 - other slots keep their row with value NaN and a status: partial (one usable row), invalid (none, or conflicting), not_monitored (no limit).
@@ -40,7 +40,7 @@ def to_silver(df: pd.DataFrame) -> pd.DataFrame:
     d["area_nm"] = d["epb_county"].fillna("")
     d["fact_manage_nm"] = d["abbr"].fillna("")
     d["stack_code"] = d["cno"] + "-" + d["polno"]  # polno alone repeats across factories
-    d["ts"] = pd.to_datetime(d["m_time"]) + pd.Timedelta(hours=1)  # Taipei UTC+8 -> KST UTC+9
+    d["ts"] = pd.to_datetime(d["m_time"], format="ISO8601") + pd.Timedelta(hours=1)  # Taipei UTC+8 -> KST UTC+9; ISO8601 accepts both "T" and space separators (some months mix them)
     d["slot"] = d["ts"].dt.floor("30min")
     d["pos"] = d["ts"].dt.minute % 30
     d["value"] = pd.to_numeric(d["m_value"], errors="coerce")
