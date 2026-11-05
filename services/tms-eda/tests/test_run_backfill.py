@@ -278,27 +278,105 @@ def test_running_months_never_exceed_concurrency(concurrency):
     assert [r.month for r in results] == months
 
 
-def test_start_failure_counts_as_attempt_and_is_retried():
-    class FlakyGlue(FakeGlue):
-        def __init__(self, *a, **kw):
-            super().__init__(*a, **kw)
-            self.fail_next_start = True
+class RejectingGlue(FakeGlue):
+    """start_job_run이 앞에서부터 정해 둔 오류 코드로 거절한다."""
+
+    def __init__(self, outcomes, reject_codes: list[str]):
+        super().__init__(outcomes)
+        self.reject_codes = list(reject_codes)
+        self.rejected = 0
+
+    def start_job_run(self, JobName, Arguments):  # noqa: N803
+        if self.reject_codes:
+            self.rejected += 1
+            code = self.reject_codes.pop(0)
+            raise ClientError({"Error": {"Code": code, "Message": "x"}}, "StartJobRun")
+        return super().start_job_run(JobName, Arguments)
+
+
+def test_other_start_failure_counts_as_attempt_and_is_retried():
+    glue = RejectingGlue({"2025-03": [["SUCCEEDED"]]}, ["InternalServiceException"])
+
+    results = rb.run_all(glue, ["2025-03"], "job", concurrency=1, sleep=_no_sleep)
+
+    assert results[0].state == "SUCCEEDED"
+    assert results[0].attempts == 2
+
+
+def test_concurrent_runs_rejection_does_not_use_up_retry():
+    """동시 실행 상한 거절은 시도로 세지 않는다. 그 뒤 실제 실패가 나도 재시도 기회가 남아 있다."""
+    glue = RejectingGlue(
+        {"2025-03": [["FAILED"], ["SUCCEEDED"]]},
+        ["ConcurrentRunsExceededException"] * 3,
+    )
+
+    results = rb.run_all(glue, ["2025-03"], "job", concurrency=1, sleep=_no_sleep)
+
+    assert glue.rejected == 3
+    assert results[0].state == "SUCCEEDED"
+    assert results[0].attempts == 2  # 거절 3번은 빠지고, 실제 실패 1번 + 재시도 1번
+
+
+def test_glue_counting_finished_runs_late_does_not_count_as_attempts():
+    """Glue가 끝난 실행을 한 번의 확인 주기 동안 더 세는 상황(2026-11-05 실측)을 흉내 낸다."""
+
+    class LaggingGlue(FakeGlue):
+        def __init__(self, outcomes, limit):
+            super().__init__(outcomes)
+            self.limit = limit
+            self.lagging: set[str] = set()  # 끝났지만 아직 세는 실행
 
         def start_job_run(self, JobName, Arguments):  # noqa: N803
-            if self.fail_next_start:
-                self.fail_next_start = False
+            if len(self.active) + len(self.lagging) >= self.limit:
                 raise ClientError(
                     {"Error": {"Code": "ConcurrentRunsExceededException", "Message": "x"}},
                     "StartJobRun",
                 )
             return super().start_job_run(JobName, Arguments)
 
-    glue = FlakyGlue({"2025-03": [["SUCCEEDED"]]})
+        def get_job_run(self, JobName, RunId):  # noqa: N803
+            was_active = RunId in self.active
+            response = super().get_job_run(JobName, RunId)
+            if was_active and RunId not in self.active:
+                self.lagging.add(RunId)
+            return response
+
+    months = [f"2025-{m:02d}" for m in range(1, 13)]
+    glue = LaggingGlue({m: [["RUNNING", "SUCCEEDED"]] for m in months}, limit=6)
+
+    rejected = []
+
+    def start_job_run_counting(JobName, Arguments):  # noqa: N803
+        try:
+            return LaggingGlue.start_job_run(glue, JobName, Arguments)
+        except ClientError:
+            rejected.append(Arguments["--month"])
+            raise
+
+    glue.start_job_run = start_job_run_counting
+
+    def sleep_until_next_poll(_seconds):
+        glue.lagging.clear()  # 다음 확인 주기에는 Glue 집계가 따라잡는다
+
+    results = rb.run_all(glue, months, "job", concurrency=6, sleep=sleep_until_next_poll)
+
+    assert rejected  # 실제로 거절 상황이 재현되어야 의미가 있다
+    assert all(r.state == "SUCCEEDED" for r in results)
+    assert all(r.attempts == 1 for r in results)
+    assert glue.max_active <= 6
+
+
+def test_endless_rejection_gives_up_without_hanging():
+    glue = RejectingGlue(
+        {"2025-03": [["SUCCEEDED"]]},
+        ["ConcurrentRunsExceededException"] * (rb.MAX_START_REJECTIONS + 5),
+    )
 
     results = rb.run_all(glue, ["2025-03"], "job", concurrency=1, sleep=_no_sleep)
 
-    assert results[0].state == "SUCCEEDED"
-    assert results[0].attempts == 2
+    assert results[0].state == rb.START_FAILED
+    assert results[0].attempts == 0
+    assert glue.started == []
 
 
 # ---------------------------------------------------------------------------

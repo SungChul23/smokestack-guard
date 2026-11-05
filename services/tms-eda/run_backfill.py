@@ -39,6 +39,8 @@ SUCCEEDED = "SUCCEEDED"
 SKIPPED = "SKIPPED"
 FAILED_STATES = frozenset({"FAILED", "ERROR", "TIMEOUT", "STOPPED"})
 START_FAILED = "ERROR"  # start_job_run 자체가 거절된 경우
+CONCURRENT_RUNS_EXCEEDED = "ConcurrentRunsExceededException"
+MAX_START_REJECTIONS = 20  # 월마다 약 10분(30초 × 20)까지 기다린다
 
 _MONTH_FILE_RE = re.compile(r"^(\d{4})-(\d{2})\.jsonl$")
 _MONTH_ARG_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
@@ -204,14 +206,27 @@ def _log(message: str) -> None:
     print(f"[{time.strftime('%H:%M:%S')}] {message}", flush=True)
 
 
+class StartRejected(Exception):
+    """Glue가 동시 실행 상한 때문에 시작을 거절했다. 실행이 없으므로 시도로 세지 않는다."""
+
+
 def _start(glue, job_name: str, month: str) -> str | None:
-    """Job을 시작하고 JobRunId를 돌려준다. 시작 자체가 거절되면 None."""
+    """Job을 시작하고 JobRunId를 돌려준다.
+
+    - 동시 실행 상한 초과로 거절되면 StartRejected를 올린다(과금 없음, 시도로 세지 않음).
+      Glue는 끝난 실행을 잠시 진행 중으로 세므로, 완료 직후 바로 시작하면 이 거절이 난다.
+    - 그 밖의 이유로 거절되면 None(실패한 시도 1회로 센다).
+    """
     try:
         response = glue.start_job_run(
             JobName=job_name, Arguments={"--year": month[:4], "--month": month[5:]}
         )
     except ClientError as exc:
-        _log(f"{month} 시작 실패: {exc.response.get('Error', {}).get('Code')}")
+        code = exc.response.get("Error", {}).get("Code")
+        if code == CONCURRENT_RUNS_EXCEEDED:
+            _log(f"{month} 시작 대기: 동시 실행 상한 (다음 확인 때 다시 시작)")
+            raise StartRejected(month) from None
+        _log(f"{month} 시작 실패: {code}")
         return None
     _log(f"{month} 시작: {response['JobRunId']}")
     return response["JobRunId"]
@@ -225,16 +240,36 @@ def run_all(
     poll_seconds: float = POLL_SECONDS,
     sleep: Callable[[float], None] = time.sleep,
 ) -> list[MonthResult]:
-    """월별 Job을 동시에 `concurrency`개 이하로 돌리고, 실패한 월은 1회만 다시 시작한다."""
-    pending = list(months)
+    """월별 Job을 동시에 `concurrency`개 이하로 돌리고, 실패한 월은 1회만 다시 시작한다.
+
+    동시 실행 상한 때문에 시작이 거절된 월은 시도 횟수를 늘리지 않고 대기열 앞에 다시 넣는다.
+    """
+    pending: list[tuple[str, int]] = [(m, 0) for m in months]  # (month, 이미 쓴 시도 수)
     running: dict[str, tuple[str | None, int]] = {}  # month -> (run_id, attempts)
+    rejections: dict[str, int] = {}
     results: dict[str, MonthResult] = {}
+
+    def finish(month: str, state: str, attempts: int, run_id: str | None, job_run: dict) -> None:
+        execution_s, dpu_s, est_usd = estimate_cost(job_run)
+        results[month] = MonthResult(month, state, attempts, run_id, execution_s, dpu_s, est_usd)
+        _log(f"{month} {state} (시도 {attempts}회)")
 
     while pending or running:
         while pending and len(running) < concurrency:
-            month = pending.pop(0)
-            running[month] = (_start(glue, job_name, month), 1)
+            month, used = pending.pop(0)
+            try:
+                running[month] = (_start(glue, job_name, month), used + 1)
+            except StartRejected:
+                rejections[month] = rejections.get(month, 0) + 1
+                if rejections[month] > MAX_START_REJECTIONS:
+                    # 다른 누군가가 같은 Job을 계속 돌리고 있는 경우. 무한 대기하지 않는다.
+                    finish(month, START_FAILED, used, None, {})
+                    continue
+                pending.insert(0, (month, used))
+                break  # 이번 확인 주기에는 더 시작하지 않는다
 
+        if not running and not pending:
+            break
         sleep(poll_seconds)
 
         for month, (run_id, attempts) in list(running.items()):
@@ -248,18 +283,12 @@ def run_all(
             if state != SUCCEEDED and state not in FAILED_STATES:
                 continue  # 아직 진행 중
 
+            del running[month]
             if state in FAILED_STATES and attempts < MAX_ATTEMPTS:
                 _log(f"{month} {state} → 재시도")
-                # 같은 자리에서 다시 시작하므로 동시 실행 수가 늘지 않는다.
-                running[month] = (_start(glue, job_name, month), attempts + 1)
+                pending.insert(0, (month, attempts))  # 비운 자리에서 바로 다시 시작한다
                 continue
-
-            execution_s, dpu_s, est_usd = estimate_cost(job_run)
-            results[month] = MonthResult(
-                month, state, attempts, run_id, execution_s, dpu_s, est_usd
-            )
-            del running[month]
-            _log(f"{month} {state} (시도 {attempts}회)")
+            finish(month, state, attempts, run_id, job_run)
 
     return [results[m] for m in months]
 
