@@ -1,0 +1,33 @@
+[project]
+name = "tms-eda"
+version = "0.1.0"
+description = "TW CEMS 원본 JSONL을 Athena EDA용 Parquet으로 변환하는 Glue 스크립트와 백필 명령"
+requires-python = ">=3.13,<3.14"
+# Glue 6.0 런타임이 pyspark와 boto3를 제공하므로 런타임 의존성은 없다.
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pyspark==4.1.1",  # Glue 6.0(Spark 4.1.1)과 맞춘다
+    "boto3",
+    "pytest",
+    "ruff",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["tw_cems_parquet", "run_backfill"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
