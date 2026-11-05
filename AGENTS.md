@@ -58,13 +58,15 @@ specs/                    # 기능별 spec·plan·tasks. 역할 폴더(a-platfor
 infra/
 ├── bootstrap/            # Terraform 상태용 S3 버킷 (로컬 상태, 최초 1회)
 ├── stacks/
-│   └── tms-collection/   # TMS 수집: 원본 버킷 + 수집 Lambda + 누락률 리포트 Lambda + 스케줄 + 알림
+│   ├── tms-collection/   # TMS 수집: 원본 버킷 + 수집 Lambda + 누락률 리포트 Lambda + 스케줄 + 알림
+│   └── tms-eda/          # TW CEMS Athena EDA: EDA 버킷 + Glue Job·크롤러 + Athena 워크그룹
 └── modules/
     ├── raw-archive/          # 원본 보존 버킷
     └── scheduled-collector/  # 주기 실행 함수 (Lambda + 역할 + 스케줄 + 로그 + 알람), 수집기·누락률 리포트가 함께 사용
 services/
 ├── tms-collector/        # 수집 Lambda 코드 (Python, 외부 패키지 없음)
-└── tms-missing-rate/     # 전날 슬롯 누락률 리포트 Lambda 코드
+├── tms-missing-rate/     # 전날 슬롯 누락률 리포트 Lambda 코드
+└── tms-eda/              # JSONL → Parquet 변환 Glue 스크립트 + 백필 명령
 ```
 
 - **폴더 이름은 기술명이 아니라 하는 일 기준으로 짓는다.** (`lambda/`, `s3/` 금지 → `tms-collection/`, `raw-archive/`)
