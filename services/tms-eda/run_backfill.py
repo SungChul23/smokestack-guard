@@ -20,7 +20,7 @@ from datetime import datetime
 
 from botocore.exceptions import ClientError
 
-DEFAULT_FROM = "2024-11"
+DEFAULT_FROM = "2024-01"
 DEFAULT_TO = "2026-10"
 DEFAULT_JOB_NAME = "tms-eda-tw-cems-parquet"
 DEFAULT_CRAWLER_NAME = "tms-eda-tw-cems-crawler"

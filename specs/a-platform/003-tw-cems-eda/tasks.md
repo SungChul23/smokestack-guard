@@ -275,8 +275,11 @@ description: "003 TW CEMS Athena EDA 환경 작업 목록"
   - `run_backfill.py --dry-run`으로 대상이 24개월인지 확인
   - 실행
   - 필요하면 `--only-missing`으로 다시 실행
-- [ ] T033 🧑 사용자가 크롤러를 시작하고, quickstart §4·§5를 확인한다.
-  - 테이블이 하나인지, 월별 행 수가 24행으로 나오는지
+- [ ] T034 🧑 (2026-11-06 범위 확장) 사용자가 2024-01~10을 추가로 변환한다.
+  - `run_backfill.py --from 2024-01 --only-missing --dry-run`으로 대상이 10개월이고 나머지 24개월이 `SKIPPED`인지 확인
+  - `run_backfill.py --from 2024-01 --only-missing --start-crawler`로 실행
+- [ ] T033 🧑 사용자가 크롤러를 시작하고(T034의 `--start-crawler`로 대신할 수 있다), quickstart §4·§5를 확인한다.
+  - 테이블이 하나인지, 월별 행 수가 34행으로 나오는지
   - 표본 1~2개월 행 수 비교(SC-002)
   - 쿼리 시간(SC-005)
   - 원본 객체 수가 그대로인지(SC-006)

@@ -60,7 +60,7 @@ terraform plan
 ```bash
 python run_backfill.py --dry-run
 ```
-- 대상 월이 24개인지 확인한다. 빠진 월이 있으면 업로드를 다시 확인한다.
+- 대상 월이 34개(2024-01~2026-10)인지 확인한다. 이미 변환한 월을 건너뛰려면 `--only-missing`을 붙인다. 빠진 월이 있으면 업로드를 다시 확인한다.
 - 파일 크기와 마지막 수정 시각이 업로드 완료 상태인지 본다.
 
 ```bash
@@ -80,7 +80,7 @@ python run_backfill.py --only-missing     # 실패한 월이 있었을 때만
 SHOW TABLES IN tms_eda;   -- tw_cems_raw 하나만 있어야 한다
 SELECT year, month, count(*) AS n
 FROM tms_eda.tw_cems_raw
-GROUP BY 1, 2 ORDER BY 1, 2;   -- 24행
+GROUP BY 1, 2 ORDER BY 1, 2;   -- 34행
 ```
 - 이 쿼리는 Parquet 메타데이터로 계산되어 스캔이 거의 없다(추정).
 - 한 달 조건을 붙인 집계가 1분 안에 끝나는지 확인한다 (SC-005).
