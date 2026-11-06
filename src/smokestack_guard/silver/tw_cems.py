@@ -1,21 +1,12 @@
-"""Taiwan CEMS 15-minute records (AQX_P_186 monthly JSON) -> silver in the same long contract as K-TMS silver (ktms.py).
+"""Taiwan CEMS 15-minute records -> silver, one row per stack x item x unit x 30-minute slot (K-TMS silver contract).
 
-One row per stack x item x unit x 30-minute slot:
-    area_nm, fact_manage_nm, stack_code, item, value, limit, status, ts_kst, ratio   (the K-TMS columns)
-    + unit, ts_local (Taiwan wall clock, for hour-of-day features), code2 (tracing), flag_code_ratio_mismatch
-
-Rules:
-- every item is converted (nox, sox, co, ..., o2, flow, temp); units differ per item, so `unit` is kept and nothing is converted.
-  Choosing what a model may use (nox/sox in ppm, status ok) is the ML-ready layer's job, not silver's.
-- M_Time is the interval start in Taiwan time (UTC+8) [verified against the hourly dataset AQX_P_187, 2025-10: hourly T == mean of the 15-min rows T, T+15, T+30, T+45]; ts_local keeps it, ts_kst is +1h like K-TMS. A 30-minute slot is the :00 and :15 row.
-- a slot has a value when both rows are numeric and there is at most one limit: value = their mean, ratio = value / limit. Nothing is filled or interpolated.
-- the status says whether the slot is fit for ML:
-    ok            both rows NA10/NA11 and a limit exists   (11 = over the limit, kept)
-    other_code    value present but a row is not NA10/NA11 (FA10 stopped, NB/AA ..): kept so the policy can be widened without a re-run
-    not_monitored value present, both NA10/NA11, no limit  (o2/flow/temp and most items without a standard)
-    partial       only one numeric row, value empty
-    invalid       no numeric row, or two different limits, value empty
-- code2 is kept ("NA10|NA11" when the pair differs); NA10 with ratio >= 1 or NA11 with ratio < 1 is flagged, never dropped.
+A slot is the :00 and :15 rows (m_time is the interval start, Taiwan time). Nothing is filled or interpolated.
+status:
+  ok             both rows numeric and NA10/NA11, one limit
+  not_monitored  same, but no limit
+  other_code     both rows numeric, a row is not NA10/NA11 (value kept)
+  partial        one numeric row
+  invalid        no numeric row, or two different limits
 """
 from __future__ import annotations
 
@@ -26,7 +17,7 @@ import numpy as np
 import pandas as pd
 
 ITEMS = {"912": "pm", "922": "sox", "923": "nox", "924": "co", "925": "trs", "926": "hcl", "927": "voc", "936": "o2", "948": "flow", "959": "temp"}
-USABLE_CODE2 = r"NA(?:10|11)"  # initial ML policy: normal operation + normal measurement
+USABLE_CODE2 = r"NA(?:10|11)"
 STACK = ["area_nm", "fact_manage_nm", "stack_code"]
 COLUMNS = STACK + ["item", "unit", "value", "limit", "status", "ts_kst", "ratio", "ts_local", "code2", "flag_code_ratio_mismatch"]
 RAW = ["cno", "polno", "item", "unit", "m_time", "m_value", "std", "code2", "abbr", "epb_county"]
@@ -34,16 +25,14 @@ TEXT = STACK + ["item", "unit", "code2"]
 
 
 def prep(df: pd.DataFrame) -> pd.DataFrame:
-    """Parse and shrink the raw rows (typed, compact text) so a whole month can be held in memory."""
     df = df.rename(columns=str.lower).reindex(columns=RAW)
     d = pd.DataFrame({
         "area_nm": df["epb_county"].fillna(""),
         "fact_manage_nm": df["abbr"].fillna(""),
-        "stack_code": df["cno"] + "-" + df["polno"],  # polno alone repeats across factories
-        "item": df["item"].map(lambda c: ITEMS.get(c, c)),  # unknown codes keep their number
+        "stack_code": df["cno"] + "-" + df["polno"],
+        "item": df["item"].map(lambda c: ITEMS.get(c, c)),
         "unit": df["unit"].fillna(""),
-        # Taipei UTC+8 -> KST UTC+9; ISO8601 accepts both "T" and space separators (some months mix them)
-        "ts": pd.to_datetime(df["m_time"], format="ISO8601") + pd.Timedelta(hours=1),
+        "ts": pd.to_datetime(df["m_time"], format="ISO8601") + pd.Timedelta(hours=1),  # Taipei -> KST; months mix "T"/space separators
         "value": pd.to_numeric(df["m_value"], errors="coerce"),
         "limit": pd.to_numeric(df["std"], errors="coerce").where(lambda s: s > 0),
         "code2": df["code2"].fillna(""),
@@ -54,10 +43,10 @@ def prep(df: pd.DataFrame) -> pd.DataFrame:
 def to_silver(df: pd.DataFrame) -> pd.DataFrame:
     d = (df if "ts" in df.columns else prep(df)).copy()
     key = STACK + ["item", "unit"]
-    d = d.drop_duplicates(key + ["ts", "value", "limit", "code2"])  # repeated identical rows
+    d = d.drop_duplicates(key + ["ts", "value", "limit", "code2"])
     d["slot"] = d["ts"].dt.floor("30min")
     pos = d["ts"].dt.minute % 30
-    num = d["value"].notna() & ~d.duplicated(key + ["ts"], keep=False)  # same time, different values: conflict
+    num = d["value"].notna() & ~d.duplicated(key + ["ts"], keep=False)  # same time with different values is a conflict
     d["num"] = num
     d["num_value"] = d["value"].where(num)
     d["num_limit"] = d["limit"].where(num)
@@ -97,9 +86,8 @@ def to_silver(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def build(source: Path, silver_dir: Path) -> Path:
-    # ponytail: a month is held in memory after prep(); chunk by factory (cno) if a month no longer fits
     reader = pd.read_json(source, lines=True, chunksize=250_000, dtype=False)
-    raw = pd.concat([prep(chunk) for chunk in reader], ignore_index=True)
+    raw = pd.concat([prep(chunk) for chunk in reader], ignore_index=True)  # one month is held in memory
     silver = to_silver(raw)
     out = silver_dir / "tw_cems" / "part.parquet"
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -109,7 +97,7 @@ def build(source: Path, silver_dir: Path) -> Path:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Taiwan CEMS 15-minute JSONL -> silver parquet (K-TMS contract)")
+    p = argparse.ArgumentParser(description="Taiwan CEMS 15-minute JSONL -> silver parquet")
     p.add_argument("source", type=Path)
     p.add_argument("--silver-dir", type=Path, default=Path("data/silver"))
     a = p.parse_args()

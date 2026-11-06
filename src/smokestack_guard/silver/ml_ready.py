@@ -1,12 +1,4 @@
-"""ML-ready feature table derived from the Taiwan CEMS silver output.
-
-This layer follows the "대만 CEMS 데이터 활용" design for model training:
-- the upstream silver table is kept as the validated observation layer
-- ML-ready adds lag, rolling, time-period, and label features without
-  leaking future information into the current row
-- the output is meant for model training and evaluation, not for raw data
-  integrity checks
-"""
+"""Silver -> ML-ready: lag/trend/time features from past slots, labels from future slots, per stack and item."""
 from __future__ import annotations
 
 import argparse
@@ -16,10 +8,8 @@ import numpy as np
 import pandas as pd
 
 ENTRY_PCT = 90.0
-ML_ITEMS = ["nox", "sox"]  # silver converts every item; only these are model targets
-WINDOW = 6  # 3 hours of 30-min slots
-
-
+ML_ITEMS = ["nox", "sox"]
+WINDOW = 6  # 30-min slots in 3 hours
 FEATURE_VERSION = LABEL_VERSION = QUALITY_POLICY_VERSION = "v1"
 LAGS = [30, 60, 90, 120, 150]
 COLUMNS = (
@@ -50,15 +40,10 @@ def _time_features(ts: pd.DatetimeIndex) -> pd.DataFrame:
 
 
 def to_ml_ready(df: pd.DataFrame) -> pd.DataFrame:
-    """Build the ML-ready silver table from the already-generated 30-minute silver data.
-
-    The input is expected to contain at least the following columns:
-      stack_code, item_code, measured_at, measure_value, standard_value, ratio_pct
-    """
     if df.empty:
         return pd.DataFrame(columns=COLUMNS)
 
-    if "ts_kst" in df.columns:  # silver in the K-TMS contract (tw_cems.py): the model sees only ok nox/sox ppm slots; local clock drives hour features
+    if "ts_kst" in df.columns:  # tw_cems silver: keep the slots the model may use
         df = df[(df["status"] == "ok") & df["item"].isin(ML_ITEMS) & (df["unit"] == "ppm")].rename(
             columns={"ts_local": "measured_at", "item": "item_code", "value": "measure_value", "limit": "standard_value"}
         ).assign(ratio_pct=lambda x: x["ratio"] * 100)
@@ -69,7 +54,7 @@ def to_ml_ready(df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError(f"Missing required ML-ready input columns: {missing}")
 
     out["measured_at"] = pd.to_datetime(out["measured_at"])
-    if out["measured_at"].dt.tz is not None:  # always a naive Taiwan wall clock, so hour/month features are local
+    if out["measured_at"].dt.tz is not None:  # hour/month features use the Taiwan wall clock
         out["measured_at"] = out["measured_at"].dt.tz_convert("Asia/Taipei").dt.tz_localize(None)
     out["ratio_pct"] = pd.to_numeric(out["ratio_pct"], errors="coerce")
     out["measure_value"] = pd.to_numeric(out.get("measure_value", pd.Series(np.nan, index=out.index)), errors="coerce")
@@ -79,17 +64,17 @@ def to_ml_ready(df: pd.DataFrame) -> pd.DataFrame:
     frames = []
     for (stack_code, item_code), g in out.groupby(["stack_code", "item_code"], sort=False):
         g = g.drop_duplicates("measured_at").set_index("measured_at").sort_index()
-        # Silver leaves missing slots empty, so shift by time, not by row: put the group on a full 30-minute grid.
+        # full 30-min grid, so lags and labels shift by time and never bridge a gap
         observed = pd.Series(True, index=g.index)
         g = g.reindex(pd.date_range(g.index[0], g.index[-1], freq="30min"))
         observed = observed.reindex(g.index, fill_value=False)
 
         r = g["ratio_pct"]
-        g["headroom_pct"] = ENTRY_PCT - r  # distance to the 90% entry line
+        g["headroom_pct"] = ENTRY_PCT - r
         for minutes in LAGS:
             g[f"ratio_lag_{minutes}m"] = r.shift(minutes // 30)
 
-        d = r.diff()  # grid-based, so a missing slot gives NaN instead of bridging the gap
+        d = r.diff()
         g["ratio_diff_30m"] = d
         g["ratio_diff_60m"] = r - r.shift(2)
         g["ratio_acceleration"] = d - d.shift(1)
@@ -99,7 +84,7 @@ def to_ml_ready(df: pd.DataFrame) -> pd.DataFrame:
         g["ratio_rolling_std_3h"] = win.std()
         g["ratio_rolling_max_3h"] = win.max()
         g["ratio_range_3h"] = g["ratio_rolling_max_3h"] - win.min()
-        # least-squares slope per 30-min slot over the last 6 points: sum((x - mean_x) * y) / sum((x - mean_x)^2)
+        # least-squares slope per slot over the last WINDOW points
         g["ratio_slope_3h"] = sum((WINDOW - 1 - j - (WINDOW - 1) / 2) * r.shift(j) for j in range(WINDOW)) / sum(
             (k - (WINDOW - 1) / 2) ** 2 for k in range(WINDOW)
         )
@@ -108,19 +93,17 @@ def to_ml_ready(df: pd.DataFrame) -> pd.DataFrame:
         for col, values in _time_features(g.index).items():
             g[col] = values.to_numpy()
 
-        # feature: current and the 5 previous slots must all exist (past values only, no future info)
         g["feature_valid"] = r.notna().rolling(WINDOW, min_periods=WINDOW).sum().eq(WINDOW)
 
-        # label: looks only forward from t, judged separately from the features
         g["label_ratio_60m"] = r.shift(-2)
         ahead = pd.concat([r.shift(-1), r.shift(-2)], axis=1)
         reached = ahead.ge(ENTRY_PCT).any(axis=1)
-        known = reached | ahead.notna().all(axis=1)  # a miss is only certain when both slots exist
+        known = reached | ahead.notna().all(axis=1)  # "no entry" needs both slots
         below = r < ENTRY_PCT
-        # 1 = a new entry at +30 or +60 min; 0 = no entry; NaN = already >= 90 now, or not decidable
+        # 1 = reaches 90% at +30/+60 min, 0 = does not, NaN = already >= 90% or undecidable
         g["label_entry_60m"] = np.where(below & known, np.where(reached, 1.0, 0.0), np.nan)
         g["classification_eligible"] = g["feature_valid"] & g["label_entry_60m"].notna()
-        g["regression_eligible"] = g["feature_valid"] & g["label_ratio_60m"].notna() & below  # initial scope: current < 90%
+        g["regression_eligible"] = g["feature_valid"] & g["label_ratio_60m"].notna() & below
 
         g = g[observed.to_numpy()]
         g["stack_code"] = stack_code
@@ -138,7 +121,6 @@ def to_ml_ready(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def build(source: Path, output_dir: Path) -> Path:
-    """Read a parquet silver table and write the ML-ready silver parquet output."""
     silver = pd.read_parquet(source)
     ml_ready = to_ml_ready(silver)
     out = output_dir / "tw_cems_ml_ready" / "part.parquet"

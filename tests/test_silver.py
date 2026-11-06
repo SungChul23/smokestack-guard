@@ -18,7 +18,7 @@ class KtmsSilverTests(unittest.TestCase):
             item(1, "2026-11-02 13:00", "미수신"),
         ])
         out = ktms.to_silver(df)
-        self.assertEqual(len(out), 2)  # only nox is monitored; sox..hf are null/null
+        self.assertEqual(len(out), 2)
         first, second = out.iloc[0], out.iloc[1]
         self.assertEqual(first["status"], "ok")
         self.assertEqual(first["ratio"], 0.5)
@@ -79,7 +79,7 @@ class TwCemsSilverTests(unittest.TestCase):
         self.assertEqual(r["ts_kst"], pd.Timestamp("2026-11-02 09:00"))  # Taipei 08:00 = KST 09:00
         self.assertEqual(r["ts_local"], pd.Timestamp("2026-11-02 08:00"))
         self.assertEqual((r["value"], r["limit"], r["ratio"]), (45, 100, 0.45))
-        self.assertEqual(r["code2"], "NA10|NA11")  # mixed codes are fine and both are kept
+        self.assertEqual(r["code2"], "NA10|NA11")
 
     def test_mixed_timestamp_separators_pair_up(self):
         out = self.silver(self.row("2026-11-02T08:00:00", "40"), self.row("2026-11-02 08:15:00", "50"))  # a month can mix "T" and space
@@ -87,39 +87,39 @@ class TwCemsSilverTests(unittest.TestCase):
 
     def test_every_item_is_converted_with_its_unit(self):
         rows = [self.row("2026-11-02T08:00:00", "5", item="924"), self.row("2026-11-02T08:15:00", "5", item="924"),  # CO
-                self.row("2026-11-02T08:00:00", "4.5", item="936", unit="%", std=""), self.row("2026-11-02T08:15:00", "5.5", item="936", unit="%", std="")]  # O2, no standard
+                self.row("2026-11-02T08:00:00", "4.5", item="936", unit="%", std=""), self.row("2026-11-02T08:15:00", "5.5", item="936", unit="%", std="")]
         out = self.silver(*rows).set_index("item")
         self.assertEqual(set(out.index), {"co", "o2"})
         self.assertEqual((out.loc["co", "status"], out.loc["co", "unit"]), ("ok", "ppm"))
-        self.assertEqual((out.loc["o2", "status"], out.loc["o2", "value"], out.loc["o2", "unit"]), ("not_monitored", 5.0, "%"))  # value kept, no ratio
+        self.assertEqual((out.loc["o2", "status"], out.loc["o2", "value"], out.loc["o2", "unit"]), ("not_monitored", 5.0, "%"))
         self.assertTrue(pd.isna(out.loc["o2", "ratio"]))
-        self.assertEqual(self.silver(self.row("2026-11-02T08:00:00", "1", item="999"))["item"].iloc[0], "999")  # unknown code keeps its number
+        self.assertEqual(self.silver(self.row("2026-11-02T08:00:00", "1", item="999"))["item"].iloc[0], "999")
 
     def test_code_ratio_mismatch_is_flagged(self):
-        out = self.silver(self.row("2026-11-02T08:00:00", "120"), self.row("2026-11-02T08:15:00", "130"))  # NA10 but over the limit
+        out = self.silver(self.row("2026-11-02T08:00:00", "120"), self.row("2026-11-02T08:15:00", "130"))
         self.assertTrue(out.iloc[0]["flag_code_ratio_mismatch"])
-        self.assertEqual(out.iloc[0]["status"], "ok")  # flagged, not dropped
+        self.assertEqual(out.iloc[0]["status"], "ok")
 
     def test_one_numeric_row_leaves_value_empty(self):
         out = self.silver(self.row("2026-11-02T08:00:00", "40"), self.row("2026-11-02T08:15:00", ""))
         r = out.iloc[0]
         self.assertEqual(r["status"], "partial")
-        self.assertTrue(pd.isna(r["value"]) and pd.isna(r["ratio"]))  # never filled
+        self.assertTrue(pd.isna(r["value"]) and pd.isna(r["ratio"]))
 
     def test_other_codes_keep_their_value_but_are_not_ok(self):
         stopped = self.silver(self.row("2026-11-02T08:00:00", "80", code="FA10"), self.row("2026-11-02T08:15:00", "90", code="FA10"))
         self.assertEqual(stopped.iloc[0]["status"], "other_code")
-        self.assertEqual((stopped.iloc[0]["value"], stopped.iloc[0]["ratio"]), (85, 0.85))  # value survives, so the policy can widen later
+        self.assertEqual((stopped.iloc[0]["value"], stopped.iloc[0]["ratio"]), (85, 0.85))
         mixed = self.silver(self.row("2026-11-02T08:00:00", "40", code="NB10"), self.row("2026-11-02T08:15:00", "50", code="AA11"))
         self.assertEqual((mixed.iloc[0]["status"], mixed.iloc[0]["code2"]), ("other_code", "NB10|AA11"))
         half = self.silver(self.row("2026-11-02T08:00:00", "40"), self.row("2026-11-02T08:15:00", "50", code="NA30"))
-        self.assertEqual(half.iloc[0]["status"], "other_code")  # numeric pair, one row is an invalid-measurement code
+        self.assertEqual(half.iloc[0]["status"], "other_code")
         units = self.silver(self.row("2026-11-02T08:00:00", "11", unit="mg"), self.row("2026-11-02T08:15:00", "12", unit="mg"))
-        self.assertEqual(units.iloc[0]["unit"], "mg")  # other units are kept as their own rows, never converted
+        self.assertEqual(units.iloc[0]["unit"], "mg")
 
     def test_duplicate_row_is_not_a_pair(self):
         r = self.row("2026-11-02T08:00:00", "40")
-        out = self.silver(r, dict(r))  # same :00 row twice, no :15
+        out = self.silver(r, dict(r))
         self.assertEqual(out.iloc[0]["status"], "partial")
 
     def test_conflicting_rows_and_changed_limit_are_not_ok(self):
@@ -151,11 +151,10 @@ class TwCemsMlReadyTests(unittest.TestCase):
         from smokestack_guard.silver.ml_ready import to_ml_ready
 
         out = to_ml_ready(self._silver([10, 20, 95, 10, 10, 10, 10, 10])).set_index("ratio_pct", drop=False)
-        # t=10 -> +60 is 95 (entry); t=20 -> already... 20 is below, +30 is 95 (entry); t=95 -> already above, not a new entry
         self.assertEqual(out.loc[10].iloc[0]["label_entry_60m"], 1.0)
         self.assertEqual(out.loc[20]["label_entry_60m"], 1.0)
         self.assertTrue(pd.isna(out.loc[95]["label_entry_60m"]))
-        self.assertEqual(out.iloc[3]["label_entry_60m"], 0.0)  # 10 -> 10, 10: no entry
+        self.assertEqual(out.iloc[3]["label_entry_60m"], 0.0)
 
     def test_gap_is_not_bridged_by_lag_or_label(self):
         from smokestack_guard.silver.ml_ready import to_ml_ready
@@ -163,14 +162,14 @@ class TwCemsMlReadyTests(unittest.TestCase):
         t0 = pd.Timestamp("2026-11-02 00:00")
         times = [t0 + pd.Timedelta(minutes=30 * i) for i in (0, 1, 2, 8, 9, 10)]  # 3-hour hole after the 3rd row
         out = to_ml_ready(self._silver([10, 20, 30, 95, 96, 97], times=times))
-        self.assertEqual(len(out), 6)  # grid rows are not leaked into the output
-        row = out[out["measured_at"] == pd.Timestamp("2026-11-02 04:00")].iloc[0]  # first row after the hole
-        self.assertTrue(pd.isna(row["ratio_lag_30m"]))  # not 30.0 from before the hole
+        self.assertEqual(len(out), 6)
+        row = out[out["measured_at"] == pd.Timestamp("2026-11-02 04:00")].iloc[0]
+        self.assertTrue(pd.isna(row["ratio_lag_30m"]))
         self.assertFalse(row["feature_valid"])
         first = out.iloc[0]
         self.assertEqual(first["label_ratio_60m"], 30)
-        self.assertTrue(pd.isna(out.iloc[2]["label_ratio_60m"]))  # +60 min falls in the hole, not 96
-        self.assertTrue(pd.isna(out.iloc[2]["label_entry_60m"]))  # undecidable, not 0
+        self.assertTrue(pd.isna(out.iloc[2]["label_ratio_60m"]))
+        self.assertTrue(pd.isna(out.iloc[2]["label_entry_60m"]))
 
     def test_ml_ready_builds_feature_and_label_columns(self):
         from smokestack_guard.silver.ml_ready import to_ml_ready
@@ -196,9 +195,9 @@ class TwCemsMlReadyTests(unittest.TestCase):
     def test_trend_features_and_eligibility(self):
         from smokestack_guard.silver.ml_ready import to_ml_ready
 
-        out = to_ml_ready(self._silver([10, 20, 15, 25, 35, 45, 50, 95])).iloc[5]  # window 10..45 ending at t
+        out = to_ml_ready(self._silver([10, 20, 15, 25, 35, 45, 50, 95])).iloc[5]
         self.assertEqual(out["ratio_diff_30m"], 10)
-        self.assertEqual(out["ratio_acceleration"], 0)  # +10 then +10
+        self.assertEqual(out["ratio_acceleration"], 0)
         self.assertEqual(out["ratio_rolling_max_3h"], 45)
         self.assertEqual(out["ratio_range_3h"], 35)
         self.assertEqual(out["rise_count_3h"], 4)  # 20,15,25,35,45: one fall, four rises
@@ -206,7 +205,7 @@ class TwCemsMlReadyTests(unittest.TestCase):
         self.assertAlmostEqual(out["ratio_rolling_mean_1h"], 40)
         self.assertEqual(out["day_of_week"], 0)
         self.assertTrue(out["classification_eligible"] and out["regression_eligible"])
-        self.assertFalse(to_ml_ready(self._silver([95] * 8)).iloc[5]["classification_eligible"])  # already >= 90
+        self.assertFalse(to_ml_ready(self._silver([95] * 8)).iloc[5]["classification_eligible"])
 
     def test_hour_features_use_the_taiwan_wall_clock(self):
         import math
@@ -215,7 +214,7 @@ class TwCemsMlReadyTests(unittest.TestCase):
 
         out = to_ml_ready(self._silver([10], start="2026-11-02 08:00")).iloc[0]
         self.assertAlmostEqual(out["hour_sin"], math.sin(2 * math.pi * 8 / 24))
-        self.assertIsNone(out["measured_at"].tzinfo)  # a local clock, not UTC
+        self.assertIsNone(out["measured_at"].tzinfo)
 
     def test_ml_ready_takes_only_ok_nox_sox_ppm_from_silver(self):
         from smokestack_guard.silver import tw_cems
@@ -225,6 +224,6 @@ class TwCemsMlReadyTests(unittest.TestCase):
         rows = [TwCemsSilverTests.row(t[0], "40"), TwCemsSilverTests.row(t[1], "50"),  # nox ok
                 TwCemsSilverTests.row(t[0], "5", item="924"), TwCemsSilverTests.row(t[1], "5", item="924"),  # co ok, but not a target
                 TwCemsSilverTests.row(t[0], "40", code="FA10", polno="P2"), TwCemsSilverTests.row(t[1], "50", code="FA10", polno="P2"),  # other_code
-                TwCemsSilverTests.row(t[0], "4", item="936", unit="%", std=""), TwCemsSilverTests.row(t[1], "5", item="936", unit="%", std="")]  # o2
+                TwCemsSilverTests.row(t[0], "4", item="936", unit="%", std=""), TwCemsSilverTests.row(t[1], "5", item="936", unit="%", std="")]
         out = to_ml_ready(tw_cems.to_silver(pd.DataFrame(rows)))
         self.assertEqual(list(out["item_code"]), ["nox"])
