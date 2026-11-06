@@ -35,7 +35,7 @@ python run_backfill.py [--from YYYY-MM] [--to YYYY-MM] [--concurrency N]
 
 | 옵션 | 기본값 | 뜻 |
 |---|---|---|
-| `--from` / `--to` | `2024-01` / `2026-10` | 대상 범위(포함). raw 목록과 교집합 |
+| `--from` / `--to` | `2023-11` / `2026-10` | 대상 범위(포함). raw 목록과 교집합 |
 | `--concurrency` | `6` | 동시 실행 수. 1~6이 아니면 오류 |
 | `--only-missing` | 끔 | `_SUCCESS`가 있는 월은 `SKIPPED` |
 | `--dry-run` | 끔 | 시작하지 않는다. 대상 월, 파일 크기, 마지막 수정 시각, 범위 안에서 빠진 월을 출력 |
