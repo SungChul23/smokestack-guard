@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 ENTRY_PCT = 90.0
+ML_ITEMS = ["nox", "sox"]  # silver converts every item; only these are model targets
 WINDOW = 6  # 3 hours of 30-min slots
 
 
@@ -57,8 +58,8 @@ def to_ml_ready(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame(columns=COLUMNS)
 
-    if "ts_kst" in df.columns:  # silver in the K-TMS contract (tw_cems.py): usable rows only, ratio as a fraction; local clock drives hour features
-        df = df[df["status"] == "ok"].rename(
+    if "ts_kst" in df.columns:  # silver in the K-TMS contract (tw_cems.py): the model sees only ok nox/sox ppm slots; local clock drives hour features
+        df = df[(df["status"] == "ok") & df["item"].isin(ML_ITEMS) & (df["unit"] == "ppm")].rename(
             columns={"ts_local": "measured_at", "item": "item_code", "value": "measure_value", "limit": "standard_value"}
         ).assign(ratio_pct=lambda x: x["ratio"] * 100)
     out = df.copy()
