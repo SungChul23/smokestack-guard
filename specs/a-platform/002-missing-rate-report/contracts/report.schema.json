@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reports/missing_rate/report.json",
+  "title": "Bronze 슬롯 누락률 일일 리포트",
+  "type": "object",
+  "required": [
+    "target_date_kst", "generated_at", "folders_in_day", "slots",
+    "inspect_fail", "meta_missing", "raw_missing"
+  ],
+  "properties": {
+    "target_date_kst": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "generated_at": { "type": "string", "format": "date-time", "description": "UTC" },
+    "folders_in_day": { "type": "integer", "minimum": 0 },
+    "slots": {
+      "type": "object",
+      "required": ["expected", "missing_count", "missing"],
+      "properties": {
+        "expected": { "const": 48 },
+        "missing_count": { "type": "integer", "minimum": 0, "maximum": 48 },
+        "missing": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2} \\d{2}:(00|30)$" },
+          "description": "누락 슬롯 (KST, mesure_dt 형식), 시간 순"
+        }
+      }
+    },
+    "inspect_fail": { "type": "integer", "minimum": 0 },
+    "meta_missing": { "type": "integer", "minimum": 0 },
+    "raw_missing": { "type": "integer", "minimum": 0 }
+  }
+}
