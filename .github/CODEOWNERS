@@ -10,6 +10,7 @@
 /.specify/                      @SungChul23
 /.github/                       @SungChul23
 /infra/                         @SungChul23
+/services/tms-eda/              @SungChul23
 
 # B — 수집·Bronze: 수집 코드와 수집 스택 (부담당 A)
 /services/tms-collector/        @olchangiagi @SungChul23

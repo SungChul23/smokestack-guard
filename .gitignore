@@ -39,3 +39,12 @@ services/**/*.zip
 
 # Spec Kit 프리셋 카탈로그 캐시 (specify preset search 실행 시 생성)
 .specify/presets/.cache/
+
+# Python·Spark 로컬 산출물 (services/tms-eda)
+.venv/
+.pytest_cache/
+.ruff_cache/
+spark-warehouse/
+metastore_db/
+derby.log
+*.egg-info/

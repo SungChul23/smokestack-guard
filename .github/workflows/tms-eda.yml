@@ -1,0 +1,42 @@
+name: tms-eda
+
+on:
+  push:
+    paths:
+      - "services/tms-eda/**"
+      - ".github/workflows/tms-eda.yml"
+  pull_request:
+    paths:
+      - "services/tms-eda/**"
+      - ".github/workflows/tms-eda.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/tms-eda
+    steps:
+      - uses: actions/checkout@v4
+
+      # PySpark 4는 Java 17 이상이 필요하다.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: pytest -q

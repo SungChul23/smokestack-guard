@@ -37,7 +37,7 @@ Claude Code는 `.claude/CLAUDE.md`를 통해, Codex는 이 파일을 직접 읽�
 
 - **언제 쓰나:** 새 기능, 새 스택, 데이터 계약 변경처럼 리뷰가 필요한 작업. 오타·설정값·작은 버그 수정은 spec 없이 바로 한다.
 - **spec은 자기 역할 폴더에, 번호는 자기 대역에서만 쓴다.** `specify`를 실행할 때 AI 에이전트는 담당의 역할 폴더(위 팀 역할 표)에서 가장 큰 번호를 찾아 다음 번호로 `SPECIFY_FEATURE_DIRECTORY=specs/<역할 폴더>/<번호>-<짧은-이름>`을 지정한다. (예: E의 다음 spec → `specs/e-ml/404-...`) 기본 동작(`specs/` 바로 아래에 저장소 전체 최대 번호 + 1)을 쓰지 않는다. 담당을 모르면 먼저 사용자에게 묻는다.
-- **브랜치는 사람이 만든다.** Spec Kit의 git 확장은 설치하지 않았다. spec 폴더와 브랜치는 서로 독립이며, 브랜치는 PR 단위로 아래 Git 규칙의 이름 형식을 따른다. 작은 spec 여러 개를 한 브랜치에 넣어도 된다.
+- **브랜치는 사람이 만든다.** Spec Kit의 git 확장은 설치하지 않았다. spec 폴더와 브랜치는 서로 독립이며, 브랜치는 PR 단위로 아래 Git 규칙대로 이슈에서 만든다. 작은 spec 여러 개를 한 브랜치에 넣어도 된다.
 - **PR에는 spec·plan·tasks와 코드를 함께 올린다.** 리뷰어는 `spec.md`부터 읽는다.
 - `/speckit-implement`를 포함한 모든 Spec Kit 명령은 이 파일의 금지 사항을 그대로 따른다. (예: `terraform apply` 금지)
 - **Spec Kit이 설치한 파일은 직접 고치지 않는다:** `.specify/scripts/`, `.specify/templates/`, `.specify/workflows/`, `.specify/integrations/`, `.claude/skills/speckit-*`, `.agents/skills/speckit-*`. 업그레이드하면 덮어써진다. 바꿔야 하면 A에게 요청한다.
@@ -58,13 +58,15 @@ specs/                    # 기능별 spec·plan·tasks. 역할 폴더(a-platfor
 infra/
 ├── bootstrap/            # Terraform 상태용 S3 버킷 (로컬 상태, 최초 1회)
 ├── stacks/
-│   └── tms-collection/   # TMS 수집: 원본 버킷 + 수집 Lambda + 누락률 리포트 Lambda + 스케줄 + 알림
+│   ├── tms-collection/   # TMS 수집: 원본 버킷 + 수집 Lambda + 누락률 리포트 Lambda + 스케줄 + 알림
+│   └── tms-eda/          # TW CEMS Athena EDA: EDA 버킷 + Glue Job·크롤러 + Athena 워크그룹
 └── modules/
     ├── raw-archive/          # 원본 보존 버킷
     └── scheduled-collector/  # 주기 실행 함수 (Lambda + 역할 + 스케줄 + 로그 + 알람), 수집기·누락률 리포트가 함께 사용
 services/
 ├── tms-collector/        # 수집 Lambda 코드 (Python, 외부 패키지 없음)
-└── tms-missing-rate/     # 전날 슬롯 누락률 리포트 Lambda 코드
+├── tms-missing-rate/     # 전날 슬롯 누락률 리포트 Lambda 코드
+└── tms-eda/              # JSONL → Parquet 변환 Glue 스크립트 + 백필 명령
 ```
 
 - **폴더 이름은 기술명이 아니라 하는 일 기준으로 짓는다.** (`lambda/`, `s3/` 금지 → `tms-collection/`, `raw-archive/`)
@@ -123,7 +125,7 @@ services/
 - 허용: `git status`, `git diff`, `git log` 같은 읽기 명령.
 - 커밋은 작업 단위로 나눈다. 커밋 메시지는 `feat:`, `fix:`, `chore:`, `docs:` 같은 유형 뒤에 한국어로 무엇을 왜 바꿨는지 쓴다.
 - `main`은 보호됨: PR 필수, 승인 1명. Merge commit / Squash / Rebase 세 방식 모두 허용되어 있다. 작업 단위 커밋을 남기려면 Merge commit 또는 Rebase로 합친다.
-- 브랜치: `<유형>/<범위>-<내용>` (예: `infra/tms-collection-terraform`, `feat/collector-ssm-key`, `fix/collector-hash-state`)
+- 브랜치: GitHub 이슈의 Development → "Create a branch"로 만들고, GitHub가 붙인 `<이슈번호>-<이슈 제목>` 이름을 그대로 쓴다. (예: `12-cems-athena-eda-환경-jsonl-parquet-1회-변환`) PR 본문에 `Closes #<이슈번호>`를 쓴다.
 
 ## 하지 말 것
 
