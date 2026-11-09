@@ -246,14 +246,14 @@ description: "004 TW CEMS Silver 클라우드 실행 작업 목록"
   - `smokestack-tms-raw-952900391026`에 대한 `aws_s3_bucket*` 리소스가 없다. 업로드 객체 2개(`ops/`)만 있다.
   - `tms-collection`·`tms-eda` 상태와 무관하다(다른 backend key).
 - [X] T019 🧑 [US1] 사용자가 PowerShell에서 `terraform apply`를 실행한다.
-- [ ] T020 🧑 [US1] 한 달 시험 실행 (quickstart §3)
+- [X] T020 🧑 [US1] 한 달 시험 실행 (quickstart §3)
   - 명령: `python run_silver.py --from 2025-10 --to 2025-10 --dry-run` → `python run_silver.py --from 2025-10 --to 2025-10`
   - 확인할 것:
     - `SUCCEEDED`이다.
     - 실행 기록이 있고, `versions.pandas` 값이 있다(import 성공).
     - `ListBucket` `AccessDenied`가 없다(R12). 거부되면 로그의 접두어만 T009에 추가하고 다시 `plan` → `apply`한다.
   - 실측 소요 시간과 비용을 `research.md` R9에 기록한다.
-- [ ] T021 🧑 [US1] 36개월 실행 (quickstart §4)
+- [X] T021 🧑 [US1] 36개월 실행 (quickstart §4)
   - 명령: `python run_silver.py --dry-run` → `python run_silver.py --only-missing`
   - 결과 표(월별 행 수, 합계 비용·시간)를 `plan.md` 끝에 "실행 결과 (YYYY-MM-DD)" 절로 붙인다(SC-001, SC-006).
 
@@ -298,7 +298,7 @@ description: "004 TW CEMS Silver 클라우드 실행 작업 목록"
     - `silver/tw_cems_ml_ready/x` → `implicitDeny`
   - `s3:ListBucket` (prefix `tms_cleansys/`) → `implicitDeny`
 - [ ] T027 🧑 [US3] 사용자가 §8 명령을 실행하고 결과를 `plan.md` "실행 결과" 절에 적는다.
-- [ ] T028 🧑 [US3] 36개월 실행(T021) **전과 후**에 `aws s3 ls s3://smokestack-tms-raw-952900391026/bronze/tw_cems/historical/ --summarize`를 실행한다. 객체 수와 크기 합계가 같아야 한다(SC-005, quickstart §7).
+- [X] T028 🧑 [US3] 36개월 실행(T021) **전과 후**에 `aws s3 ls s3://smokestack-tms-raw-952900391026/bronze/tw_cems/historical/ --summarize`를 실행한다. 객체 수와 크기 합계가 같아야 한다(SC-005, quickstart §7).
 
 **Checkpoint**: 원본 경로에 대한 쓰기·삭제가 정책상 불가능하고, 실행 전후 원본이 같다.
 
