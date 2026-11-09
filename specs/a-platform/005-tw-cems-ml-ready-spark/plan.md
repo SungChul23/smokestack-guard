@@ -147,8 +147,14 @@ src/smokestack_guard/silver/ml_ready.py  # C의 코드. 읽기만 (상수 import
   - 34컬럼은 불일치 0이다.
   - `ratio_rolling_std_3h`만 21,739행이 다르다. 부동소수점 잔여로 확인했고 허용 오차를 조정했다(research R5).
 - **처음 compare** (이전 정답지): 2023-11·12 입력 버전 차이로 45,859행이 달랐다(research R5).
+- **compare (허용 오차 반영 후, 실행 119초, $0.10)**: **`passed=True`**
+  - 행 17,643,361 = 17,643,361, 한쪽에만 있는 키 0
+  - 컬럼별 최대 차이
+    - `ratio_rolling_std_3h` 5.96e-06 (허용 1e-5 안)
+    - `ratio_rolling_mean_1h` 8.24e-13, `ratio_rolling_mean_3h` 2.27e-13
+    - `hour_sin`, `month_sin` 1.11e-16
+    - 나머지 컬럼은 차이 0
 - **남은 확인**
-  - 허용 오차 반영 후 compare `passed=True`
   - build 재실행(SC-004)
   - Athena 조회(SC-006)
   - E 확인(SC-008)
