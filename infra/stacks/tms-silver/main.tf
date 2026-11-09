@@ -268,3 +268,216 @@ resource "aws_glue_job" "tw_cems" {
     "--package_md5"                      = data.archive_file.package.output_md5
   }
 }
+
+# ===========================================================================
+# ML-ready (specs/a-platform/005-tw-cems-ml-ready-spark)
+# silver/tw_cems/를 읽어 silver/tw_cems_ml_ready/를 만든다. 004 리소스와 역할을 나눈다(AGENTS.md S3 경로 규칙 5).
+# ===========================================================================
+
+locals {
+  ml_ready_table = "silver/tw_cems_ml_ready"
+  ml_ready_runs  = "silver/_runs/tw_cems_ml_ready"
+  # 정답지(C의 pandas 결과). Terraform 밖 버킷이며 compare 모드에서 읽기만 한다.
+  reference_bucket = regex("^s3://([^/]+)/", var.ml_ready_reference)[0]
+  reference_prefix = regex("^s3://[^/]+/(.*)/[^/]+$", var.ml_ready_reference)[0]
+}
+
+resource "aws_iam_role" "ml_ready" {
+  name = "tms-glue-silver-ml-ready"
+  # IAM 설명은 ASCII·Latin-1 문자만 허용한다(한글 불가).
+  description        = "TW CEMS ML-ready Glue job role (silver/tw_cems read, silver/tw_cems_ml_ready write)"
+  assume_role_policy = data.aws_iam_policy_document.glue_assume.json
+}
+
+resource "aws_iam_role_policy_attachment" "ml_ready_service" {
+  role       = aws_iam_role.ml_ready.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
+}
+
+data "aws_iam_policy_document" "ml_ready_data" {
+  statement {
+    sid       = "ListRawScoped"
+    actions   = ["s3:ListBucket"]
+    resources = [local.raw_arn]
+
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values = [
+        local.silver_table,
+        "${local.silver_table}/*",
+        local.ml_ready_table,
+        "${local.ml_ready_table}/*",
+        "${local.ml_ready_runs}/*",
+      ]
+    }
+  }
+
+  # 입력 Silver는 읽기만. silver/tw_cems/에 쓰기·삭제 권한은 없다.
+  statement {
+    sid       = "ReadSilverTwCems"
+    actions   = ["s3:GetObject"]
+    resources = ["${local.raw_arn}/${local.silver_table}/*"]
+  }
+
+  statement {
+    sid     = "ReadOps"
+    actions = ["s3:GetObject"]
+    resources = [
+      "${local.raw_arn}/ops/glue-scripts/*",
+      "${local.raw_arn}/ops/glue-packages/*",
+    ]
+  }
+
+  # 전체 덮어쓰기와 실행 기록(latest.json 삭제 포함)에 삭제가 필요하다.
+  statement {
+    sid = "ReadWriteMlReady"
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject",
+      "s3:AbortMultipartUpload",
+    ]
+    resources = [
+      "${local.raw_arn}/${local.ml_ready_table}/*",
+      "${local.raw_arn}/${local.ml_ready_runs}/*",
+    ]
+  }
+
+  # Glue(EMRFS) 폴더 표시 파일 (004 첫 실행에서 확인)
+  statement {
+    sid       = "WriteMlReadyFolderMarker"
+    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+    resources = ["${local.raw_arn}/${local.ml_ready_table}_$folder$"]
+  }
+
+  # 상위 표시 파일은 004와 함께 쓴다. 삭제 권한은 주지 않는다.
+  statement {
+    sid       = "WriteSilverFolderMarker"
+    actions   = ["s3:GetObject", "s3:PutObject"]
+    resources = ["${local.raw_arn}/silver_$folder$"]
+  }
+
+  statement {
+    sid       = "ListReference"
+    actions   = ["s3:ListBucket"]
+    resources = ["arn:aws:s3:::${local.reference_bucket}"]
+
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values   = [local.reference_prefix, "${local.reference_prefix}/*"]
+    }
+  }
+
+  statement {
+    sid       = "ReadReference"
+    actions   = ["s3:GetObject"]
+    resources = ["arn:aws:s3:::${local.reference_bucket}/${local.reference_prefix}/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "ml_ready_data" {
+  name   = "tms-glue-silver-ml-ready-data"
+  role   = aws_iam_role.ml_ready.id
+  policy = data.aws_iam_policy_document.ml_ready_data.json
+}
+
+resource "aws_s3_object" "ml_ready_module" {
+  bucket = local.raw_bucket
+  key    = "ops/glue-scripts/ml_ready_spark.py"
+  source = "${path.module}/../../../services/tms-silver/ml_ready_spark.py"
+  etag   = filemd5("${path.module}/../../../services/tms-silver/ml_ready_spark.py")
+}
+
+resource "aws_s3_object" "ml_ready_script" {
+  bucket = local.raw_bucket
+  key    = "ops/glue-scripts/glue_tw_cems_ml_ready.py"
+  source = "${path.module}/../../../services/tms-silver/glue_tw_cems_ml_ready.py"
+  etag   = filemd5("${path.module}/../../../services/tms-silver/glue_tw_cems_ml_ready.py")
+}
+
+# 1회 실행 = Silver 36개월 전체. 월 경계 lag 때문에 월 단위로 나누지 않는다.
+resource "aws_glue_job" "tw_cems_ml_ready" {
+  name              = "tms-silver-tw-cems-ml-ready"
+  description       = "TW CEMS Silver(silver/tw_cems) 전체를 ML-ready(silver/tw_cems_ml_ready)로 변환 (specs/a-platform/005-tw-cems-ml-ready-spark)"
+  role_arn          = aws_iam_role.ml_ready.arn
+  glue_version      = "5.0"
+  worker_type       = "G.1X"
+  number_of_workers = var.ml_ready_worker_count
+  timeout           = 60
+  max_retries       = 0 # 재시도는 사람이 판단한다(전체 덮어쓰기)
+  execution_class   = "STANDARD"
+
+  execution_property {
+    max_concurrent_runs = 1
+  }
+
+  command {
+    name            = "glueetl"
+    python_version  = "3"
+    script_location = "s3://${local.raw_bucket}/${aws_s3_object.ml_ready_script.key}"
+  }
+
+  default_arguments = {
+    "--job-language"                     = "python"
+    "--job-bookmark-option"              = "job-bookmark-disable"
+    "--enable-continuous-cloudwatch-log" = "true"
+    "--continuous-log-logGroup"          = aws_cloudwatch_log_group.glue.name
+    "--enable-metrics"                   = "true"
+    "--extra-py-files"                   = "s3://${local.raw_bucket}/${aws_s3_object.package.key},s3://${local.raw_bucket}/${aws_s3_object.ml_ready_module.key}"
+    "--mode"                             = "build"
+    "--bucket"                           = local.raw_bucket
+    "--source_prefix"                    = local.silver_table
+    "--table_prefix"                     = local.ml_ready_table
+    "--runs_prefix"                      = local.ml_ready_runs
+    "--files"                            = "6"
+    "--reference"                        = var.ml_ready_reference
+    "--package_md5"                      = data.archive_file.package.output_md5
+  }
+}
+
+# 파티션 없음. 읽기 전에 silver/_runs/tw_cems_ml_ready/latest.json 존재를 확인한다.
+resource "aws_glue_catalog_table" "tw_cems_ml_ready" {
+  name          = "tw_cems_ml_ready"
+  database_name = aws_glue_catalog_database.silver.name
+  description   = "TW CEMS ML-ready 35컬럼 (계약: src/smokestack_guard/silver/ml_ready.py). 읽기 전에 silver/_runs/tw_cems_ml_ready/latest.json 존재 확인"
+  table_type    = "EXTERNAL_TABLE"
+
+  parameters = {
+    "classification" = "parquet"
+    "EXTERNAL"       = "TRUE"
+  }
+
+  storage_descriptor {
+    location      = "s3://${local.raw_bucket}/${local.ml_ready_table}/"
+    input_format  = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat"
+    output_format = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat"
+
+    ser_de_info {
+      serialization_library = "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+    }
+
+    # 순서와 타입은 005 data-model.md §2와 같다(= ml_ready.COLUMNS).
+    dynamic "columns" {
+      for_each = concat(
+        [["stack_code", "string"], ["item_code", "string"], ["measured_at", "timestamp"]],
+        [for c in [
+          "ratio_pct", "headroom_pct", "measure_value", "standard_value",
+          "ratio_lag_30m", "ratio_lag_60m", "ratio_lag_90m", "ratio_lag_120m", "ratio_lag_150m",
+          "ratio_diff_30m", "ratio_diff_60m", "ratio_rolling_mean_1h", "ratio_rolling_mean_3h",
+          "ratio_rolling_std_3h", "ratio_rolling_max_3h", "ratio_range_3h", "ratio_slope_3h",
+          "rise_count_3h", "ratio_acceleration", "hour_sin", "hour_cos", "month_sin", "month_cos",
+          "day_of_week", "label_entry_60m", "label_ratio_60m",
+        ] : [c, "double"]],
+        [for c in ["feature_valid", "classification_eligible", "regression_eligible"] : [c, "boolean"]],
+        [for c in ["feature_version", "label_version", "quality_policy_version"] : [c, "string"]],
+      )
+
+      content {
+        name = columns.value[0]
+        type = columns.value[1]
+      }
+    }
+  }
+}

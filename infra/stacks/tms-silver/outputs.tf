@@ -27,3 +27,18 @@ output "package_md5" {
   description = "배포한 smokestack_guard.zip의 MD5 (월 실행 기록의 package_md5와 비교)"
   value       = data.archive_file.package.output_md5
 }
+
+output "ml_ready_job_name" {
+  description = "ML-ready Glue Job 이름 (run_ml_ready.py의 --job-name 기본값)"
+  value       = aws_glue_job.tw_cems_ml_ready.name
+}
+
+output "ml_ready_role_arn" {
+  description = "ML-ready Job 실행 역할 ARN"
+  value       = aws_iam_role.ml_ready.arn
+}
+
+output "ml_ready_location" {
+  description = "ML-ready 데이터 S3 경로 (SageMaker·Spark는 이 경로로 읽는다)"
+  value       = "s3://${local.raw_bucket}/${local.ml_ready_table}/"
+}
