@@ -1,3 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+coverage.xml
+*.egg-info/
+
+# 비밀값
+.env
+
+# project data
+/data/raw/*.csv
+/data/raw/*.json
+/data/raw/*.txt
+/data/silver/
+
 # Terraform
 .terraform/
 *.tfstate
@@ -6,16 +27,12 @@
 !*.tfvars.example
 crash.log
 
-# 비밀값
-.env
-
 # Claude Code 개인 설정
 .claude/settings.local.json
 CLAUDE.local.md
 
 # 빌드 산출물
 services/**/*.zip
-__pycache__/
 
 # OS
 .DS_Store
