@@ -82,6 +82,29 @@ class KtmsSilverTests(unittest.TestCase):
         self.assertEqual(len(ktms.read_bronze("b", date(2026, 11, 2), s3=s3)), 2)
         self.assertTrue(ktms.read_bronze("b", date(2026, 11, 4), s3=s3).empty)
 
+    def test_quality_counts_rows_stacks_status_and_duplicates(self):
+        stack = {"area_nm": "A", "fact_manage_nm": "F", "nox_exhst_perm_stdr_value": "50"}
+        df = pd.DataFrame([
+            stack | {"stack_code": "1", "mesure_dt": "2026-11-02 12:30", "snapshot": 0, "nox_mesure_value": "25"},
+            stack | {"stack_code": "2", "mesure_dt": "2026-11-02 12:30", "snapshot": 0, "nox_mesure_value": "미수신"},
+            stack | {"stack_code": "1", "mesure_dt": "2026-11-03 00:00", "snapshot": 1, "nox_mesure_value": "30"},
+        ])
+        q = ktms.quality(ktms.to_silver(df), snapshots=2)
+        self.assertEqual((q["snapshots"], q["rows"], q["stacks"], q["duplicate_keys"]), (2, 3, 2, 0))
+        self.assertEqual(q["status"], {"ok": 2, "no_signal": 1})
+        self.assertEqual(q["rows_per_day"], {"2026-11-02": 2, "2026-11-03": 1})
+
+    def test_same_snapshot_duplicate_keys_keep_the_last_input_row(self):
+        import numpy as np
+
+        base = {"area_nm": "A", "fact_manage_nm": "F", "mesure_dt": "2026-11-02 12:30", "nox_exhst_perm_stdr_value": "50"}
+        filler = [base | {"stack_code": f"f{i}", "snapshot": int(s), "nox_mesure_value": "10"}
+                  for i, s in enumerate(np.random.default_rng(0).integers(0, 40, 20000))]
+        pair = [base | {"stack_code": "x", "snapshot": 39, "nox_mesure_value": "미수신"},
+                base | {"stack_code": "x", "snapshot": 39, "nox_mesure_value": "25"}]  # same key, same snapshot
+        out = ktms.to_silver(pd.DataFrame(filler[:10000] + pair + filler[10000:]))
+        self.assertEqual(out[out["stack_code"] == "x"].iloc[0]["status"], "ok")
+
     def test_later_snapshot_wins_when_dates_are_split(self):
         from datetime import date
 

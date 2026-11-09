@@ -80,19 +80,33 @@ def to_silver(df: pd.DataFrame) -> pd.DataFrame:
         parts.append(part[raw.notna() | limit.notna()])
     out = pd.concat(parts, ignore_index=True)
     out["ts_kst"] = pd.to_datetime(out["mesure_dt"], format="%Y-%m-%d %H:%M", errors="coerce")
-    out = out.dropna(subset=["ts_kst"]).sort_values("snapshot")
+    out = out.dropna(subset=["ts_kst"]).sort_values("snapshot", kind="stable")  # same-snapshot ties keep input order
     out = out.drop_duplicates(STACK + ["ts_kst", "item"], keep="last")
     out["ratio"] = out["value"] / out["limit"].where(out["limit"] > 0)
     return out.drop(columns=["mesure_dt", "snapshot"]).sort_values(STACK + ["item", "ts_kst"]).reset_index(drop=True)
 
 
+def quality(silver: pd.DataFrame, snapshots: int, same_snapshot_dupes: int = 0) -> dict:
+    return {
+        "snapshots": snapshots,
+        "same_snapshot_dupes": same_snapshot_dupes,
+        "rows": len(silver),
+        "stacks": silver[STACK].drop_duplicates().shape[0],
+        "status": silver["status"].value_counts().to_dict(),
+        "duplicate_keys": int(silver.duplicated(STACK + ["ts_kst", "item"]).sum()),
+        "rows_per_day": {str(d): n for d, n in silver.groupby(silver["ts_kst"].dt.date).size().items()},
+    }
+
+
 def build(silver_dir: Path, bucket: str = BUCKET, start: date | None = None, end: date | None = None) -> Path:
-    silver = to_silver(read_bronze(bucket, start, end))
+    bronze = read_bronze(bucket, start, end)
+    silver = to_silver(bronze)
     name = "part.parquet" if start is None and end is None else f"part_{start or end}_{end or start}.parquet"
     out = silver_dir / "ktms" / name
     out.parent.mkdir(parents=True, exist_ok=True)
     silver.to_parquet(out, index=False)
-    print(f"ktms: {len(silver):,} rows, {silver[STACK].drop_duplicates().shape[0]} stacks, status={silver['status'].value_counts().to_dict()}")
+    dupes = int(bronze.duplicated(STACK + ["mesure_dt", "snapshot"]).sum()) if len(bronze) else 0
+    print("ktms quality:", json.dumps(quality(silver, bronze["snapshot"].nunique() if len(bronze) else 0, dupes), ensure_ascii=False))
     return out
 
 
