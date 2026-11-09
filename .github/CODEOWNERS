@@ -25,3 +25,6 @@
 /specs/c-contract/              @gjfeel4512
 /specs/d-analytics/             @jaeyan42
 /specs/e-ml/                    @doeun-1202
+
+# E — 모델 학습 (부담당 D)
+/services/ml-training/          @doeun-1202 @jaeyan42
