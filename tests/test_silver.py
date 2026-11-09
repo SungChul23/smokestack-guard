@@ -289,6 +289,45 @@ class TwCemsMlReadyTests(unittest.TestCase):
         self.assertAlmostEqual(out["ratio_lag_30m"].iloc[1], 3.33)
         self.assertAlmostEqual(out["label_ratio_60m"].iloc[0], 3.10)
 
+    def test_ktms_silver_becomes_the_same_ml_ready_columns(self):
+        from smokestack_guard.silver import ktms, ml_ready
+
+        slots = pd.date_range("2026-11-02 00:00", periods=10, freq="30min")
+        stack = {"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "limit": 100.0}
+        rows = [stack | {"item": "nox", "value": float(v), "status": "ok", "ts_kst": t, "ratio": v / 100}
+                for t, v in zip(slots, [50, 55, 60, 62, 65, 70, 80, 85, 91, 95])]
+        rows += [stack | {"item": "tsp", "value": 5.0, "status": "ok", "ts_kst": slots[0], "ratio": 0.5},  # not a model item
+                 stack | {"item": "nox", "value": None, "status": "stopped", "ts_kst": slots[0], "ratio": None}]
+        out = ml_ready.to_ml_ready(pd.DataFrame(rows))
+        self.assertEqual(list(out.columns), ml_ready.COLUMNS)
+        self.assertEqual(set(out["stack_code"]), {"A|F|1"})
+        self.assertEqual(set(out["item_code"]), {"nox"})
+        self.assertEqual(out["measured_at"].iloc[0], slots[0])  # K-TMS clock stays as is
+        row = out[out["measured_at"] == slots[5]].iloc[0]  # 70%: label looks at +30/+60 min (80%, 85%)
+        self.assertEqual(row["ratio_pct"], 70.0)
+        self.assertEqual(row["label_entry_60m"], 0.0)
+        self.assertEqual(out[out["measured_at"] == slots[7]].iloc[0]["label_entry_60m"], 1.0)  # 85% -> 91% within 30 min
+
+    def test_build_reads_only_ts_date_partitions_of_a_ktms_directory(self):
+        import tempfile
+        from pathlib import Path
+
+        from smokestack_guard.silver import ml_ready
+
+        def day(d):
+            ts = pd.date_range(f"{d} 00:00", periods=8, freq="30min")
+            return pd.DataFrame({"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "item": "nox", "value": 10.0,
+                                 "limit": 100.0, "status": "ok", "ts_kst": ts, "ratio": 0.1})
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ktms"
+            for d in ("2026-11-01", "2026-11-02"):
+                (root / f"ts_date={d}").mkdir(parents=True)
+                day(d).to_parquet(root / f"ts_date={d}" / "part.parquet", index=False)
+            day("2026-10-01").to_parquet(root / "part.parquet", index=False)  # old full-rebuild file stays out
+            out = ml_ready.build(root, Path(tmp) / "out", "ktms_ml_ready")
+            self.assertEqual(pd.read_parquet(out)["measured_at"].dt.month.unique().tolist(), [11])
+
     def test_trend_features_and_eligibility(self):
         from smokestack_guard.silver.ml_ready import to_ml_ready
 
