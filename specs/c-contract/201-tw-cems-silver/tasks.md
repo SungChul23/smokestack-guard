@@ -65,11 +65,12 @@
 - [ ] T030 [US4] Glue에서 한 달 전체 실행 후 pandas 결과와 비교 (SC-009)
 - [ ] T031 [US4] 실행 시간·DPU 비용 측정 후 A에게 공유
 - [ ] T032 [US4] 36개월 Glue 실행
+- [x] T041 ML-ready 적격 규칙 v2: 기준치 변경 구간 제외, 회귀에서 `& below` 제거 (#33). `ml_ready.py`, `tests/test_ml_ready_eligibility.py`; 36개월 pandas·Spark(로컬 도커) 35컬럼 일치, 분류 9,857,884·양성 133,716·회귀 10,687,144
 - [ ] T033 [US4] (선택, 낮은 우선순위) ML-ready Spark 이식
 
 ## Phase 7: Open Questions (spec 참고)
 
-- [ ] T034 기준 변경 처리 결정: Feature 창 안의 기준 변경 표시·제외 (OQ1, 팀 논의)
+- [x] T034 기준 변경 처리 결정: Feature 창 안의 기준 변경 제외 (OQ1, E 결정 2026-11-09) — 구현·테스트 T041
 - [ ] T035 음수·극단값 처리 방침 (OQ2)
 - [ ] T036 `NB`/`AA` 코드의 학습 포함 여부: 코드별 양성 손실률 분석 후 결정 (OQ3)
 - [ ] T037 산소 보정과 `std` 일치, K-TMS와의 측정 기준 비교의 공식 근거 확인 (OQ4)
