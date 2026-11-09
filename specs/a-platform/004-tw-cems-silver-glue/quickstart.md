@@ -33,7 +33,7 @@ docker run --rm -v "$PWD:/work" -w /work -e PYTHONPATH=/work/src:/work/services/
 ```powershell
 cd infra\stacks\tms-silver
 terraform init
-terraform plan    # 에이전트도 WSL에서 /mnt/c/terraform/terraform.exe plan으로 확인한다
+terraform plan    # 사용자가 실행한다. 생성 9, 변경 0, 삭제 0이어야 한다
 terraform apply
 ```
 
@@ -81,7 +81,23 @@ ORDER BY 1, 2;
 
 -- 파티션 조건: 읽은 양이 전체의 약 1/36이어야 한다 (SC-003)
 SELECT status, count(*) FROM tms_silver.tw_cems WHERE year = '2025' AND month = '10' GROUP BY 1;
+
+-- 전체 합계: 약 8,036만 (SC-002)
+SELECT count(*) AS n FROM tms_silver.tw_cems;
+
+-- 타입 확인: data-model.md §2와 같아야 한다
+SHOW CREATE TABLE tms_silver.tw_cems;
 ```
+
+실행 기록 합계와 비교한다. 아래 명령은 `jq`가 필요하다.
+
+```bash
+mkdir -p runs && aws s3 cp s3://smokestack-tms-raw-952900391026/silver/_runs/tw_cems/ runs/ --recursive
+jq -s 'map(.silver_rows) | add' runs/*.json                                        # 전체 합계
+jq -r '[.month, .silver_rows] | @tsv' runs/*.json                                 # 월별, 위 첫 쿼리와 비교
+```
+
+합계가 다르면 월별 표를 나란히 놓고 다른 월을 찾는다. 그 월만 `run_silver.py --from M --to M`으로 다시 실행한다.
 
 ## 6. 재실행 확인 (사람, SC-004)
 
@@ -100,3 +116,31 @@ aws s3 ls s3://smokestack-tms-raw-952900391026/bronze/tw_cems/historical/ --summ
 ```
 
 실행 전후로 `bronze/` 아래 객체 수와 크기 합계가 같아야 한다. `tms_cleansys/`는 수집이 계속 진행되므로 비교 대상이 아니다.
+
+## 8. 권한 확인 (사람, SC-005·US3)
+
+`<ROLE_ARN>`은 `terraform output -raw glue_role_arn`의 값이다.
+
+```bash
+R=arn:aws:s3:::smokestack-tms-raw-952900391026
+aws iam simulate-principal-policy --policy-source-arn <ROLE_ARN> \
+  --action-names s3:PutObject s3:DeleteObject \
+  --resource-arns $R/bronze/tw_cems/historical/2025-10.jsonl $R/tms_cleansys/_state/latest.json \
+                  $R/silver/tw_cems/year=2025/month=10/x.parquet $R/silver/tw_cems_ml_ready/x \
+  --query 'EvaluationResults[].[EvalActionName,EvalResourceName,EvalDecision]' --output table
+
+aws iam simulate-principal-policy --policy-source-arn <ROLE_ARN> \
+  --action-names s3:ListBucket --resource-arns $R \
+  --context-entries ContextKeyName=s3:prefix,ContextKeyValues=tms_cleansys/,ContextKeyType=string \
+  --query 'EvaluationResults[].EvalDecision' --output text
+```
+
+기대 결과:
+
+| 동작 | 대상 | 결과 |
+|---|---|---|
+| Put / Delete | `bronze/tw_cems/...` | `implicitDeny` |
+| Put / Delete | `tms_cleansys/...` | `implicitDeny` |
+| Put / Delete | `silver/tw_cems/...` | `allowed` |
+| Put / Delete | `silver/tw_cems_ml_ready/...` | `implicitDeny` |
+| ListBucket | prefix `tms_cleansys/` | `implicitDeny` |

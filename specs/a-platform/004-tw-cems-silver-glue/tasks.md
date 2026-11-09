@@ -42,15 +42,15 @@ description: "004 TW CEMS Silver 클라우드 실행 작업 목록"
 
 **Purpose**: 폴더, 의존성, 가짜 샘플, 리뷰어를 준비한다.
 
-- [ ] T001 `services/tms-silver/`, `services/tms-silver/tests/fixtures/`, `infra/stacks/tms-silver/` 폴더를 만든다.
-- [ ] T002 [P] `services/tms-silver/pyproject.toml`을 작성한다(plan "Technical Context").
+- [X] T001 `services/tms-silver/`, `services/tms-silver/tests/fixtures/`, `infra/stacks/tms-silver/` 폴더를 만든다.
+- [X] T002 [P] `services/tms-silver/pyproject.toml`을 작성한다(plan "Technical Context").
   - `name = "tms-silver"`, `requires-python = ">=3.11,<3.12"` (Glue 5.0 = Python 3.11)
   - 런타임 `dependencies = []`. Glue 5.0이 pyspark, boto3, pandas를 제공한다(R1).
   - `[project.optional-dependencies] dev = ["pyspark==3.5.4", "pandas==2.2.3", "numpy<2", "pyarrow==16.1.0", "boto3", "pytest", "ruff"]`
   - `[tool.setuptools] py-modules = ["glue_tw_cems_silver", "run_silver"]`
   - `[tool.pytest.ini_options] pythonpath = [".", "../../src"]`, `testpaths = ["tests"]`. `../../src`는 C의 `smokestack_guard`를 import하기 위한 것이다.
   - `[tool.ruff] line-length = 100`, `target-version = "py311"`, lint `select = ["E", "F", "W", "I", "B", "UP"]` (`services/tms-eda/pyproject.toml`과 같은 규칙)
-- [ ] T003 [P] `services/tms-silver/tests/fixtures/`에 **가짜 데이터** JSONL 3개를 만든다. 실제 원본 값을 복사하지 않는다.
+- [X] T003 [P] `services/tms-silver/tests/fixtures/`에 **가짜 데이터** JSONL 3개를 만든다. 실제 원본 값을 복사하지 않는다.
   - 원본 키 15개를 모두 둔다: `importdate`, `_id`, `abbr`, `cno`, `code2`, `code2desc`, `epb_county`, `item`, `itemdesc`, `m_time`, `m_value`, `polno`, `std`, `std_s`, `unit`
   - `synthetic_2025_10.jsonl`(정상 달). 다음 경우가 한 번씩 나오게 한다.
     - 같은 굴뚝·항목의 `:00`·`:15` 두 행(`code2 = "NA10"`, `std` 양수) → `ok`
@@ -62,7 +62,7 @@ description: "004 TW CEMS Silver 클라우드 실행 작업 목록"
   - `synthetic_2025_10_mixed.jsonl`: 위 파일에 `m_time`이 `2025-09-30T23:45:00`인 행 1개를 더한다. 다른 달 행이 섞인 경우다.
   - `synthetic_2025_09.jsonl`: 9월 행 몇 개. 기존 다른 달 파티션 역할이다.
   - `tests/fixtures/README.md`에 "가짜 데이터"라고 적는다.
-- [ ] T004 [P] `.github/CODEOWNERS`에 두 줄을 A 구역 아래에 추가한다. 기존 줄은 바꾸지 않는다.
+- [X] T004 [P] `.github/CODEOWNERS`에 두 줄을 A 구역 아래에 추가한다. 기존 줄은 바꾸지 않는다.
   - `/services/tms-silver/          @SungChul23 @gjfeel4512` (C의 규칙 코드를 감싸므로 C 포함)
   - `/infra/stacks/tms-silver/      @SungChul23 @olchangiagi` (원본 버킷에 쓰기 권한을 주므로 B 포함, 원칙 I)
 
@@ -72,18 +72,18 @@ description: "004 TW CEMS Silver 클라우드 실행 작업 목록"
 
 **Purpose**: 스택 뼈대, 패키지·스크립트 업로드, 역할, 카탈로그를 만든다. `main.tf`를 고치는 작업은 같은 파일이라 **순서대로** 한다.
 
-- [ ] T005 `infra/stacks/tms-silver/backend.tf`를 작성한다. `infra/stacks/tms-eda/backend.tf`와 같고 `key = "stacks/tms-silver/terraform.tfstate"`만 다르다.
-- [ ] T006 [P] `infra/stacks/tms-silver/versions.tf`를 작성한다.
+- [X] T005 `infra/stacks/tms-silver/backend.tf`를 작성한다. `infra/stacks/tms-eda/backend.tf`와 같고 `key = "stacks/tms-silver/terraform.tfstate"`만 다르다.
+- [X] T006 [P] `infra/stacks/tms-silver/versions.tf`를 작성한다.
   - `required_version = "~> 1.15.0"`
   - providers: `aws ~> 6.0`, `archive ~> 2.0` (`infra/stacks/tms-collection/versions.tf`와 같음)
   - provider `region = "ap-northeast-2"`
   - `default_tags { project = "tms", managed_by = "terraform", stack = "tms-silver" }`
-- [ ] T007 [P] `infra/stacks/tms-silver/variables.tf`를 작성한다. 모두 `description`과 `type`, 기본값을 둔다.
+- [X] T007 [P] `infra/stacks/tms-silver/variables.tf`를 작성한다. 모두 `description`과 `type`, 기본값을 둔다.
   - `raw_bucket_name` = `"smokestack-tms-raw-952900391026"` (설명: 원본 버킷, `tms-collection`이 관리, 이 스택은 이름만 참조)
   - `glue_worker_count` = `10` (`validation`: 2~10)
   - `glue_timeout_minutes` = `60`
   - 비밀값 변수는 없다.
-- [ ] T008 `infra/stacks/tms-silver/main.tf`에 원본 버킷 참조와 업로드를 정의한다(R5, R10, contracts/run-interface.md §1).
+- [X] T008 `infra/stacks/tms-silver/main.tf`에 원본 버킷 참조와 업로드를 정의한다(R5, R10, contracts/run-interface.md §1).
   - `data "aws_s3_bucket" "raw"`. 원본 버킷에 **어떤 `resource`도 붙이지 않는다**: 버전 관리, 수명 주기, 정책 모두 없음(R11).
   - `data "archive_file" "package"`
     - `type = "zip"`, `source_dir = "${path.module}/../../../src"`
@@ -94,7 +94,7 @@ description: "004 TW CEMS Silver 클라우드 실행 작업 목록"
   - `aws_s3_object.package`: `bucket = data.aws_s3_bucket.raw.id`, `key = "ops/glue-packages/smokestack_guard.zip"`, `source = archive 경로`, `etag = data.archive_file.package.output_md5`
   - `aws_s3_object.job_script`: `key = "ops/glue-scripts/glue_tw_cems_silver.py"`, `source = services/tms-silver/glue_tw_cems_silver.py`, `etag = filemd5(...)`
   - 주석으로 "원본 버킷의 `ops/`에는 운영 파일만 둔다(R10)"라고 적는다.
-- [ ] T009 `infra/stacks/tms-silver/main.tf`에 역할과 로그 그룹을 정의한다(plan "부여 권한", R12).
+- [X] T009 `infra/stacks/tms-silver/main.tf`에 역할과 로그 그룹을 정의한다(plan "부여 권한", R12).
   - `aws_iam_role.glue`: 이름 `tms-glue-silver`, 신뢰 대상 `glue.amazonaws.com`. 설명은 ASCII만 쓴다: `"TW CEMS Silver Glue job role (bronze read, silver/tw_cems write)"`
   - `aws_iam_role_policy_attachment`: `arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole`
   - `aws_iam_role_policy.glue_data` (이름 `tms-glue-silver-data`) 문장. sid는 고정한다.
@@ -108,7 +108,7 @@ description: "004 TW CEMS Silver 클라우드 실행 작업 목록"
       - 대상: `${raw}/silver/tw_cems/*`, `${raw}/silver/_runs/tw_cems/*`
   - 확인할 것: `bronze/`·`tms_cleansys/`·버킷 전체(`${raw}/*`)에 대한 Put/Delete가 없고, 버킷 전체 `ListBucket`(조건 없음)도 없다.
   - `aws_cloudwatch_log_group.glue`: 이름 `/aws-glue/tms-silver`, `retention_in_days = 14`
-- [ ] T010 `infra/stacks/tms-silver/main.tf`에 카탈로그를 정의한다(R6, data-model.md §2, contracts/tw-cems-silver-table.md).
+- [X] T010 `infra/stacks/tms-silver/main.tf`에 카탈로그를 정의한다(R6, data-model.md §2, contracts/tw-cems-silver-table.md).
   - `aws_glue_catalog_database.silver`
     - 이름 `tms_silver`
     - 설명: "Silver 테이블. 경로 규칙 silver/<테이블>/ = tms_silver.<테이블> (specs/a-platform/004-tw-cems-silver-glue)"
@@ -146,7 +146,7 @@ description: "004 TW CEMS Silver 클라우드 실행 작업 목록"
 
 ### Tests for User Story 1
 
-- [ ] T011 [P] [US1] `services/tms-silver/tests/test_glue_tw_cems_silver.py`를 작성한다. 모두 로컬 Spark(`local[2]`, `spark.sql.session.timeZone=UTC`)와 `tmp_path`를 쓴다. 세션은 `conftest.py`의 session fixture로 한 번만 만든다. 경우:
+- [X] T011 [P] [US1] `services/tms-silver/tests/test_glue_tw_cems_silver.py`를 작성한다. 모두 로컬 Spark(`local[2]`, `spark.sql.session.timeZone=UTC`)와 `tmp_path`를 쓴다. 세션은 `conftest.py`의 session fixture로 한 번만 만든다. 경우:
   1. **정상 달**: `synthetic_2025_10.jsonl`, `--year 2025 --month 10`
      - 출력에 `year=2025/month=10/` 하나만 생긴다.
      - 실행 기록 JSON이 생긴다.
@@ -165,7 +165,7 @@ description: "004 TW CEMS Silver 클라우드 실행 작업 목록"
      - (`year`, `month`) 집합이 같다.
      - `stack_code, item, unit, ts_kst`로 정렬한 13개 컬럼이 같다.
   6. **로그에 데이터 값이 없음**: `capsys`로 잡은 출력에 fixture의 `m_value`·`abbr` 값이 들어 있지 않다.
-- [ ] T012 [P] [US1] `services/tms-silver/tests/test_run_silver.py`를 작성한다. `services/tms-eda/tests/test_run_backfill.py`를 바탕으로 하고, boto3는 가짜 클라이언트로 대신한다. 바뀐 점만 추가로 검증한다.
+- [X] T012 [P] [US1] `services/tms-silver/tests/test_run_silver.py`를 작성한다. `services/tms-eda/tests/test_run_backfill.py`를 바탕으로 하고, boto3는 가짜 클라이언트로 대신한다. 바뀐 점만 추가로 검증한다.
   - `--only-missing`: `silver/_runs/tw_cems/YYYY-MM.json`이 있는 월은 `SKIPPED`이다. `_SUCCESS`는 보지 않는다.
   - 결과 표: 실행 기록에서 읽은 `input_rows`, `silver_rows`, `ok_rows` 열과 합계가 있다. 기록이 없으면 `-`이다.
   - `--start-crawler` 옵션이 없다(인자 오류).
@@ -174,7 +174,7 @@ description: "004 TW CEMS Silver 클라우드 실행 작업 목록"
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] `services/tms-silver/glue_tw_cems_silver.py`를 작성한다(contracts/run-interface.md §1, research R2·R3·R4, data-model.md §2·§3).
+- [X] T013 [US1] `services/tms-silver/glue_tw_cems_silver.py`를 작성한다(contracts/run-interface.md §1, research R2·R3·R4, data-model.md §2·§3).
   - **import 규칙**
     - `awsglue`를 import하지 않는다(`services/tms-eda/tw_cems_parquet.py`와 같음). Glue가 넘기는 `--JOB_NAME` 등은 `parse_known_args`로 무시한다.
     - C의 코드는 `from smokestack_guard.silver import tw_cems_spark`, `from smokestack_guard.silver.tw_cems import RAW`로만 쓴다. C의 함수 본문을 복사하지 않는다.
@@ -207,7 +207,7 @@ description: "004 TW CEMS Silver 클라우드 실행 작업 목록"
     - 끝나면 요약 한 줄(`json.dumps`: 경로, 건수, `status_rows`, `package_md5`, `versions`, 소요 초)을 `print`한다.
     - 데이터 값은 출력하지 않는다.
   - `if __name__ == "__main__": main()`
-- [ ] T014 [US1] `infra/stacks/tms-silver/main.tf`에 Glue Job을 정의한다(R1, R9, R11).
+- [X] T014 [US1] `infra/stacks/tms-silver/main.tf`에 Glue Job을 정의한다(R1, R9, R11).
   - `aws_glue_job.tw_cems` 기본 설정
     - 이름 `tms-silver-tw-cems`, 설명 "TW CEMS 원본 월 파일 1개를 Silver(silver/tw_cems)로 변환"
     - `role_arn = aws_iam_role.glue.arn`, `glue_version = "5.0"`, `worker_type = "G.1X"`
@@ -222,30 +222,30 @@ description: "004 TW CEMS Silver 클라우드 실행 작업 목록"
     - 버전: `--package_md5 = data.archive_file.package.output_md5`
     - **`--TempDir`은 넣지 않는다**(R11).
   - `--year`, `--month`는 기본값 없이 실행 때마다 넘긴다.
-- [ ] T015 [US1] `services/tms-silver/run_silver.py`를 작성한다. `services/tms-eda/run_backfill.py`를 복사해서 아래만 바꾼다(R8, contracts/run-interface.md §2).
+- [X] T015 [US1] `services/tms-silver/run_silver.py`를 작성한다. `services/tms-eda/run_backfill.py`를 복사해서 아래만 바꾼다(R8, contracts/run-interface.md §2).
   - 상수 `DEFAULT_JOB_NAME = "tms-silver-tw-cems"`, `DEFAULT_SILVER_BUCKET = "smokestack-tms-raw-952900391026"`, `DEFAULT_RUNS_PREFIX = "silver/_runs/tw_cems"`
   - `--eda-bucket`·`--output-prefix`·`--start-crawler`·`--crawler-name`을 지운다. `--silver-bucket`, `--runs-prefix`를 추가한다.
   - `plan_targets`의 완료 판단을 `_SUCCESS`에서 `{runs_prefix}/{YYYY-MM}.json` 존재로 바꾼다.
   - 미리 보기 표에 "실행 기록 있음" 열을 추가한다.
   - 실행이 끝나면 각 월의 실행 기록을 `get_object`로 읽어 `input_rows`, `silver_rows`, `ok_rows`(= `status_rows["ok"]`)를 결과 표에 붙이고, 합계 행에도 더한다. 읽기에 실패하면 `-`로 둔다.
   - 독스트링 첫 줄과 계약 참조를 004로 바꾼다. 나머지 동작(재시도, 대기, 비용 추정, 종료 코드)은 바꾸지 않는다.
-- [ ] T016 [P] [US1] `infra/stacks/tms-silver/outputs.tf`: 출력에 모두 `description`을 단다.
+- [X] T016 [P] [US1] `infra/stacks/tms-silver/outputs.tf`: 출력에 모두 `description`을 단다.
   - `glue_job_name`
   - `glue_role_arn`
   - `glue_database_name`
   - `silver_table_name`
   - `silver_location` (`s3://.../silver/tw_cems/`)
   - `package_md5`
-- [ ] T017 [US1] 로컬 검증(에이전트)
+- [X] T017 [US1] 로컬 검증(에이전트)
   - Spark 테스트: `docker run ... sg-spark:3.5 python3 -m pytest services/tms-silver/tests -q -p no:cacheprovider` (quickstart §1)
   - 린트: `cd services/tms-silver && ruff check .`
   - Terraform: `terraform fmt -recursive infra/`, `/mnt/c/terraform/terraform.exe -chdir=infra/stacks/tms-silver init` / `validate`
   - 실패가 있으면 고친 뒤 다시 실행한다.
-- [ ] T018 [US1] `terraform plan`(에이전트, WSL에서 `/mnt/c/terraform/terraform.exe -chdir=infra/stacks/tms-silver plan`)을 실행해 결과를 사용자에게 보여준다. 확인할 것:
+- [X] T018 [US1] `terraform plan`. 2026-11-09 에이전트가 한 번 실행했다: 생성 9, 변경 0, 삭제 0. 원본 버킷은 `ops/` 객체 2개만 생긴다. **이후 Terraform은 `plan`을 포함해 사용자가 실행한다**(사용자 결정). 확인할 것:
   - 생성만 있고 변경·삭제가 0이다.
   - `smokestack-tms-raw-952900391026`에 대한 `aws_s3_bucket*` 리소스가 없다. 업로드 객체 2개(`ops/`)만 있다.
   - `tms-collection`·`tms-eda` 상태와 무관하다(다른 backend key).
-- [ ] T019 🧑 [US1] 사용자가 PowerShell에서 `terraform apply`를 실행한다.
+- [X] T019 🧑 [US1] 사용자가 PowerShell에서 `terraform apply`를 실행한다.
 - [ ] T020 🧑 [US1] 한 달 시험 실행 (quickstart §3)
   - 명령: `python run_silver.py --from 2025-10 --to 2025-10 --dry-run` → `python run_silver.py --from 2025-10 --to 2025-10`
   - 확인할 것:
@@ -267,7 +267,7 @@ description: "004 TW CEMS Silver 클라우드 실행 작업 목록"
 
 **Independent Test**: 월 조건 쿼리가 결과를 내고, 스캔량이 전체의 약 1/36이다.
 
-- [ ] T022 [P] [US2] `specs/a-platform/004-tw-cems-silver-glue/quickstart.md` §5의 쿼리에 아래를 더한다.
+- [X] T022 [P] [US2] `specs/a-platform/004-tw-cems-silver-glue/quickstart.md` §5의 쿼리에 아래를 더한다.
   - 전체 행 수 합계 쿼리
   - 실행 기록 합계와의 비교 방법: 실행 기록은 `aws s3 cp`로 내려받아 합한다
   - 결과가 다를 때 월별로 차이를 찾는 쿼리
@@ -289,8 +289,8 @@ description: "004 TW CEMS Silver 클라우드 실행 작업 목록"
 
 **Independent Test**: IAM 정책 시뮬레이터에서 `bronze/` 쓰기·삭제는 거부되고, `silver/tw_cems/` 쓰기는 허용된다.
 
-- [ ] T025 [P] [US3] zip 내용 확인(에이전트). `terraform plan` 뒤 `unzip -l services/tms-silver/build/smokestack_guard.zip` 결과에 `smokestack_guard/__init__.py`와 `smokestack_guard/silver/*.py`만 있는지 본다. `data/`와 `__pycache__`가 없어야 한다.
-- [ ] T026 [P] [US3] `specs/a-platform/004-tw-cems-silver-glue/quickstart.md`에 "§8 권한 확인" 절을 추가한다. `aws iam simulate-principal-policy --policy-source-arn <tms-glue-silver ARN>` 명령과 기대 결과를 적는다.
+- [X] T025 [P] [US3] zip 내용 확인(에이전트). `terraform plan` 뒤 `unzip -l services/tms-silver/build/smokestack_guard.zip` 결과에 `smokestack_guard/__init__.py`와 `smokestack_guard/silver/*.py`만 있는지 본다. `data/`와 `__pycache__`가 없어야 한다.
+- [X] T026 [P] [US3] `specs/a-platform/004-tw-cems-silver-glue/quickstart.md`에 "§8 권한 확인" 절을 추가한다. `aws iam simulate-principal-policy --policy-source-arn <tms-glue-silver ARN>` 명령과 기대 결과를 적는다.
   - `s3:PutObject` / `s3:DeleteObject`
     - `bronze/tw_cems/historical/2025-10.jsonl` → `implicitDeny`
     - `tms_cleansys/_state/latest.json` → `implicitDeny`
@@ -306,7 +306,7 @@ description: "004 TW CEMS Silver 클라우드 실행 작업 목록"
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T029 [P] `AGENTS.md`를 고친다(FR-014, R10). 규칙은 이 파일에서만 고친다.
+- [X] T029 [P] `AGENTS.md`를 고친다(FR-014, R10). 규칙은 이 파일에서만 고친다.
   - "저장소 구조" 트리에 두 줄을 추가한다.
     - `infra/stacks/tms-silver/` ("Silver 실행: Glue Job + 역할 + 카탈로그 (버킷은 원본 버킷 silver/)")
     - `services/tms-silver/` ("Silver Glue 진입 스크립트 + 일괄 실행 명령")
@@ -319,19 +319,19 @@ description: "004 TW CEMS Silver 클라우드 실행 작업 목록"
     - 역할마다 자기 테이블 경로에만 쓴다.
     - `ops/`는 Terraform이 올리는 운영 파일만 둔다.
   - 문장은 기존 AGENTS.md 문체(짧은 평서문, 한국어)를 따른다.
-- [ ] T030 [P] `services/tms-silver/README.md`를 작성한다.
+- [X] T030 [P] `services/tms-silver/README.md`를 작성한다.
   - 무엇을 하는지(한 줄)
   - 로컬 테스트 방법(Docker, CI)
   - `run_silver.py` 사용법(미리 보기 → 한 달 → 36개월 → `--only-missing`)
   - 실행 기록 위치
   - 첫 실행 확인 항목(pandas import, `ListBucket` 거부)
   - 상세는 spec·contracts 링크로 대신한다.
-- [ ] T031 [P] `.github/workflows/tms-silver.yml`을 만든다. `.github/workflows/tms-eda.yml`을 바탕으로 한다.
+- [X] T031 [P] `.github/workflows/tms-silver.yml`을 만든다. `.github/workflows/tms-eda.yml`을 바탕으로 한다.
   - `paths`: `services/tms-silver/**`, `src/smokestack_guard/silver/**`, `.github/workflows/tms-silver.yml`. C의 규칙 코드가 바뀌어도 진입 스크립트 테스트가 돈다.
   - Java 17 (temurin), Python `3.11`
   - `working-directory: services/tms-silver`
   - `pip install -e ".[dev]"` → `ruff check .` → `pytest -q`
-- [ ] T032 최종 확인(에이전트): T017을 다시 실행해 `pytest`, `ruff`, `terraform fmt -recursive`, `terraform validate`가 모두 통과하는지 본다.
+- [X] T032 최종 확인(에이전트): T017을 다시 실행해 `pytest`, `ruff`, `terraform fmt -recursive`, `terraform validate`가 모두 통과하는지 본다.
   - `src/smokestack_guard/` 아래 파일이 바뀌지 않았는지 `git diff --stat -- src/`로 확인한다. 결과는 비어 있어야 한다.
   - C의 `scripts/`, `spark_migration_checklist.md`도 바뀌지 않았는지 확인한다.
 - [ ] T033 PR 본문 초안을 사용자에게 보여주고 허락을 받는다. 허락 전에는 생성하지 않는다. 담을 내용:

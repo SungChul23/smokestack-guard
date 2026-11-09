@@ -16,6 +16,7 @@
 | `--table_prefix` | | `silver/tw_cems` | Silver 테이블 경로 |
 | `--runs_prefix` | | `silver/_runs/tw_cems` | 실행 기록 경로 |
 | `--package_md5` | | Terraform이 넣는 zip MD5 | 실행 기록용 |
+| `--files_per_month` | | `1` (스크립트 기본값) | 한 달 Parquet 파일 수. 2026-11-09 첫 실행에서 월 36개(파일당 약 1MB)가 나와 추가했다 |
 
 **처리 순서** (근거: [research.md](../research.md) R2~R4)
 1. `tw_cems_spark.read_raw`로 `{raw_prefix}/{year}-{month}.jsonl`을 읽는다.
@@ -25,7 +26,7 @@
 5. 검사:
    - 다른 달 행이 있으면 **쓰기 전에 실패**한다.
    - 0행이면 실패한다.
-6. `s3://{silver_bucket}/{table_prefix}/`에 `partitionBy("year","month")`로 동적 덮어쓰기한다.
+6. `coalesce(files_per_month)` 뒤 `s3://{silver_bucket}/{table_prefix}/`에 `partitionBy("year","month")`로 동적 덮어쓰기한다.
 7. 쓰기가 성공한 뒤 실행 기록 `{runs_prefix}/{year}-{month}.json`을 쓴다. 형식은 [data-model.md §3](../data-model.md)에 있다.
 
 **실패** (Job 상태 `FAILED`, 실행 기록 없음, 기존 파티션 변경 없음)

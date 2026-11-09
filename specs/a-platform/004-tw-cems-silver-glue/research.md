@@ -181,4 +181,8 @@ plan의 기술 결정과 그 이유를 적는다. 각 항목은 결정 → 이�
 | `s3:GetObject`, `PutObject`, `DeleteObject`, `AbortMultipartUpload` | `silver/tw_cems/*`, `silver/_runs/tw_cems/*` | 파티션 교체, 실행 기록 |
 
 - `tms-eda`에서는 Spark 덮어쓰기가 경로 끝에 `/`가 없는 형태로도 목록을 조회해, 버킷 전체 목록 권한을 줬다. 원본 버킷에는 버킷 전체 목록 권한을 주지 않는다. 그래서 끝 `/`가 없는 `silver/tw_cems`를 조건에 넣었다.
+- **폴더 표시 파일 (2026-11-09 첫 실행에서 확인)**: Glue(EMRFS)는 Parquet을 쓸 때 상위 경로마다 0바이트 `<경로>_$folder$` 파일을 만든다. 첫 실행이 `silver_$folder$`에 대한 `PutObject` 거부로 실패했다(읽기·변환·월 검사는 통과).
+  - `silver/tw_cems/` 아래 표시는 기존 권한에 포함된다.
+  - 그 위의 `silver_$folder$`, `silver/tw_cems_$folder$` 두 키만 정확히 허용했다(`WriteSilverFolderMarkers`). `silver/*`로 넓히지 않는다.
+  - 005 등 다른 Silver 테이블도 같은 방식으로 `silver/<테이블>_$folder$`를 허용해야 한다.
 - 첫 실행에서 목록 조회가 거부되면(`AccessDenied` on `ListBucket`), 로그에서 실제 조회한 접두어를 확인하고 그 접두어만 추가한다. 쓰기 권한은 넓히지 않는다.
