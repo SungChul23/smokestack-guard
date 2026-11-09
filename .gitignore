@@ -48,3 +48,9 @@ spark-warehouse/
 metastore_db/
 derby.log
 *.egg-info/
+
+# K-TMS 파이프라인 로컬 산출물 (커밋 대상 아님)
+# Airflow 실행 로그
+k_tms_pipeline/logs/
+# 수집기 호출 확인용 샘플 응답
+k_tms_pipeline/scripts/probe_out/first_call.json
