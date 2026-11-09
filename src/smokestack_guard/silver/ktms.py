@@ -4,6 +4,8 @@ Silver rules:
 - the API repeats the latest measurement every 10 minutes (measurements are on :00/:30), so rows are
   deduplicated on stack + mesure_dt + item, keeping the latest snapshot (a "checking" value can be filled in later).
 - text values become a `status` code and a NaN value; null value + null limit means the item is not monitored there.
+- the API has no id to tell apart two rows with the same area + facility + stack_code in one snapshot; when such
+  rows disagree on an item, that item is `ambiguous` (NaN value) instead of an arbitrary winner.
 - ratio = value / permit limit, the exceedance signal to predict.
 """
 from __future__ import annotations
@@ -11,7 +13,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import boto3
@@ -73,11 +75,15 @@ def to_silver(df: pd.DataFrame) -> pd.DataFrame:
     for item in ITEMS:
         raw = df[f"{item}_mesure_value"]
         limit = pd.to_numeric(df[f"{item}_exhst_perm_stdr_value"], errors="coerce")
-        part = df[STACK + ["mesure_dt", "snapshot"]].assign(item=item, value=pd.to_numeric(raw, errors="coerce"), limit=limit)
+        part = df[STACK + ["mesure_dt", "snapshot"]].assign(item=item, value=pd.to_numeric(raw, errors="coerce"), limit=limit, raw=raw.astype("string"))
         text = raw.where(raw.notna() & part["value"].isna())
         part["status"] = text.map(STATUS).fillna("other").where(text.notna(), "ok")
         part.loc[part["status"].eq("ok") & (part["value"].isna() | part["limit"].isna()), "status"] = "not_monitored"
-        parts.append(part[raw.notna() | limit.notna()])
+        part = part[raw.notna() | limit.notna()]
+        disagree = part.groupby(STACK + ["mesure_dt", "snapshot"], dropna=False)["raw"].transform("nunique").gt(1)
+        part.loc[disagree, "status"] = "ambiguous"
+        part.loc[disagree, "value"] = float("nan")
+        parts.append(part.drop(columns="raw"))
     out = pd.concat(parts, ignore_index=True)
     out["ts_kst"] = pd.to_datetime(out["mesure_dt"], format="%Y-%m-%d %H:%M", errors="coerce")
     out = out.dropna(subset=["ts_kst"]).sort_values("snapshot", kind="stable")  # same-snapshot ties keep input order
@@ -98,26 +104,42 @@ def quality(silver: pd.DataFrame, snapshots: int, same_snapshot_dupes: int = 0) 
     }
 
 
-def build(silver_dir: Path, bucket: str = BUCKET, start: date | None = None, end: date | None = None) -> Path:
+def write_partitions(silver: pd.DataFrame, silver_dir: Path, first: date | None = None, last: date | None = None) -> list[date]:
+    written = []
+    for day, part in silver.groupby(silver["ts_kst"].dt.date):
+        if (first is None or day >= first) and (last is None or day <= last):
+            out = silver_dir / "ktms" / f"ts_date={day}" / "part.parquet"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            part.to_parquet(out, index=False)  # same date -> same file, so reruns overwrite
+            written.append(day)
+    return written
+
+
+def build(silver_dir: Path, bucket: str = BUCKET, start: date | None = None, end: date | None = None) -> list[date]:
     bronze = read_bronze(bucket, start, end)
     silver = to_silver(bronze)
-    name = "part.parquet" if start is None and end is None else f"part_{start or end}_{end or start}.parquet"
-    out = silver_dir / "ktms" / name
-    out.parent.mkdir(parents=True, exist_ok=True)
-    silver.to_parquet(out, index=False)
+    # ingest_date is the UTC date: KST day D lives in ingest dates D-1 (from 15:00Z) and D, so only D in [start+1, end] is complete
+    first = start + timedelta(days=1) if start else None
+    written = write_partitions(silver, silver_dir, first, end)
     dupes = int(bronze.duplicated(STACK + ["mesure_dt", "snapshot"]).sum()) if len(bronze) else 0
     print("ktms quality:", json.dumps(quality(silver, bronze["snapshot"].nunique() if len(bronze) else 0, dupes), ensure_ascii=False))
-    return out
+    print(f"ktms partitions written: {[str(d) for d in written]}")
+    return written
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="K-TMS bronze snapshots -> silver parquet")
+    p = argparse.ArgumentParser(description="K-TMS bronze snapshots -> silver parquet partitions (ts_date=YYYY-MM-DD)")
     p.add_argument("--silver-dir", type=Path, default=Path("data/silver"))
     p.add_argument("--bucket", default=BUCKET)
-    p.add_argument("--start-date", type=date.fromisoformat, help="first ingest_date (YYYY-MM-DD); omit both dates to read everything")
+    p.add_argument("--start-date", type=date.fromisoformat, help="first ingest_date (UTC, YYYY-MM-DD); omit both dates to read everything")
     p.add_argument("--end-date", type=date.fromisoformat, help="last ingest_date (inclusive)")
+    p.add_argument("--days", type=int, help="rebuild the last N measurement days up to today (UTC), e.g. 2")
     args = p.parse_args()
-    build(args.silver_dir, args.bucket, args.start_date, args.end_date)
+    start, end = args.start_date, args.end_date
+    if args.days:
+        end = datetime.now(timezone.utc).date()
+        start = end - timedelta(days=args.days)
+    build(args.silver_dir, args.bucket, start, end)
 
 
 if __name__ == "__main__":

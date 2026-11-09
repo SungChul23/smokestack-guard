@@ -94,16 +94,37 @@ class KtmsSilverTests(unittest.TestCase):
         self.assertEqual(q["status"], {"ok": 2, "no_signal": 1})
         self.assertEqual(q["rows_per_day"], {"2026-11-02": 2, "2026-11-03": 1})
 
-    def test_same_snapshot_duplicate_keys_keep_the_last_input_row(self):
-        import numpy as np
+    def test_conflicting_rows_with_the_same_key_in_one_snapshot_are_ambiguous(self):
+        base = {"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "mesure_dt": "2026-11-02 12:30", "snapshot": 0,
+                "tsp_exhst_perm_stdr_value": "50", "nox_exhst_perm_stdr_value": "50"}
+        df = pd.DataFrame([
+            base | {"tsp_mesure_value": "미수신", "nox_mesure_value": None},
+            base | {"tsp_mesure_value": "0.43", "nox_mesure_value": "25"},  # nox is reported by one row only
+            base | {"stack_code": "2", "tsp_mesure_value": "5", "nox_mesure_value": "7"},
+            base | {"stack_code": "2", "tsp_mesure_value": "5", "nox_mesure_value": "7"},  # identical rows are not a conflict
+        ])
+        out = ktms.to_silver(df).set_index(["stack_code", "item"])
+        self.assertEqual(out.loc[("1", "tsp"), "status"], "ambiguous")
+        self.assertTrue(pd.isna(out.loc[("1", "tsp"), "value"]) and pd.isna(out.loc[("1", "tsp"), "ratio"]))
+        self.assertEqual(out.loc[("1", "nox"), "status"], "ok")
+        self.assertEqual(out.loc[("2", "tsp"), "status"], "ok")
 
-        base = {"area_nm": "A", "fact_manage_nm": "F", "mesure_dt": "2026-11-02 12:30", "nox_exhst_perm_stdr_value": "50"}
-        filler = [base | {"stack_code": f"f{i}", "snapshot": int(s), "nox_mesure_value": "10"}
-                  for i, s in enumerate(np.random.default_rng(0).integers(0, 40, 20000))]
-        pair = [base | {"stack_code": "x", "snapshot": 39, "nox_mesure_value": "미수신"},
-                base | {"stack_code": "x", "snapshot": 39, "nox_mesure_value": "25"}]  # same key, same snapshot
-        out = ktms.to_silver(pd.DataFrame(filler[:10000] + pair + filler[10000:]))
-        self.assertEqual(out[out["stack_code"] == "x"].iloc[0]["status"], "ok")
+    def test_partitions_are_written_per_ts_date_inside_the_window_and_overwritten(self):
+        import tempfile
+        from datetime import date
+        from pathlib import Path
+
+        def rows(*days, status="ok"):
+            return pd.DataFrame({"ts_kst": pd.to_datetime([f"{d} 12:00" for d in days]), "status": status})
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            written = ktms.write_partitions(rows("2026-11-01", "2026-11-02", "2026-11-03"), root, date(2026, 11, 2), date(2026, 11, 3))
+            self.assertEqual(written, [date(2026, 11, 2), date(2026, 11, 3)])
+            self.assertFalse((root / "ktms" / "ts_date=2026-11-01").exists())
+            ktms.write_partitions(rows("2026-11-02", status="stopped"), root, date(2026, 11, 2), date(2026, 11, 3))
+            again = pd.read_parquet(root / "ktms" / "ts_date=2026-11-02" / "part.parquet")
+            self.assertEqual(again["status"].tolist(), ["stopped"])
 
     def test_later_snapshot_wins_when_dates_are_split(self):
         from datetime import date
