@@ -1,4 +1,4 @@
-"""K-TMS bronze (10-minute API snapshots in MinIO) -> silver (long: one row per stack x time x item).
+"""K-TMS bronze (10-minute API snapshots in S3) -> silver (long: one row per stack x time x item).
 
 Silver rules:
 - the API repeats the latest measurement every 10 minutes (measurements are on :00/:30), so rows are
@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
-import os
+from datetime import date, timedelta
 from pathlib import Path
 
 import boto3
@@ -26,32 +26,37 @@ STATUS = {
     "보수중": "maintenance",
     "기기점검": "inspection",
 }
+BUCKET = "smokestack-tms-raw-952900391026"
+REGION = "ap-northeast-2"
 PREFIX = "tms_cleansys/"
 
 
 def _s3():
-    return boto3.client(
-        "s3",
-        endpoint_url=os.environ.get("MINIO_ENDPOINT", "http://localhost:9000"),
-        aws_access_key_id=os.environ["MINIO_ROOT_USER"],
-        aws_secret_access_key=os.environ["MINIO_ROOT_PASSWORD"],
-        region_name="us-east-1",
-    )
+    return boto3.client("s3", region_name=REGION)
 
 
-def read_bronze(bucket: str = "bronze") -> pd.DataFrame:
-    s3 = _s3()
-    keys = sorted(
+def _keys(s3, bucket: str, start: date | None, end: date | None) -> list[str]:
+    if start is None and end is None:
+        prefixes = [PREFIX]
+    else:
+        start, end = start or end, end or start
+        prefixes = [f"{PREFIX}ingest_date={start + timedelta(days=n)}/" for n in range((end - start).days + 1)]
+    return sorted(  # keys sort by ingest time
         o["Key"]
-        for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=PREFIX)
+        for prefix in prefixes
+        for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix)
         for o in page.get("Contents", [])
         if o["Key"].endswith("snapshot.json.gz")
     )
+
+
+def read_bronze(bucket: str = BUCKET, start: date | None = None, end: date | None = None, s3=None) -> pd.DataFrame:
+    s3 = s3 or _s3()
     frames = []
-    for i, key in enumerate(keys):
+    for i, key in enumerate(_keys(s3, bucket, start, end)):
         body = json.loads(gzip.decompress(s3.get_object(Bucket=bucket, Key=key)["Body"].read()))
         df = pd.DataFrame(body["response"]["body"]["items"])
-        df["snapshot"] = i  # keys sort by ingest time
+        df["snapshot"] = i
         frames.append(df)
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
@@ -81,10 +86,10 @@ def to_silver(df: pd.DataFrame) -> pd.DataFrame:
     return out.drop(columns=["mesure_dt", "snapshot"]).sort_values(STACK + ["item", "ts_kst"]).reset_index(drop=True)
 
 
-def build(silver_dir: Path, bucket: str = "bronze") -> Path:
-    # ponytail: full rebuild from every snapshot, partition by month once reads get slow (~144 snapshots/day)
-    silver = to_silver(read_bronze(bucket))
-    out = silver_dir / "ktms" / "part.parquet"
+def build(silver_dir: Path, bucket: str = BUCKET, start: date | None = None, end: date | None = None) -> Path:
+    silver = to_silver(read_bronze(bucket, start, end))
+    name = "part.parquet" if start is None and end is None else f"part_{start or end}_{end or start}.parquet"
+    out = silver_dir / "ktms" / name
     out.parent.mkdir(parents=True, exist_ok=True)
     silver.to_parquet(out, index=False)
     print(f"ktms: {len(silver):,} rows, {silver[STACK].drop_duplicates().shape[0]} stacks, status={silver['status'].value_counts().to_dict()}")
@@ -94,7 +99,11 @@ def build(silver_dir: Path, bucket: str = "bronze") -> Path:
 def main() -> None:
     p = argparse.ArgumentParser(description="K-TMS bronze snapshots -> silver parquet")
     p.add_argument("--silver-dir", type=Path, default=Path("data/silver"))
-    build(p.parse_args().silver_dir)
+    p.add_argument("--bucket", default=BUCKET)
+    p.add_argument("--start-date", type=date.fromisoformat, help="first ingest_date (YYYY-MM-DD); omit both dates to read everything")
+    p.add_argument("--end-date", type=date.fromisoformat, help="last ingest_date (inclusive)")
+    args = p.parse_args()
+    build(args.silver_dir, args.bucket, args.start_date, args.end_date)
 
 
 if __name__ == "__main__":

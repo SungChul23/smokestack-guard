@@ -42,6 +42,59 @@ class KtmsSilverTests(unittest.TestCase):
         self.assertEqual(out.iloc[0]["status"], "not_monitored")
         self.assertTrue(pd.isna(out.iloc[0]["ratio"]))
 
+    @staticmethod
+    def fake_s3(snapshots):
+        import gzip
+        import json
+
+        class Paginator:
+            def paginate(self, Bucket, Prefix):
+                yield {"Contents": [{"Key": k} for k in sorted(snapshots) if k.startswith(Prefix)]}
+
+        class Client:
+            def get_paginator(self, name):
+                return Paginator()
+
+            def get_object(self, Bucket, Key):
+                body = gzip.compress(json.dumps({"response": {"body": {"items": snapshots[Key]}}}).encode())
+                return {"Body": type("B", (), {"read": lambda self: body})()}
+
+        return Client()
+
+    def test_read_bronze_reads_only_the_ingest_date_range(self):
+        from datetime import date
+
+        def key(day, hour):
+            return f"tms_cleansys/ingest_date={day}/hour={hour:02d}/run_ts={day}T{hour:02d}0000Z/snapshot.json.gz"
+
+        stack = {"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "mesure_dt": "2026-11-02 12:30"}
+        s3 = self.fake_s3({
+            key("2026-11-01", 1): [stack | {"nox_mesure_value": "1"}],
+            key("2026-11-02", 1): [stack | {"nox_mesure_value": "2"}],
+            key("2026-11-02", 2): [stack | {"nox_mesure_value": "3"}],
+            key("2026-11-03", 1): [stack | {"nox_mesure_value": "4"}],
+            "tms_cleansys/ingest_date=2026-11-02/hour=01/run_ts=x/snapshot.meta.json": [],
+        })
+        df = ktms.read_bronze("b", date(2026, 11, 2), date(2026, 11, 2), s3=s3)
+        self.assertEqual(df["nox_mesure_value"].tolist(), ["2", "3"])
+        self.assertEqual(df["snapshot"].tolist(), [0, 1])
+        self.assertEqual(len(ktms.read_bronze("b", s3=s3)), 4)
+        self.assertEqual(len(ktms.read_bronze("b", date(2026, 11, 2), s3=s3)), 2)
+        self.assertTrue(ktms.read_bronze("b", date(2026, 11, 4), s3=s3).empty)
+
+    def test_later_snapshot_wins_when_dates_are_split(self):
+        from datetime import date
+
+        stack = {"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "mesure_dt": "2026-11-02 12:30",
+                 "nox_exhst_perm_stdr_value": "50"}
+        s3 = self.fake_s3({
+            "tms_cleansys/ingest_date=2026-11-02/hour=04/run_ts=a/snapshot.json.gz": [stack | {"nox_mesure_value": "측정자료확인중"}],
+            "tms_cleansys/ingest_date=2026-11-02/hour=05/run_ts=b/snapshot.json.gz": [stack | {"nox_mesure_value": "25"}],
+        })
+        out = ktms.to_silver(ktms.read_bronze("b", date(2026, 11, 2), date(2026, 11, 2), s3=s3))
+        self.assertEqual(out.iloc[0]["status"], "ok")
+        self.assertEqual(out.iloc[0]["ratio"], 0.5)
+
 
 if __name__ == "__main__":
     unittest.main()
