@@ -41,7 +41,7 @@
 - [x] T014 [US2] 모델 대상 선택 `ok` · `nox`/`sox` · `ppm` `ml_ready.py`
 - [x] T015 [US2] 단위 테스트 (정답 방향, 빈 구간 비연결, 추세 값, 현지 시각, 대상 선택) `tests/test_silver.py`
 - [x] T016 [US2] 36개월 ML-ready 생성 (1,769만 행, 학습 가능 양성 135,978행)
-- [x] T017 [US2] 실데이터에서 Feature가 미래 값을 쓰지 않았는지 표본 검증 (SC-003): 1,000행 일치, [monthly-counts.md](monthly-counts.md)
+- [x] T017 [US2] 실데이터에서 Feature가 미래 값을 쓰지 않았는지 표본 검증 (SC-003): 1,000행 중 999행 일치, 1행은 부동소수점 오차(1.6e-6), [monthly-counts.md](monthly-counts.md)
 - [x] T018 [US2] 정답이 t+60 실측과 일치하는지 표본 1,000행 대조 (SC-004): 1,000행 일치
 - [x] T019 [US2] 월별 양성 수 기록 (SC-006): [monthly-counts.md](monthly-counts.md)
 - [x] T020 [US2] 도은 님과 Feature 목록·정답·제외 조건 승인, 학습 입력 확인 (SC-008): 도은 님 확인(문제 없음)
