@@ -154,7 +154,9 @@ src/smokestack_guard/silver/ml_ready.py  # C의 코드. 읽기만 (상수 import
     - `ratio_rolling_mean_1h` 8.24e-13, `ratio_rolling_mean_3h` 2.27e-13
     - `hour_sin`, `month_sin` 1.11e-16
     - 나머지 컬럼은 차이 0
+- **Athena 조회 (SC-006)**: item별 행 수·학습 가능 행·양성이 build 기록과 같다.
+  - nox 9,806,850 / 5,477,876 / 106,941
+  - sox 7,836,511 / 4,380,693 / 26,785
 - **남은 확인**
-  - build 재실행(SC-004)
-  - Athena 조회(SC-006)
+  - build 재실행(SC-004, 선택)
   - E 확인(SC-008)

@@ -266,7 +266,7 @@ description: "005 TW CEMS ML-ready Spark 이식 작업 목록"
     - timestamp: 3번
   - 설명: "읽기 전에 silver/_runs/tw_cems_ml_ready/latest.json 존재 확인"
   - T016 검증을 다시 실행한다.
-- [ ] T022 🧑 [US3] Athena(`tms-eda`)에서 quickstart §6을 실행한다.
+- [X] T022 🧑 [US3] Athena(`tms-eda`)에서 quickstart §6을 실행한다.
   - 건수가 실행 기록과 같은지 확인한다(SC-006).
   - 2023-12-01 06:30 행의 `ratio_lag_30m`이 null인지 확인한다.
   - `aws s3 ls --summarize`로 파일 수 6개, 각 128~256MB인지 확인한다(SC-005). 결과를 `plan.md`에 적는다.
