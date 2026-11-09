@@ -1,0 +1,9 @@
+item,fact_manage_nm,stack_code,n_valid,mean,std,phi,p50,p99,max_pct,perm_std,perm_distinct,items_measured,stats_version
+NOX,사업장A,1,300,30,8,0.8,28,60,70,100,1,NOX,provisional
+NOX,사업장B,1,300,25,0,0.8,25,25,25,100,1,NOX,provisional
+NOX,사업장C,1,100,30,8,0.8,28,60,70,100,1,NOX,provisional
+NOX,사업장D,1,300,30,8,0.8,28,60,70,100,2,NOX,provisional
+SOX,사업장E,1,300,70,10,0.9,70,95,110,100,1,SOX,provisional
+SOX,사업장F,1,300,30,8,,28,60,70,100,1,SOX,provisional
+NOX,사업장G,1,300,20,5,0.6,19,45,50,100,1,NOX,provisional
+NOX,사업장H,1,300,58,6,0.7,58,70,75,100,1,NOX,provisional
