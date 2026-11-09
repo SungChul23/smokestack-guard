@@ -1,6 +1,10 @@
 """학습 모델과 호출자가 제공한 평가·메타데이터의 로컬 저장·복원."""
 
 import json
+import os
+import shutil
+import sys
+import tempfile
 from datetime import date, datetime, time
 from math import isfinite
 from pathlib import Path
@@ -44,12 +48,35 @@ def _json_value(value):
     raise TypeError(f"JSON 저장을 지원하지 않는 타입: {type(value).__name__}")
 
 
+def _publish_directory(source: Path, destination: Path) -> None:
+    """동일 파일시스템에서 기존 경로를 대체하지 않는 원자적 이동을 수행한다."""
+    if os.name == "nt":
+        # Windows rename은 목적지가 이미 존재하면 실패한다.
+        source.rename(destination)
+    elif sys.platform == "linux":
+        # 일반 POSIX rename은 빈 디렉터리를 덮어쓸 수 있어 NOREPLACE를 사용한다.
+        import ctypes
+        import errno
+
+        libc = ctypes.CDLL(None, use_errno=True)
+        rename = getattr(libc, "renameat2", None)
+        if rename is None:
+            raise OSError(errno.ENOTSUP, "원자적 비덮어쓰기 renameat2를 지원하지 않습니다")
+        rename.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+        rename.restype = ctypes.c_int
+        if rename(-100, os.fsencode(source), -100, os.fsencode(destination), 1) != 0:
+            error = ctypes.get_errno()
+            raise OSError(error, os.strerror(error), str(destination))
+    else:
+        raise NotImplementedError("원자적 비덮어쓰기 저장은 Windows와 Linux에서 지원합니다")
+
+
 def save_artifacts(model, model_id, metrics, metadata, output_dir) -> dict:
     """새 모델 디렉터리에 결과를 저장하고 세 파일의 Path를 반환한다.
 
     기존 model_id 경로가 있으면 FileExistsError로 중단한다.
-    저장 도중 I/O·직렬화 실패 시 오류를 전달하며 부분 결과는 남을 수 있다.
-    재시도 시에도 기존 디렉터리를 덮어쓰거나 자동 삭제하지 않는다.
+    같은 부모의 임시 디렉터리에 모두 저장한 후 원자적으로 공개한다.
+    실패 시 임시 결과만 정리하고 원래 오류를 전달한다. 기존 결과는 유지한다.
     """
     if model_id not in MODEL_IDS:
         raise ValueError(f"지원하지 않는 model_id: {model_id!r}")
@@ -62,19 +89,30 @@ def save_artifacts(model, model_id, metrics, metadata, output_dir) -> dict:
         "metadata": json.dumps(_json_value(metadata), ensure_ascii=False, indent=2, allow_nan=False),
     }
     directory = Path(output_dir) / model_id
-    directory.mkdir(parents=True, exist_ok=False)
+    if directory.exists() or directory.is_symlink():
+        raise FileExistsError(f"기존 모델 결과 경로를 덮어쓸 수 없습니다: {directory}")
+    directory.parent.mkdir(parents=True, exist_ok=True)
     paths = {
         "model": directory / "model.joblib",
         "metrics": directory / "metrics.json",
         "metadata": directory / "metadata.json",
     }
 
-    # 배타적 생성 모드로 기존 파일의 덮어쓰기를 한 번 더 방지한다.
-    with paths["model"].open("xb") as stream:
-        joblib.dump(model, stream, compress=3)
-    for name, content in json_contents.items():
-        with paths[name].open("x", encoding="utf-8") as stream:
-            stream.write(content + "\n")
+    temporary = Path(tempfile.mkdtemp(prefix=f".{model_id}-", dir=directory.parent))
+    try:
+        with (temporary / "model.joblib").open("xb") as stream:
+            joblib.dump(model, stream, compress=3)
+        for name, content in json_contents.items():
+            with (temporary / paths[name].name).open("x", encoding="utf-8") as stream:
+                stream.write(content + "\n")
+        _publish_directory(temporary, directory)
+    except BaseException as original:
+        try:
+            shutil.rmtree(temporary)
+        except OSError as cleanup_error:
+            # 정리 오류가 저장 실패의 원래 예외를 덮어쓰지 않도록 한다.
+            original.add_note(f"임시 디렉터리 정리 실패: {temporary}: {cleanup_error}")
+        raise
     return paths
 
 
