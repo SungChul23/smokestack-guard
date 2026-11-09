@@ -43,7 +43,7 @@ aws s3 ls s3://smokestack-tms-raw-952900391026/silver/tw_cems_ml_ready/ --summar
 기대 결과:
 - `SUCCEEDED`
 - `silver_rows` = 80,359,440
-- `output_rows` ≈ 1,769만
+- `output_rows` = 17,643,361
 - `duplicate_keys` = 0
 - 파일 6개, 각 128~256MB
 
@@ -57,7 +57,8 @@ uv run --python 3.11 --with boto3 python run_ml_ready.py --mode compare
 - `passed: true`
 - `only_ours = only_theirs = 0`
 - 모든 컬럼 불일치가 0
-- build 기록의 `eligible_positive_rows`가 135,978
+- build 기록의 `eligible_positive_rows`가 133,726
+- `max_abs_diff.ratio_rolling_std_3h`가 1e-5 미만
 
 불일치가 있으면 `compare/<run_ts>.json`의 `column_mismatches`와 `mismatch_samples`로 어느 컬럼, 어느 키인지 확인한다.
 

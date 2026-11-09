@@ -43,3 +43,27 @@ python run_silver.py --only-missing                          # 실행 기록이 
 
 - 실행 기록의 `versions.pandas`가 `missing`이 아니다. `tw_cems.py` import용으로만 필요하다. `missing`이면 Job 인자에 `--additional-python-modules pandas`를 추가한다.
 - 로그에 `ListBucket` `AccessDenied`가 없다. 거부되면 로그에 찍힌 접두어만 역할 정책의 `ListRawScoped`에 추가한다. 쓰기 권한은 넓히지 않는다.
+
+## ML-ready (005)
+
+Silver(`silver/tw_cems/`) 36개월 전체를 읽어 학습용 35컬럼 ML-ready(`silver/tw_cems_ml_ready/`)를 만든다.
+- 규칙의 기준은 C의 `src/smokestack_guard/silver/ml_ready.py`(pandas)다. Spark 구현은 `ml_ready_spark.py`이고, 상수는 그 모듈에서 가져온다.
+- 빈 슬롯을 건너뛰지 않도록 `lag()` 대신 30분 슬롯 번호 위의 범위 윈도우(`rangeBetween`)로 계산한다.
+- spec·plan: [`specs/a-platform/005-tw-cems-ml-ready-spark/`](../../specs/a-platform/005-tw-cems-ml-ready-spark/)
+
+| 파일 | 하는 일 |
+|---|---|
+| `ml_ready_spark.py` | 규칙(정규화, 피처, 라벨), 정답지 읽기, 결과 비교 |
+| `glue_tw_cems_ml_ready.py` | Glue 진입 스크립트. `--mode build`(생성) / `--mode compare`(정답지와 35컬럼 비교) |
+| `run_ml_ready.py` | 사람이 실행하는 명령. 1회 실행 후 실행 기록·비용 출력. 자동 재시도 없음 |
+
+테스트(`tests/test_ml_ready_spark.py`)는 같은 가짜 Silver에 pandas `to_ml_ready`를 돌린 결과와 35컬럼을 비교한다. C의 `ml_ready.py`가 바뀌면 CI에서 차이를 잡는다.
+
+```bash
+python run_ml_ready.py --mode build      # 생성 (기본 파일 6개)
+python run_ml_ready.py --mode compare    # C의 pandas 결과와 비교, passed가 아니면 종료 코드 1
+```
+
+- **읽기 전에 확인:** `s3://smokestack-tms-raw-952900391026/silver/_runs/tw_cems_ml_ready/latest.json`이 있어야 한다. build는 시작할 때 이 파일을 지우고 성공한 뒤에만 쓴다. 없으면 마지막 build가 실패했거나 진행 중이다.
+- 출력은 파티션이 없다. 파일마다 연속된 `measured_at` 구간이 들어 있어, 기간으로 걸러 읽으면 해당 파일만 읽는다.
+- 로컬 테스트는 시간대를 UTC로 고정한다(`tests/conftest.py`). PySpark가 시간대 없는 `datetime`을 PC의 로컬 시간대(KST)로 해석하기 때문이다.

@@ -38,8 +38,8 @@ description: "005 TW CEMS ML-ready Spark 이식 작업 목록"
 
 ## Phase 1: Setup
 
-- [ ] T001 `services/tms-silver/pyproject.toml`의 `[tool.setuptools] py-modules`에 `ml_ready_spark`, `glue_tw_cems_ml_ready`, `run_ml_ready`를 추가한다. 다른 줄은 바꾸지 않는다.
-- [ ] T002 [P] `services/tms-silver/tests/ml_ready_cases.py`를 만든다. **가짜** Silver(pandas DataFrame)를 만드는 함수 `build_silver() -> pd.DataFrame`이다.
+- [X] T001 `services/tms-silver/pyproject.toml`의 `[tool.setuptools] py-modules`에 `ml_ready_spark`, `glue_tw_cems_ml_ready`, `run_ml_ready`를 추가한다. 다른 줄은 바꾸지 않는다.
+- [X] T002 [P] `services/tms-silver/tests/ml_ready_cases.py`를 만든다. **가짜** Silver(pandas DataFrame)를 만드는 함수 `build_silver() -> pd.DataFrame`이다.
   - 컬럼: Silver 13개(`area_nm`, `fact_manage_nm`, `stack_code`, `item`, `unit`, `value`, `limit`, `status`, `ts_kst`, `ratio`, `ts_local`, `code2`, `flag_code_ratio_mismatch`). `ts_kst = ts_local + 1시간`
   - 굴뚝·항목 시리즈마다 담을 사례(모듈 독스트링에 표로 적는다):
     1. **며칠짜리 공백**: 2023-11-27 14:00~16:30 연속 → 공백 → 2023-12-01 06:30~10:00 연속 (2023-11 원본 공백을 줄인 형태, Athena 확인)
@@ -51,7 +51,7 @@ description: "005 TW CEMS ML-ready Spark 이식 작업 목록"
     7. **고르기에서 빠져야 할 행**: `status = other_code`, `item = co`, `unit = %`인 행 몇 개
     8. 같은 시리즈를 `nox`와 `sox` 두 항목으로 둠
   - 값은 손으로 정한 소수(예: `ratio` 0.8512)를 쓴다. 실제 원본 값을 쓰지 않는다.
-- [ ] T003 [P] `services/tms-silver/tests/conftest.py`에 fixture `ml_ready_silver_pdf`(T002의 DataFrame)와 `ml_ready_silver_df`(같은 내용의 Spark DataFrame)를 추가한다. `ts_local`·`ts_kst`는 timestamp, `value`·`limit`·`ratio`는 double이다. 기존 fixture는 바꾸지 않는다.
+- [X] T003 [P] `services/tms-silver/tests/conftest.py`에 fixture `ml_ready_silver_pdf`(T002의 DataFrame)와 `ml_ready_silver_df`(같은 내용의 Spark DataFrame)를 추가한다. `ts_local`·`ts_kst`는 timestamp, `value`·`limit`·`ratio`는 double이다. 기존 fixture는 바꾸지 않는다.
 
 ---
 
@@ -59,7 +59,7 @@ description: "005 TW CEMS ML-ready Spark 이식 작업 목록"
 
 **Purpose**: 결과 비교 함수. US2 테스트와 US1의 `compare` 모드가 함께 쓴다.
 
-- [ ] T004 `services/tms-silver/ml_ready_spark.py`에 `compare(ours: DataFrame, theirs: DataFrame, abs_tol=1e-9, rel_tol=1e-9, samples=5) -> dict`를 만든다(data-model.md §4 compare 필드).
+- [X] T004 `services/tms-silver/ml_ready_spark.py`에 `compare(ours: DataFrame, theirs: DataFrame, abs_tol=1e-9, rel_tol=1e-9, samples=5) -> dict`를 만든다(data-model.md §4 compare 필드).
   - 키는 (`stack_code`, `item_code`, `measured_at`)이고 full outer join한다.
   - 반환값
     - `ours_rows`, `theirs_rows`
@@ -85,7 +85,7 @@ description: "005 TW CEMS ML-ready Spark 이식 작업 목록"
 
 ### Tests for User Story 2
 
-- [ ] T005 [P] [US2] `services/tms-silver/tests/test_ml_ready_spark.py`를 작성한다.
+- [X] T005 [P] [US2] `services/tms-silver/tests/test_ml_ready_spark.py`를 작성한다.
   1. **pandas와 일치**
      - `ml_ready.to_ml_ready(ml_ready_silver_pdf)`를 Spark DataFrame으로 만든다(타입은 data-model.md §2).
      - `ml_ready_spark.to_ml_ready(ml_ready_silver_df)`와 `compare` → `passed: true`
@@ -106,7 +106,7 @@ description: "005 TW CEMS ML-ready Spark 이식 작업 목록"
      - `stack_code = area_nm|fact_manage_nm|stack_code`
      - `unit` 조건 없이 고른다.
   9. **중복 키**: 같은 키 2행을 넣으면 `duplicate_keys = 1`이고, `ratio_pct`가 작은 행이 남는다.
-- [ ] T006 [P] [US2] `services/tms-silver/tests/test_ml_ready_spark.py`에 `compare` 테스트를 추가한다.
+- [X] T006 [P] [US2] `services/tms-silver/tests/test_ml_ready_spark.py`에 `compare` 테스트를 추가한다.
   - 같은 것끼리 비교하면 `passed: true`
   - 한 값을 1e-6만큼 바꾸면 그 컬럼 불일치가 1이고 `mismatch_samples`에 키 1개가 있다.
   - 키 하나를 지우면 `only_theirs = 1`이다.
@@ -114,7 +114,7 @@ description: "005 TW CEMS ML-ready Spark 이식 작업 목록"
 
 ### Implementation for User Story 2
 
-- [ ] T007 [US2] `services/tms-silver/ml_ready_spark.py`에 규칙을 구현한다(research.md R1·R2·R3).
+- [X] T007 [US2] `services/tms-silver/ml_ready_spark.py`에 규칙을 구현한다(research.md R1·R2·R3).
   - import: `from smokestack_guard.silver.ml_ready import COLUMNS, ENTRY_PCT, ML_ITEMS, WINDOW, LAGS, FEATURE_VERSION, LABEL_VERSION, QUALITY_POLICY_VERSION`
     - 숫자 90, 6, [30…150], `v1`을 다시 쓰지 않는다.
     - slope 가중치와 분모는 `WINDOW`로 계산한다.
@@ -138,7 +138,7 @@ description: "005 TW CEMS ML-ready Spark 이식 작업 목록"
     - 건수: `output_rows`, `feature_valid_rows`, `classification_eligible_rows`, `regression_eligible_rows`, `positive_rows`, `eligible_positive_rows`
     - `by_item`
   - 모듈 독스트링에 "규칙의 기준은 C의 `ml_ready.py`. 의미를 바꾸지 말 것. 바뀌면 `tests/test_ml_ready_spark.py`가 잡는다"를 적는다.
-- [ ] T008 [US2] 로컬에서 T005·T006을 실행해 모두 통과시킨다.
+- [X] T008 [US2] 로컬에서 T005·T006을 실행해 모두 통과시킨다.
   - 불일치가 나면 R2 표와 pandas 코드를 대조해 Spark 쪽을 고친다.
   - pandas 쪽(C의 코드)은 고치지 않는다.
   - 이동 표준편차 차이가 허용 오차를 넘으면 그 값과 원인을 `research.md` R5에 기록하고 사용자에게 알린다.
@@ -157,7 +157,7 @@ description: "005 TW CEMS ML-ready Spark 이식 작업 목록"
 
 ### Tests for User Story 1
 
-- [ ] T009 [P] [US1] `services/tms-silver/tests/test_glue_tw_cems_ml_ready.py`를 작성한다. 로컬 모드이고 `tmp_path`를 쓴다.
+- [X] T009 [P] [US1] `services/tms-silver/tests/test_glue_tw_cems_ml_ready.py`를 작성한다. 로컬 모드이고 `tmp_path`를 쓴다.
   1. **build 정상**
      - T002 Silver를 `year=/month=` 파티션으로 써 두고 `--mode build --files 3`을 실행한다.
      - Parquet 3개가 생기고, 파일별 `measured_at` 최소·최대 구간이 겹치지 않는다.
@@ -173,7 +173,7 @@ description: "005 TW CEMS ML-ready Spark 이식 작업 목록"
      - pandas `to_ml_ready` 결과를 `to_parquet`으로 쓴 정답지(타임스탬프 ns 그대로)로 `--mode compare`를 실행한다.
      - `compare/<ts>.json`에 `passed: true`가 있고, `theirs_measured_at_type`이 기록된다.
   5. **로그에 값 없음**: 출력에 fixture의 `ratio` 값 문자열이 없다.
-- [ ] T010 [P] [US1] `services/tms-silver/tests/test_run_ml_ready.py`를 작성한다. boto3 가짜 객체를 쓴다.
+- [X] T010 [P] [US1] `services/tms-silver/tests/test_run_ml_ready.py`를 작성한다. boto3 가짜 객체를 쓴다.
   - build 성공 시 `latest.json`의 건수를 출력하고 0으로 끝난다.
   - compare `passed: false`면 1로 끝나고 불일치 컬럼을 출력한다.
   - Job `FAILED`면 1로 끝난다.
@@ -182,7 +182,7 @@ description: "005 TW CEMS ML-ready Spark 이식 작업 목록"
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] `services/tms-silver/glue_tw_cems_ml_ready.py`를 작성한다(contracts/run-interface.md §1, R4·R6·R7).
+- [X] T011 [US1] `services/tms-silver/glue_tw_cems_ml_ready.py`를 작성한다(contracts/run-interface.md §1, R4·R6·R7).
   - `awsglue`를 import하지 않는다. `parse_known_args`를 쓴다. 인자는 계약표 그대로이고, `--files`는 1~32다.
   - Spark 설정: `spark.sql.session.timeZone=UTC`, `spark.sql.parquet.outputTimestampType=TIMESTAMP_MICROS`
   - build
@@ -196,11 +196,11 @@ description: "005 TW CEMS ML-ready Spark 이식 작업 목록"
     - `measured_at`이 long이면 `timestamp_micros(col / 1000)`으로 바꾼다. 원래 타입 문자열을 기록한다.
     - `ml_ready_spark.compare(output, reference)` → `compare/<run_ts>.json`
   - 요약 한 줄을 `print`한다(경로, 건수, `passed`, 소요 초). 값은 출력하지 않는다.
-- [ ] T012 [US1] `services/tms-silver/run_ml_ready.py`를 작성한다(contracts/run-interface.md §2).
+- [X] T012 [US1] `services/tms-silver/run_ml_ready.py`를 작성한다(contracts/run-interface.md §2).
   - `run_silver`에서 `estimate_cost`, `_log`, `POLL_SECONDS`, `FAILED_STATES`, `SUCCEEDED`를 import한다.
   - Job 이름 기본값은 `tms-silver-tw-cems-ml-ready`다. `--mode`, `--files`를 Job 인자로 넘긴다.
   - 끝나면 실행 기록(`latest.json` 또는 가장 최근 `compare/*.json`)을 읽어 출력한다.
-- [ ] T013 [US1] `infra/stacks/tms-silver/main.tf`에 ML-ready 역할을 추가한다(plan "부여 권한", R9). 004 리소스는 바꾸지 않는다.
+- [X] T013 [US1] `infra/stacks/tms-silver/main.tf`에 ML-ready 역할을 추가한다(plan "부여 권한", R9). 004 리소스는 바꾸지 않는다.
   - `aws_iam_role.ml_ready`: 이름 `tms-glue-silver-ml-ready`, 설명(ASCII) `"TW CEMS ML-ready Glue job role (silver/tw_cems read, silver/tw_cems_ml_ready write)"`
   - `AWSGlueServiceRole`을 부착한다.
   - `aws_iam_role_policy.ml_ready_data`(이름 `tms-glue-silver-ml-ready-data`). sid는 고정한다.
@@ -213,7 +213,7 @@ description: "005 TW CEMS ML-ready Spark 이식 작업 목록"
     - `ListReference`: 정답지 버킷, prefix `ml_ready/*`
     - `ReadReference`: Get `arn:aws:s3:::smokestack-cems-local-eda-952900391026/ml_ready/*`
   - 확인할 것: `silver/tw_cems/*`에 Put·Delete가 없고, `bronze/`·`tms_cleansys/` 권한이 없다.
-- [ ] T014 [US1] `infra/stacks/tms-silver/main.tf`에 업로드 2개와 Job을 추가한다.
+- [X] T014 [US1] `infra/stacks/tms-silver/main.tf`에 업로드 2개와 Job을 추가한다.
   - `aws_s3_object.ml_ready_module`: `ops/glue-scripts/ml_ready_spark.py`
   - `aws_s3_object.ml_ready_script`: `ops/glue-scripts/glue_tw_cems_ml_ready.py`
   - 둘 다 `etag = filemd5(...)`
@@ -225,22 +225,22 @@ description: "005 TW CEMS ML-ready Spark 이식 작업 목록"
       - `--mode = "build"`, `--bucket`, `--source_prefix = "silver/tw_cems"`, `--table_prefix = "silver/tw_cems_ml_ready"`, `--runs_prefix = "silver/_runs/tw_cems_ml_ready"`, `--files = "6"`
       - `--reference = var.ml_ready_reference`, `--package_md5`
       - 공통 로그·지표 인자는 004 Job과 같다. `--TempDir`은 넣지 않는다.
-- [ ] T015 [P] [US1] `infra/stacks/tms-silver/variables.tf`와 `outputs.tf`를 수정한다.
+- [X] T015 [P] [US1] `infra/stacks/tms-silver/variables.tf`와 `outputs.tf`를 수정한다.
   - 변수(`description`·`type`·기본값 필수)
     - `ml_ready_worker_count` = 10 (2~10 검증)
     - `ml_ready_reference` = `"s3://smokestack-cems-local-eda-952900391026/ml_ready/part.parquet"`
   - 출력: `ml_ready_job_name`, `ml_ready_role_arn`, `ml_ready_location`
-- [ ] T016 [US1] 로컬 검증(에이전트)
+- [X] T016 [US1] 로컬 검증(에이전트)
   - `pytest -q`(전체), `ruff check .`
   - `terraform fmt -recursive infra/`, `terraform.exe -chdir=infra/stacks/tms-silver validate`
   - **plan은 실행하지 않는다**(사용자 결정).
   - 사용자에게 `plan`에서 확인할 점을 정리해 준다: 생성만 있고 004 리소스 변경 0, 업로드 2개.
 - [ ] T017 🧑 [US1] 사용자가 PowerShell에서 `terraform plan` → `apply`를 실행한다.
-- [ ] T018 🧑 [US1] build 실행(quickstart §3)
+- [X] T018 🧑 [US1] build 실행(quickstart §3)
   - `run_ml_ready.py --mode build`
   - 실행 기록(`latest.json`)과 파일 목록을 받아 `plan.md`의 "실행 결과" 절에 기록한다.
   - 실측 시간·비용으로 R8을 고친다.
-- [ ] T019 🧑 [US1] compare 실행(quickstart §4)
+- [X] T019 🧑 [US1] compare 실행(quickstart §4)
   - `run_ml_ready.py --mode compare`
   - `passed: true`, `eligible_positive_rows = 135,978`을 확인한다.
   - 불일치가 있으면 `mismatch_samples`의 키로 원인을 찾고, 결과를 기록한다.
@@ -256,7 +256,7 @@ description: "005 TW CEMS ML-ready Spark 이식 작업 목록"
 
 **Independent Test**: Athena 건수가 실행 기록과 같고, 파일 크기가 범위 안이다.
 
-- [ ] T021 [US3] `infra/stacks/tms-silver/main.tf`에 `aws_glue_catalog_table.tw_cems_ml_ready`를 추가한다(T013·T014 뒤, 같은 파일).
+- [X] T021 [US3] `infra/stacks/tms-silver/main.tf`에 `aws_glue_catalog_table.tw_cems_ml_ready`를 추가한다(T013·T014 뒤, 같은 파일).
   - DB `tms_silver`, `EXTERNAL_TABLE`, **파티션 없음**
   - `location = "s3://…/silver/tw_cems_ml_ready/"`, Parquet SerDe(004 테이블과 같은 형식)
   - 컬럼 35개를 data-model.md §2 순서·타입 그대로 정의한다.
@@ -280,14 +280,14 @@ description: "005 TW CEMS ML-ready Spark 이식 작업 목록"
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T024 [P] `services/tms-silver/README.md`에 "ML-ready" 절을 추가한다.
+- [X] T024 [P] `services/tms-silver/README.md`에 "ML-ready" 절을 추가한다.
   - 무엇을 하는지
   - 로컬 테스트
   - `run_ml_ready.py` build·compare 사용법
   - `latest.json` 의미
   - 규칙 기준은 C의 `ml_ready.py`라는 점
-- [ ] T025 [P] `.github/workflows/tms-silver.yml`이 새 테스트까지 도는지 확인한다(`paths`에 `services/tms-silver/**`, `src/smokestack_guard/silver/**`가 이미 있음). 바꿀 필요가 없으면 바꾸지 않는다.
-- [ ] T026 최종 확인(에이전트)
+- [X] T025 [P] `.github/workflows/tms-silver.yml`이 새 테스트까지 도는지 확인한다(`paths`에 `services/tms-silver/**`, `src/smokestack_guard/silver/**`가 이미 있음). 바꿀 필요가 없으면 바꾸지 않는다.
+- [X] T026 최종 확인(에이전트)
   - T016을 다시 실행한다.
   - `git diff --stat main...HEAD -- src/` 결과에 이 기능의 변경이 없는지 확인한다. #28 브랜치의 변경만 있어야 한다.
   - `tasks.md` 체크 상태를 갱신한다.

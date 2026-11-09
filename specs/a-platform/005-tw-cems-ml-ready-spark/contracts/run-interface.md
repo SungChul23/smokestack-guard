@@ -34,7 +34,10 @@
 
 ### compare 순서
 1. 출력(`table_prefix`)과 `reference`를 읽는다. 정답지 `measured_at`이 정수(ns)면 timestamp로 바꾼다.
-2. 키로 full outer join → 한쪽에만 있는 키 수, 컬럼별 불일치 수(허용 오차 abs 1e-9 + rel 1e-9, null = null)를 계산한다.
+2. 키로 full outer join한다. 계산하는 것은 다음과 같다.
+   - 한쪽에만 있는 키 수
+   - 컬럼별 불일치 수: 허용 오차 abs 1e-9 + rel 1e-9, null = null. `ratio_rolling_std_3h`만 abs 1e-5
+   - 숫자 컬럼별 최대 차이
 3. `runs_prefix/compare/<run_ts>.json`을 쓴다. 불일치가 있어도 Job은 성공으로 끝나고, `passed: false`로 남긴다.
 
 **로그**: 경로, 건수, 버전, 소요 시간만 남긴다. 피처·라벨 값은 남기지 않는다.

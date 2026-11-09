@@ -6,7 +6,7 @@
 
 - 위치: `s3://smokestack-tms-raw-952900391026/silver/tw_cems/` (36개 월 파티션, 80,359,440행)
 - 읽는 컬럼: `stack_code`, `item`, `unit`, `status`, `value`, `limit`, `ratio`, `ts_local`
-- 대상 선택: `status = 'ok'` and `item in ('nox','sox')` and `unit = 'ppm'` → 약 1,769만 행
+- 대상 선택: `status = 'ok'` and `item in ('nox','sox')` and `unit = 'ppm'` → 17,643,361행 (2026-11-09 실행)
 
 ## 2. 출력: tw_cems_ml_ready
 
@@ -89,7 +89,8 @@
 | `only_ours`, `only_theirs` | 한쪽에만 있는 키 수 |
 | `column_mismatches` | 컬럼별 불일치 행 수 (35개 키, 키 컬럼 제외 32개) |
 | `mismatch_samples` | 컬럼별 최대 5개 키 (값은 남기지 않음) |
-| `tolerance` | `abs 1e-9, rel 1e-9` |
+| `max_abs_diff` | 숫자 컬럼별 \|ours − theirs\|의 최댓값 (차이의 크기만, 값 자체는 아님) |
+| `tolerance` | `abs 1e-9, rel 1e-9`, 컬럼별 `column_abs` (`ratio_rolling_std_3h`: 1e-5) |
 | `theirs_measured_at_type` | 정답지 `measured_at`의 원래 Parquet 타입 |
 | `passed` | `only_* = 0`이고 모든 컬럼 불일치가 0 |
 
