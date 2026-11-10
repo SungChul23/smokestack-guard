@@ -82,14 +82,19 @@ services/
 smokestack-tms-raw-952900391026/
 ├── tms_cleansys/                 # K-TMS 수집 원본 (수집 Lambda만 쓴다)
 ├── bronze/<출처>/                # 원본 (예: bronze/tw_cems/historical/YYYY-MM.jsonl)
+├── bronze2/<출처>/               # 다시 받은 원본 (예: bronze2/tw_cems/YYYY-MM.jsonl). bronze/는 그대로 둔다
 ├── silver/
 │   ├── <테이블>/year=YYYY/month=MM/   # 예: tw_cems, tw_cems_ml_ready, ktms
 │   └── _runs/<테이블>/YYYY-MM.json    # 월 실행 기록
+├── silver2/                      # bronze2로 만든 Silver. TW CEMS 공식. 구조는 silver/와 같다
 └── ops/                          # Terraform이 올리는 운영 파일 (Glue 스크립트, 패키지)
 ```
 
 - `bronze/`·`tms_cleansys/`에 쓰는 권한은 수집 주체만 가진다. 원본 버킷에 수명 주기 규칙을 두지 않는다.
-- Silver 경로와 카탈로그 이름을 같게 한다: `silver/<테이블>/` = `tms_silver.<테이블>`.
+- Silver 경로와 카탈로그 이름을 같게 한다: `silver/<테이블>/` = `tms_silver.<테이블>`, `silver2/<테이블>/` = `tms_silver2.<테이블>`.
+- `bronze2/`·`silver2/`는 원본을 다시 받았을 때 기존 것을 덮어쓰지 않고 나란히 만드는 경로다.
+- **TW CEMS의 공식 데이터는 `bronze2/tw_cems/` → `silver2/` (`tms_silver2.*`)다.** 학습·분석은 `tms_silver2.tw_cems`, `tms_silver2.tw_cems_ml_ready`를 쓴다.
+  - `bronze/tw_cems/historical/`과 `silver/tw_cems*`(`tms_silver.tw_cems*`)은 중복 결함이 있는 옛 원본 기준이라 쓰지 않는다. 정리 전까지 보존만 한다. (`specs/a-platform/006-tw-cems-silver2-compare/`)
 - 테이블 이름은 `<출처>[_<용도>]`다.
   - 출처: `tw_cems`(대만 CEMS), `ktms`(국내 CleanSYS). 출처가 다르면 같은 테이블에 섞지 않는다.
   - 용도: 없으면 정제 테이블, `_ml_ready`는 피처·라벨 테이블.

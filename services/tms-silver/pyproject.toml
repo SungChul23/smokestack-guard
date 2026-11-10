@@ -23,7 +23,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["glue_tw_cems_silver", "run_silver"]
+py-modules = ["glue_tw_cems_silver", "run_silver", "ml_ready_spark", "glue_tw_cems_ml_ready", "run_ml_ready"]
 
 [tool.pytest.ini_options]
 # ../../src: C의 smokestack_guard 패키지를 import하기 위해
