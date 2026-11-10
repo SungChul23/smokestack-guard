@@ -26,9 +26,9 @@ description: "Task list for K-TMS Bronze 확정 표지(manifest, _SUCCESS)와 �
 
 ## Phase 1: Setup
 
-- [ ] T001 테스트 환경 `services/tms-collector/pyproject.toml` 작성: `requires-python = ">=3.11"`, `dependencies = []`, dev 의존성 `pytest`, `boto3`(로컬 import용), `[tool.pytest.ini_options] testpaths = ["tests"]`, `pythonpath = ["."]`. 런타임 의존성은 없다(Lambda 내장 boto3).
-- [ ] T002 Lambda zip 제외 목록 `infra/modules/scheduled-collector/main.tf`의 `data "archive_file" "code"` `excludes`에 `"tests/**"`, `"pyproject.toml"`, `"uv.lock"`, `"backfill_markers.py"`, `".pytest_cache/**"`, `".venv/**"` 추가 (research R5). 이유 주석 한 줄.
-- [ ] T003 [P] CI `.github/workflows/tms-collector.yml`: `services/tms-collector/**`, 이 workflow 파일 변경 시 Python 3.13에서 `pip install pytest boto3` 후 `pytest -q` (working-directory `services/tms-collector`). 기존 `.github/workflows/tms-silver.yml` 형식을 따른다.
+- [X] T001 테스트 환경 `services/tms-collector/pyproject.toml` 작성: `requires-python = ">=3.11"`, `dependencies = []`, dev 의존성 `pytest`, `boto3`(로컬 import용), `[tool.pytest.ini_options] testpaths = ["tests"]`, `pythonpath = ["."]`. 런타임 의존성은 없다(Lambda 내장 boto3).
+- [X] T002 Lambda zip 제외 목록 `infra/modules/scheduled-collector/main.tf`의 `data "archive_file" "code"` `excludes`에 `"tests/**"`, `"pyproject.toml"`, `"uv.lock"`, `"backfill_markers.py"`, `".pytest_cache/**"`, `".venv/**"` 추가 (research R5). 이유 주석 한 줄.
+- [X] T003 [P] CI `.github/workflows/tms-collector.yml`: `services/tms-collector/**`, 이 workflow 파일 변경 시 Python 3.13에서 `pip install pytest boto3` 후 `pytest -q` (working-directory `services/tms-collector`). 기존 `.github/workflows/tms-silver.yml` 형식을 따른다.
 
 ---
 
@@ -36,14 +36,14 @@ description: "Task list for K-TMS Bronze 확정 표지(manifest, _SUCCESS)와 �
 
 **Purpose**: 수집(US1)과 백필(US2)이 같은 함수로 manifest를 만든다 (research R5).
 
-- [ ] T004 [P] `services/tms-collector/tests/conftest.py`: dict 기반 가짜 S3 클라이언트 `FakeS3`
+- [X] T004 [P] `services/tms-collector/tests/conftest.py`: dict 기반 가짜 S3 클라이언트 `FakeS3`
   - `put_object(Bucket, Key, Body, ContentType=None, ChecksumSHA256=None, IfNoneMatch=None)`: `ChecksumSHA256`이 있으면 base64(SHA-256(Body))와 비교해 다르면 `ClientError("BadDigest")`; `IfNoneMatch="*"`이고 키가 있으면 `ClientError("PreconditionFailed")`(HTTP 412). 쓰기 순서를 `self.put_log`에 기록.
   - `get_object` → `{"Body": BytesIO}`, 없으면 `ClientError("NoSuchKey")`; `head_object`, 없으면 `ClientError("404")`.
   - `list_objects_v2` + `get_paginator("list_objects_v2")`(Prefix 필터).
   - 특정 키에서 실패시키는 `fail_on_put = {key: code}` 훅.
   - 가짜 SSM(`get_parameter` → 고정 키). 환경 변수 `BRONZE_BUCKET=test-bucket`, `API_KEY_PARAMETER=/test/key`를 설정한 뒤 `handler`를 import하고 `handler.s3`, `handler.ssm`을 가짜로 바꾸는 fixture.
-- [ ] T005 [P] `services/tms-collector/tests/test_bronze_marker.py`: `build_manifest`가 data-model.md §2를 따르는지 — `manifest_version` = 1, `files` = 원문·메타 두 개 "이 순서", `sha256`은 "저장된 바이트(gzip·JSON) 기준 소문자 hex", `raw_sha256`은 압축 전 원문 기준, `committed_at` UTC 초 단위 ISO 8601, `backfilled` 기본 false. `checksum_b64`가 S3 `ChecksumSHA256` 형식(base64 of digest)인지. 키 이름 함수(`raw_key`, `meta_key`, `manifest_key`, `success_key`)가 `run_ts` 폴더 아래 경로를 내는지.
-- [ ] T006 `services/tms-collector/bronze_marker.py` 구현: 상수 `RAW_NAME="snapshot.json.gz"`, `META_NAME="snapshot.meta.json"`, `MANIFEST_NAME="manifest.json"`, `SUCCESS_NAME="_SUCCESS"`, `MANIFEST_VERSION=1`; `sha256_hex(bytes)`, `checksum_b64(bytes)`, 키 함수, `build_manifest(raw_gz, meta_bytes, raw_sha256, committed_at, backfilled=False) -> bytes`(JSON `ensure_ascii=False, indent=2`, UTF-8), `check_folder(...)`는 T019에서. 표준 라이브러리만. T005 통과.
+- [X] T005 [P] `services/tms-collector/tests/test_bronze_marker.py`: `build_manifest`가 data-model.md §2를 따르는지 — `manifest_version` = 1, `files` = 원문·메타 두 개 "이 순서", `sha256`은 "저장된 바이트(gzip·JSON) 기준 소문자 hex", `raw_sha256`은 압축 전 원문 기준, `committed_at` UTC 초 단위 ISO 8601, `backfilled` 기본 false. `checksum_b64`가 S3 `ChecksumSHA256` 형식(base64 of digest)인지. 키 이름 함수(`raw_key`, `meta_key`, `manifest_key`, `success_key`)가 `run_ts` 폴더 아래 경로를 내는지.
+- [X] T006 `services/tms-collector/bronze_marker.py` 구현: 상수 `RAW_NAME="snapshot.json.gz"`, `META_NAME="snapshot.meta.json"`, `MANIFEST_NAME="manifest.json"`, `SUCCESS_NAME="_SUCCESS"`, `MANIFEST_VERSION=1`; `sha256_hex(bytes)`, `checksum_b64(bytes)`, 키 함수, `build_manifest(raw_gz, meta_bytes, raw_sha256, committed_at, backfilled=False) -> bytes`(JSON `ensure_ascii=False, indent=2`, UTF-8), `check_folder(...)`는 T019에서. 표준 라이브러리만. T005 통과.
 
 **Checkpoint**: `pytest tests/test_bronze_marker.py` 통과.
 
@@ -57,20 +57,20 @@ description: "Task list for K-TMS Bronze 확정 표지(manifest, _SUCCESS)와 �
 
 ### Tests for User Story 1
 
-- [ ] T007 [P] [US1] `services/tms-collector/tests/test_handler.py` 정상 저장: 이전 상태와 다른 응답 → `put_log` 순서가 원문, 메타, manifest, `_SUCCESS`, 상태 파일. manifest `files[].sha256`이 저장된 바이트와 같고 `backfilled` = false. `_SUCCESS`는 0바이트, `ContentType="application/octet-stream"`. 원문·메타·manifest put에 `ChecksumSHA256`이 있다. 상태 파일 필드는 정확히 `sha256_raw`, `last_changed_at`, `last_checked_at`, `raw_key` 네 개(FR-007). 반환·로그 요약에 `marker: "written"`. (`fetch_snapshot`은 monkeypatch로 고정 응답)
-- [ ] T008 [P] [US1] 같은 파일, 원문 점검 실패(`resultCode` ≠ 0 또는 건수 불일치): 원문·메타는 있고 manifest·`_SUCCESS` 없음, 상태 파일 변경 없음, `RuntimeError` (FR-005).
-- [ ] T009 [P] [US1] 같은 파일, 업로드 실패: `fail_on_put`으로 메타 put이 `BadDigest` → 예외, manifest·`_SUCCESS`·상태 파일 없음. `_SUCCESS` put 실패 → 예외, 상태 파일 변경 없음 (FR-001, FR-002).
-- [ ] T010 [P] [US1] 같은 파일, 원문이 이전과 같음: 새 폴더 없음, 상태 파일은 `last_checked_at`만 바뀜, `marker` 필드 없음 또는 `"unchanged"` (FR-006).
-- [ ] T011 [P] [US1] 같은 파일, 같은 `run_ts` 재실행(research R4) 세 경우: (a) 폴더에 원문만 있고 `_SUCCESS` 없음 → 다시 써서 네 파일 완성; (b) `_SUCCESS` 있고 manifest `raw_sha256` = 이번 원문 → 파일 put 없음, 상태 파일만 갱신, `marker: "already_committed"`; (c) `_SUCCESS` 있고 다른 원문 → 폴더 파일 put 없음, 상태 파일 변경 없음, 예외 없이 종료, `marker: "skipped_committed_folder"`.
-- [ ] T012 [P] [US1] 같은 파일, 로그: 요약 JSON에 응답 본문·API 키가 없다(`capsys`로 확인) (FR-008, 원칙 II).
+- [X] T007 [P] [US1] `services/tms-collector/tests/test_handler.py` 정상 저장: 이전 상태와 다른 응답 → `put_log` 순서가 원문, 메타, manifest, `_SUCCESS`, 상태 파일. manifest `files[].sha256`이 저장된 바이트와 같고 `backfilled` = false. `_SUCCESS`는 0바이트, `ContentType="application/octet-stream"`. 원문·메타·manifest put에 `ChecksumSHA256`이 있다. 상태 파일 필드는 정확히 `sha256_raw`, `last_changed_at`, `last_checked_at`, `raw_key` 네 개(FR-007). 반환·로그 요약에 `marker: "written"`. (`fetch_snapshot`은 monkeypatch로 고정 응답)
+- [X] T008 [P] [US1] 같은 파일, 원문 점검 실패(`resultCode` ≠ 0 또는 건수 불일치): 원문·메타는 있고 manifest·`_SUCCESS` 없음, 상태 파일 변경 없음, `RuntimeError` (FR-005).
+- [X] T009 [P] [US1] 같은 파일, 업로드 실패: `fail_on_put`으로 메타 put이 `BadDigest` → 예외, manifest·`_SUCCESS`·상태 파일 없음. `_SUCCESS` put 실패 → 예외, 상태 파일 변경 없음 (FR-001, FR-002).
+- [X] T010 [P] [US1] 같은 파일, 원문이 이전과 같음: 새 폴더 없음, 상태 파일은 `last_checked_at`만 바뀜, `marker` 필드 없음 또는 `"unchanged"` (FR-006).
+- [X] T011 [P] [US1] 같은 파일, 같은 `run_ts` 재실행(research R4) 세 경우: (a) 폴더에 원문만 있고 `_SUCCESS` 없음 → 다시 써서 네 파일 완성; (b) `_SUCCESS` 있고 manifest `raw_sha256` = 이번 원문 → 파일 put 없음, 상태 파일만 갱신, `marker: "already_committed"`; (c) `_SUCCESS` 있고 다른 원문 → 폴더 파일 put 없음, 상태 파일 변경 없음, 예외 없이 종료, `marker: "skipped_committed_folder"`.
+- [X] T012 [P] [US1] 같은 파일, 로그: 요약 JSON에 응답 본문·API 키가 없다(`capsys`로 확인) (FR-008, 원칙 II).
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] `services/tms-collector/handler.py`: `save_snapshot`를 `bronze_marker`를 쓰도록 바꾼다 — 원문·메타 put에 `ChecksumSHA256=checksum_b64(body)`, 메타 이후 점검 결과 반환. 자체 재시도 루프를 두지 않는다(research R2).
-- [ ] T014 [US1] `handler.py`: `commit_snapshot(prefix, gz, meta_bytes, raw_sha256)` — manifest put(`ChecksumSHA256`) → `_SUCCESS` put(빈 바이트, `application/octet-stream`). B 원안의 오류(`_read`로 쓰기, `s3.put.object`, `json.load(bytes)`, `"uft-8"`, `object-stream`)를 반복하지 않는다.
-- [ ] T015 [US1] `handler.py`: `find_committed(prefix)` — `head_object(_SUCCESS)`; `NoSuchKey`/`404`/`AccessDenied`(ListBucket 없음)이면 None, 있으면 manifest를 읽어 `raw_sha256` 반환 (research R4, 기존 `load_state`와 같은 오류 처리).
-- [ ] T016 [US1] `lambda_handler`: 원문이 바뀐 경우 `find_committed` → (b)/(c) 분기, 아니면 저장 → 점검 실패 시 `RuntimeError`(표지·상태 없음) → `commit_snapshot` → `save_state`(필드 변경 없음). 로그 요약에 `marker` 추가. T007~T012 통과.
-- [ ] T017 [US1] 상수·주석 정리, `ruff`가 있으면 lint 통과, `services/tms-collector/handler.py` 상단 import에 `bronze_marker` 추가.
+- [X] T013 [US1] `services/tms-collector/handler.py`: `save_snapshot`를 `bronze_marker`를 쓰도록 바꾼다 — 원문·메타 put에 `ChecksumSHA256=checksum_b64(body)`, 메타 이후 점검 결과 반환. 자체 재시도 루프를 두지 않는다(research R2).
+- [X] T014 [US1] `handler.py`: `commit_snapshot(prefix, gz, meta_bytes, raw_sha256)` — manifest put(`ChecksumSHA256`) → `_SUCCESS` put(빈 바이트, `application/octet-stream`). B 원안의 오류(`_read`로 쓰기, `s3.put.object`, `json.load(bytes)`, `"uft-8"`, `object-stream`)를 반복하지 않는다.
+- [X] T015 [US1] `handler.py`: `find_committed(prefix)` — `head_object(_SUCCESS)`; `NoSuchKey`/`404`/`AccessDenied`(ListBucket 없음)이면 None, 있으면 manifest를 읽어 `raw_sha256` 반환 (research R4, 기존 `load_state`와 같은 오류 처리).
+- [X] T016 [US1] `lambda_handler`: 원문이 바뀐 경우 `find_committed` → (b)/(c) 분기, 아니면 저장 → 점검 실패 시 `RuntimeError`(표지·상태 없음) → `commit_snapshot` → `save_state`(필드 변경 없음). 로그 요약에 `marker` 추가. T007~T012 통과.
+- [X] T017 [US1] 상수·주석 정리, `ruff`가 있으면 lint 통과, `services/tms-collector/handler.py` 상단 import에 `bronze_marker` 추가.
 
 **Checkpoint**: `pytest -q` 전체 통과. US1만으로도 배포 가능(새 폴더부터 표지).
 
