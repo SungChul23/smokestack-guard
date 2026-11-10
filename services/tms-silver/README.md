@@ -80,9 +80,10 @@ C가 다시 받은 원본(`bronze2/tw_cems/YYYY-MM.jsonl`)을 **같은 규칙**�
 python run_silver.py --job-name tms-silver2-tw-cems --raw-prefix bronze2/tw_cems --runs-prefix silver2/_runs/tw_cems --dry-run
 python run_silver.py --job-name tms-silver2-tw-cems --raw-prefix bronze2/tw_cems --runs-prefix silver2/_runs/tw_cems
 
-# ML-ready2: silver2/tw_cems → silver2/tw_cems_ml_ready (build 전용)
+# ML-ready2: silver2/tw_cems → silver2/tw_cems_ml_ready
 python run_ml_ready.py --mode build --job-name tms-silver2-tw-cems-ml-ready --runs-prefix silver2/_runs/tw_cems_ml_ready
+python run_ml_ready.py --mode compare --job-name tms-silver2-tw-cems-ml-ready --runs-prefix silver2/_runs/tw_cems_ml_ready
 ```
 
 - 조회: Athena `tms_silver2.tw_cems`, `tms_silver2.tw_cems_ml_ready` (워크그룹 `tms-eda`)
-- ML-ready2의 compare는 아직 없다. 새 원본 기준 정답지(C의 pandas 결과)가 생기면 정답지 읽기 권한과 `--reference`를 추가한다.
+- compare 정답지: C가 같은 bronze2로 만든 pandas 결과 `s3://smokestack-cems-local-eda-952900391026/tw_cems_ml_ready_fixed/part.parquet` (변수 `silver2_ml_ready_reference`)

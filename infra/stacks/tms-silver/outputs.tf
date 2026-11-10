@@ -49,7 +49,7 @@ output "silver2_job_name" {
 }
 
 output "silver2_ml_ready_job_name" {
-  description = "ML-ready2 Glue Job 이름 (run_ml_ready.py --job-name, build 전용)"
+  description = "ML-ready2 Glue Job 이름 (run_ml_ready.py --job-name, build·compare)"
   value       = aws_glue_job.silver2_tw_cems_ml_ready.name
 }
 

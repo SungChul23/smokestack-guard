@@ -37,3 +37,9 @@ variable "ml_ready_reference" {
   type        = string
   default     = "s3://smokestack-cems-local-eda-952900391026/ml_ready/part.parquet"
 }
+
+variable "silver2_ml_ready_reference" {
+  description = "ML-ready2 compare 모드의 정답지(C가 bronze2로 만든 pandas 결과) S3 경로. Terraform 밖 버킷이며 읽기만 한다"
+  type        = string
+  default     = "s3://smokestack-cems-local-eda-952900391026/tw_cems_ml_ready_fixed/part.parquet"
+}

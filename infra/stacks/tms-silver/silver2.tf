@@ -9,6 +9,9 @@ locals {
   silver2_runs           = "silver2/_runs/tw_cems"
   silver2_ml_ready_table = "silver2/tw_cems_ml_ready"
   silver2_ml_ready_runs  = "silver2/_runs/tw_cems_ml_ready"
+  # 정답지(C가 bronze2로 만든 pandas 결과). Terraform 밖 버킷이며 compare 모드에서 읽기만 한다.
+  silver2_reference_bucket = regex("^s3://([^/]+)/", var.silver2_ml_ready_reference)[0]
+  silver2_reference_prefix = regex("^s3://[^/]+/(.*)/[^/]+$", var.silver2_ml_ready_reference)[0]
 }
 
 # ---------------------------------------------------------------------------
@@ -136,8 +139,7 @@ resource "aws_glue_job" "silver2_tw_cems" {
 
 # ---------------------------------------------------------------------------
 # ML-ready2. silver2/tw_cems/를 읽어 silver2/tw_cems_ml_ready/를 만든다.
-# build 전용: 새 원본 기준 정답지(C의 pandas 결과)가 아직 없어 정답지 읽기 권한을 주지 않는다.
-# compare가 필요해지면 정답지 경로가 정해진 뒤 권한과 --reference를 추가한다.
+# compare는 C가 같은 bronze2로 만든 pandas 결과(var.silver2_ml_ready_reference)와 35컬럼을 비교한다.
 # ---------------------------------------------------------------------------
 
 resource "aws_iam_role" "silver2_ml_ready" {
@@ -213,6 +215,24 @@ data "aws_iam_policy_document" "silver2_ml_ready_data" {
     actions   = ["s3:GetObject", "s3:PutObject"]
     resources = ["${local.raw_arn}/silver2_$folder$"]
   }
+
+  statement {
+    sid       = "ListReference"
+    actions   = ["s3:ListBucket"]
+    resources = ["arn:aws:s3:::${local.silver2_reference_bucket}"]
+
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values   = [local.silver2_reference_prefix, "${local.silver2_reference_prefix}/*"]
+    }
+  }
+
+  statement {
+    sid       = "ReadReference"
+    actions   = ["s3:GetObject"]
+    resources = ["arn:aws:s3:::${local.silver2_reference_bucket}/${local.silver2_reference_prefix}/*"]
+  }
 }
 
 resource "aws_iam_role_policy" "silver2_ml_ready_data" {
@@ -223,7 +243,7 @@ resource "aws_iam_role_policy" "silver2_ml_ready_data" {
 
 resource "aws_glue_job" "silver2_tw_cems_ml_ready" {
   name              = "tms-silver2-tw-cems-ml-ready"
-  description       = "TW CEMS Silver2(silver2/tw_cems) 전체를 ML-ready2(silver2/tw_cems_ml_ready)로 변환. build 전용 (specs/a-platform/006-tw-cems-silver2-compare)"
+  description       = "TW CEMS Silver2(silver2/tw_cems) 전체를 ML-ready2(silver2/tw_cems_ml_ready)로 변환·비교 (specs/a-platform/006-tw-cems-silver2-compare)"
   role_arn          = aws_iam_role.silver2_ml_ready.arn
   glue_version      = "5.0"
   worker_type       = "G.1X"
@@ -255,6 +275,7 @@ resource "aws_glue_job" "silver2_tw_cems_ml_ready" {
     "--table_prefix"                     = local.silver2_ml_ready_table
     "--runs_prefix"                      = local.silver2_ml_ready_runs
     "--files"                            = "6"
+    "--reference"                        = var.silver2_ml_ready_reference
     "--package_md5"                      = data.archive_file.package.output_md5
   }
 }
