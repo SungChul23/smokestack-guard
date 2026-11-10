@@ -76,4 +76,5 @@ B 원안(ab11d17)의 필드(`manifest_version`, `files[name, bytes, sha256]`, `r
 | 5 | 원문을 풀어 계산한 SHA-256 = 메타 `sha256_raw` | `hash_mismatch` |
 | 6 | 메타 `inspect.ok` = true | `inspect_fail` |
 | 7 | 메타 `raw_key` = 이 폴더의 원문 경로 | `raw_key_mismatch` |
-| 통과 | manifest(`backfilled: true`) → `_SUCCESS` | |
+| 8 | `manifest.json`이 이미 있으면 그 `raw_sha256` = 이번 원문 (지난 백필이 `_SUCCESS` 전에 끊긴 경우) | `manifest_conflict` |
+| 통과 | manifest(`backfilled: true`, 이미 있으면 그대로) → `_SUCCESS` | |

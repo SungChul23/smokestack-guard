@@ -84,12 +84,12 @@ description: "Task list for K-TMS Bronze 확정 표지(manifest, _SUCCESS)와 �
 
 ### Tests for User Story 2
 
-- [ ] T018 [P] [US2] `services/tms-collector/tests/test_backfill.py`: data-model.md §5의 순서·사유 코드 그대로 — 통과 폴더는 표지 추가(`backfilled: true`); `raw_missing`, `meta_missing`, `meta_invalid`, `hash_mismatch`, `inspect_fail`, `raw_key_mismatch` 각 1개는 표지 없음·사유 기록; `_SUCCESS` 있으면 `skipped`; `--before` 이후 폴더는 대상 아님(세지 않음); 미리보기는 `put_log`가 비어 있음; 적용 후 다시 실행하면 `marked = 0`; manifest·`_SUCCESS` put은 `IfNoneMatch="*"`; 원문·메타·`_state/latest.json`은 put되지 않음; 412(`PreconditionFailed`)는 `skipped`로 센다.
+- [X] T018 [P] [US2] `services/tms-collector/tests/test_backfill.py`: data-model.md §5의 순서·사유 코드 그대로 — 통과 폴더는 표지 추가(`backfilled: true`); `raw_missing`, `meta_missing`, `meta_invalid`, `hash_mismatch`, `inspect_fail`, `raw_key_mismatch` 각 1개는 표지 없음·사유 기록; `_SUCCESS` 있으면 `skipped`; `--before` 이후 폴더는 대상 아님(세지 않음); 미리보기는 `put_log`가 비어 있음; 적용 후 다시 실행하면 `marked = 0`; manifest·`_SUCCESS` put은 `IfNoneMatch="*"`; 원문·메타·`_state/latest.json`은 put되지 않음; 412(`PreconditionFailed`)는 `skipped`로 센다.
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] `services/tms-collector/bronze_marker.py`: `check_folder(prefix, raw_gz | None, meta_bytes | None) -> (ok: bool, reason: str | None, raw_sha256)` — data-model.md §5 검사 3~7.
-- [ ] T020 [US2] `services/tms-collector/backfill_markers.py`: contracts/backfill-cli.md 그대로 — 인자(`--before` 필수 `YYYYMMDDTHHMMSSZ`, `--apply`, `--bucket`, `--prefix`, `--report`, `--profile`, `--region`), `run_ts=` 폴더 나열(파일 단위로 묶기), 대상 필터, `check_folder`, 적용 시 manifest → `_SUCCESS`를 `IfNoneMatch="*"`와 `ChecksumSHA256`으로 put, 요약 한 줄 + `FAILED <폴더> <사유>` 줄, `--report` JSON, 종료 코드 0/1. `main(argv, s3=None)`으로 테스트에서 가짜 S3 주입. T018 통과.
+- [X] T019 [US2] `services/tms-collector/bronze_marker.py`: `check_folder(prefix, raw_gz | None, meta_bytes | None) -> (ok: bool, reason: str | None, raw_sha256)` — data-model.md §5 검사 3~7.
+- [X] T020 [US2] `services/tms-collector/backfill_markers.py`: contracts/backfill-cli.md 그대로 — 인자(`--before` 필수 `YYYYMMDDTHHMMSSZ`, `--apply`, `--bucket`, `--prefix`, `--report`, `--profile`, `--region`), `run_ts=` 폴더 나열(파일 단위로 묶기), 대상 필터, `check_folder`, 적용 시 manifest → `_SUCCESS`를 `IfNoneMatch="*"`와 `ChecksumSHA256`으로 put, 요약 한 줄 + `FAILED <폴더> <사유>` 줄, `--report` JSON, 종료 코드 0/1. `main(argv, s3=None)`으로 테스트에서 가짜 S3 주입. T018 통과.
 
 **Checkpoint**: `pytest -q` 전체 통과.
 

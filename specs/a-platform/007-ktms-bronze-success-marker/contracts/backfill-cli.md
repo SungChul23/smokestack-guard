@@ -41,3 +41,6 @@ FAILED tms_cleansys/ingest_date=.../run_ts=... inspect_fail
 - 기존 객체를 덮어쓰거나 지우지 않는다. 쓰기는 "없을 때만 생성" 조건으로 한다.
 - 다시 실행해도 결과가 같다. 이미 표지가 있는 폴더는 `skipped`로 센다.
 - `_state/latest.json`은 읽지도 쓰지도 않는다.
+- 지난 실행이 `manifest.json`만 쓰고 끊긴 폴더는, 그 manifest의 원문 해시가 같으면 `_SUCCESS`만 마저 쓴다. 다르면 `manifest_conflict`로 실패 목록에 남긴다.
+
+실패 사유 코드: `raw_missing`, `meta_missing`, `meta_invalid`, `hash_mismatch`, `inspect_fail`, `raw_key_mismatch`, `manifest_conflict` (data-model.md §5)
