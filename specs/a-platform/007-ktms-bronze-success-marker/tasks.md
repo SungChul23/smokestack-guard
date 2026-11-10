@@ -101,8 +101,8 @@ description: "Task list for K-TMS Bronze 확정 표지(manifest, _SUCCESS)와 �
 
 **Independent Test**: 배포 전후 실행 기록에 빠진 실행 없음, 다음 날 누락률 리포트 정상.
 
-- [ ] T021 [US3] `services/tms-collector/README.md`: S3 경로 트리에 `manifest.json`·`_SUCCESS`, 처리 흐름 4~6단계(체크섬·표지·상태 순서), 재시도 표에 "같은 `run_ts` 재실행은 표지 있는 폴더를 다시 쓰지 않음", "백필" 절(명령은 quickstart §4), "배포" 절(수집 직후 apply, 확인 항목, 되돌림).
-- [ ] T022 [US3] `infra/` `terraform fmt -recursive` + `infra/stacks/tms-collection`에서 `terraform validate` (에이전트, `/mnt/c/terraform/terraform.exe`).
+- [X] T021 [US3] `services/tms-collector/README.md`: S3 경로 트리에 `manifest.json`·`_SUCCESS`, 처리 흐름 4~6단계(체크섬·표지·상태 순서), 재시도 표에 "같은 `run_ts` 재실행은 표지 있는 폴더를 다시 쓰지 않음", "백필" 절(명령은 quickstart §4), "배포" 절(수집 직후 apply, 확인 항목, 되돌림).
+- [X] T022 [US3] `infra/` `terraform fmt -recursive` + `infra/stacks/tms-collection`에서 `terraform validate` (에이전트, `/mnt/c/terraform/terraform.exe`).
 - [ ] T023 [US3] (사람) `terraform plan`: 변경이 `module.collector`의 Lambda 코드(zip 해시) 하나뿐인지 확인. 다른 변경이 있으면 멈춘다.
 - [ ] T024 [US3] (사람) 수집 직후(x2~x5분) `terraform apply`, 배포 시각 UTC 기록.
 - [ ] T025 [US3] (사람) quickstart §3 확인: 다음 실행 오류 없음·`marker` 필드, 첫 저장 실행 폴더 네 파일, 알람 없음. 실패 시 되돌림.
@@ -121,8 +121,8 @@ description: "Task list for K-TMS Bronze 확정 표지(manifest, _SUCCESS)와 �
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T029 [P] `AGENTS.md` "수집 Lambda 규칙": 원본 경로 줄에 `manifest.json`·`_SUCCESS` 추가, "읽는 쪽은 `_SUCCESS`가 있는 폴더만 완성 스냅샷으로 본다(`specs/a-platform/007-…/contracts/bronze-snapshot-folder.md`)" 한 줄.
-- [ ] T030 [P] `services/tms-missing-rate/README.md`에 "폴더에 manifest·`_SUCCESS`가 추가돼도 계산 방식은 그대로(메타 기준)" 한 줄. 기준 변경은 범위 밖.
+- [X] T029 [P] `AGENTS.md` "수집 Lambda 규칙": 원본 경로 줄에 `manifest.json`·`_SUCCESS` 추가, "읽는 쪽은 `_SUCCESS`가 있는 폴더만 완성 스냅샷으로 본다(`specs/a-platform/007-…/contracts/bronze-snapshot-folder.md`)" 한 줄.
+- [X] T030 [P] `services/tms-missing-rate/README.md`에 "폴더에 manifest·`_SUCCESS`가 추가돼도 계산 방식은 그대로(메타 기준)" 한 줄. 기준 변경은 범위 밖.
 - [ ] T031 PR 본문 초안: 원칙 I 공백 위험·완화·되돌림, B 확인 요청(표지 형식, 백필 실행 주체), C에게 읽는 쪽 계약과 적용 시점 안내, `Closes #40`. 사람 확인 뒤 생성.
 
 ---

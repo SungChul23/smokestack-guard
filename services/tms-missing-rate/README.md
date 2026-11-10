@@ -6,6 +6,7 @@ spec: [`specs/a-platform/002-missing-rate-report`](../../specs/a-platform/002-mi
 - **슬롯**: CleanSYS 측정 시각(`mesure_dt`, KST `YYYY-MM-DD HH:MM`)의 30분 단위 값. 하루 48개
 - **누락**: 그 슬롯이 정상 원문의 최신 측정 시각으로 한 번도 나타나지 않음 → 영구 손실
 - 계산 로직 출처: B(`olchangiagi`)의 `k-tms-bronze` 브랜치 `missing_rate_lambda.py` (커밋 `124f079`)
+- 원본 폴더에 확정 표지(`manifest.json`, `_SUCCESS`, spec 007)가 추가돼도 계산 방식은 그대로다(메타·원문 기준). 표지 기준으로 셀지는 아직 정하지 않았다.
 
 ## 구성
 

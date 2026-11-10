@@ -32,9 +32,9 @@ locals {
 }
 
 data "archive_file" "code" {
-  type             = "zip"
-  source_dir       = var.source_dir
-  output_path      = "${var.source_dir}/${var.name}.zip"
+  type        = "zip"
+  source_dir  = var.source_dir
+  output_path = "${var.source_dir}/${var.name}.zip"
   # 테스트·백필 명령·로컬 환경 파일은 함수에 필요 없다(specs/a-platform/007-ktms-bronze-success-marker research R5).
   excludes = [
     "${var.name}.zip", "__pycache__/**", "README.md",
