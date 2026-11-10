@@ -15,7 +15,7 @@ ref_selection:
   # 평범한 시나리오 조건(평소 값이 10~50 %), (직전 값과 얼마나 달랐는지), (100 번중 99번은 80% 아래인 굴뚝 -> 정상 기준선)
   normal: {mean: [10, 50], phi: [0.5, 0.95], p99_max: 80}   
   # 정해진 시나리오 조건(평소 80% 이하인 굴뚝), (정해진 모양의 첫 값이 평소 값에서 표준편차 2배 이내)
-  trajectory: {p00_max: 80, first_value_within_sigma: 2.0}    
+  trajectory: {p99_max: 80, first_value_within_sigma: 2.0}    
 
 # 시나리오 개수 설정
 episodes:
