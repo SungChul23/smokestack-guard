@@ -10,7 +10,8 @@ import pandas as pd
 ENTRY_PCT = 90.0
 ML_ITEMS = ["nox", "sox"]
 WINDOW = 6  # 30-min slots in 3 hours
-FEATURE_VERSION = LABEL_VERSION = QUALITY_POLICY_VERSION = "v1"
+FEATURE_VERSION = LABEL_VERSION = "v1"
+QUALITY_POLICY_VERSION = "v2"
 LAGS = [30, 60, 90, 120, 150]
 COLUMNS = (
     ["stack_code", "item_code", "measured_at", "ratio_pct", "headroom_pct", "measure_value", "standard_value"]
@@ -33,7 +34,7 @@ def _time_features(ts: pd.DatetimeIndex) -> pd.DataFrame:
             "hour_cos": np.cos(2 * np.pi * hours / 24.0),
             "month_sin": np.sin(2 * np.pi * months / 12.0),
             "month_cos": np.cos(2 * np.pi * months / 12.0),
-            "day_of_week": ts.dayofweek.to_numpy(dtype=float),
+            "day_of_week": ts.day_of_week.to_numpy(dtype=float),
         },
         index=ts,
     )
@@ -43,9 +44,15 @@ def to_ml_ready(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame(columns=COLUMNS)
 
-    if "ts_kst" in df.columns:  # tw_cems silver: keep the slots the model may use
-        df = df[(df["status"] == "ok") & df["item"].isin(ML_ITEMS) & (df["unit"] == "ppm")].rename(
-            columns={"ts_local": "measured_at", "item": "item_code", "value": "measure_value", "limit": "standard_value"}
+    if "ts_kst" in df.columns:  # silver (tw_cems or ktms): keep the slots the model may use
+        df = df[(df["status"] == "ok") & df["item"].isin(ML_ITEMS)]
+        if "unit" in df.columns:  # ktms has no unit column; its nox/sox are taken as ppm
+            df = df[df["unit"] == "ppm"]
+        clock = "ts_local" if "ts_local" in df.columns else "ts_kst"
+        if clock == "ts_kst":  # ktms: no single stack id, so area + facility + stack_code
+            df = df.assign(stack_code=df["area_nm"] + "|" + df["fact_manage_nm"] + "|" + df["stack_code"])
+        df = df.rename(
+            columns={clock: "measured_at", "item": "item_code", "value": "measure_value", "limit": "standard_value"}
         ).assign(ratio_pct=lambda x: x["ratio"] * 100)
     out = df.copy()
     required = {"stack_code", "item_code", "measured_at", "ratio_pct"}
@@ -102,8 +109,12 @@ def to_ml_ready(df: pd.DataFrame) -> pd.DataFrame:
         below = r < ENTRY_PCT
         # 1 = reaches 90% at +30/+60 min, 0 = does not, NaN = already >= 90% or undecidable
         g["label_entry_60m"] = np.where(below & known, np.where(reached, 1.0, 0.0), np.nan)
-        g["classification_eligible"] = g["feature_valid"] & g["label_entry_60m"].notna()
-        g["regression_eligible"] = g["feature_valid"] & g["label_ratio_60m"].notna() & below
+        # two different limits seen in a row's window (150 min back .. 60 min ahead) taint that row,
+        # even when slots between them are missing
+        sv = g["standard_value"]
+        limit_changed = (sv.rolling(WINDOW + 2, min_periods=1).max() - sv.rolling(WINDOW + 2, min_periods=1).min()).shift(-2).fillna(0).gt(0)
+        g["classification_eligible"] = g["feature_valid"] & g["label_entry_60m"].notna() & ~limit_changed
+        g["regression_eligible"] = g["feature_valid"] & g["label_ratio_60m"].notna() & ~limit_changed
 
         g = g[observed.to_numpy()]
         g["stack_code"] = stack_code
@@ -120,22 +131,24 @@ def to_ml_ready(df: pd.DataFrame) -> pd.DataFrame:
     return result[COLUMNS]
 
 
-def build(source: Path, output_dir: Path) -> Path:
-    silver = pd.read_parquet(source)
+def build(source: Path, output_dir: Path, table: str = "tw_cems_ml_ready") -> Path:
+    files = sorted(source.glob("ts_date=*/part.parquet")) if source.is_dir() else [source]  # ktms: partitions only
+    silver = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
     ml_ready = to_ml_ready(silver)
-    out = output_dir / "tw_cems_ml_ready" / "part.parquet"
+    out = output_dir / table / "part.parquet"
     out.parent.mkdir(parents=True, exist_ok=True)
     ml_ready.to_parquet(out, index=False)
-    print(f"tw_cems_ml_ready: {len(silver):,} silver rows -> {len(ml_ready):,} ml-ready rows")
+    print(f"{table}: {len(silver):,} silver rows -> {len(ml_ready):,} ml-ready rows")
     return out
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Taiwan CEMS silver -> ML-ready silver")
-    parser.add_argument("source", type=Path, help="Path to a silver parquet file")
+    parser = argparse.ArgumentParser(description="Taiwan CEMS / K-TMS silver -> ML-ready silver")
+    parser.add_argument("source", type=Path, help="Path to a silver parquet file or partition directory")
     parser.add_argument("--output-dir", type=Path, default=Path("data/silver"))
+    parser.add_argument("--table", default="tw_cems_ml_ready", help="output table name, e.g. ktms_ml_ready")
     args = parser.parse_args()
-    build(args.source, args.output_dir)
+    build(args.source, args.output_dir, args.table)
 
 
 if __name__ == "__main__":
