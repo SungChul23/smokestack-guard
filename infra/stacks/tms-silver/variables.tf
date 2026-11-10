@@ -1,5 +1,5 @@
 variable "raw_bucket_name" {
-  description = "원본 버킷 이름 (tms-collection 스택이 관리). 이 스택은 이름만 참조하고, bronze/tw_cems/ 읽기와 silver/tw_cems/ 쓰기에만 쓴다"
+  description = "원본 버킷 이름 (tms-collection 스택이 관리). 이 스택은 이름만 참조하고, bronze/tw_cems/·bronze2/tw_cems/ 읽기와 silver/·silver2/ 아래 TW CEMS 테이블 쓰기에만 쓴다"
   type        = string
   default     = "smokestack-tms-raw-952900391026"
 }

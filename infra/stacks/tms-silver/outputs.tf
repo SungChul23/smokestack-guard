@@ -42,3 +42,18 @@ output "ml_ready_location" {
   description = "ML-ready 데이터 S3 경로 (SageMaker·Spark는 이 경로로 읽는다)"
   value       = "s3://${local.raw_bucket}/${local.ml_ready_table}/"
 }
+
+output "silver2_job_name" {
+  description = "Silver2 Glue Job 이름 (run_silver.py --job-name). 입력 bronze2/tw_cems, 출력 silver2/tw_cems"
+  value       = aws_glue_job.silver2_tw_cems.name
+}
+
+output "silver2_ml_ready_job_name" {
+  description = "ML-ready2 Glue Job 이름 (run_ml_ready.py --job-name, build 전용)"
+  value       = aws_glue_job.silver2_tw_cems_ml_ready.name
+}
+
+output "silver2_database_name" {
+  description = "비교용 Silver2 카탈로그 DB 이름 (Athena: tms_silver2.tw_cems, tms_silver2.tw_cems_ml_ready)"
+  value       = aws_glue_catalog_database.silver2.name
+}

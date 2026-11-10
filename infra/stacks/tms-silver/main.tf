@@ -12,6 +12,39 @@ locals {
   raw_arn      = data.aws_s3_bucket.raw.arn
   silver_table = "silver/tw_cems"
   silver_runs  = "silver/_runs/tw_cems"
+
+  # 카탈로그 컬럼. silver2.tf의 비교용 테이블도 같은 정의를 쓴다.
+  # Silver: 순서와 타입은 004 data-model.md §2와 같다.
+  silver_columns = [
+    ["area_nm", "string"],
+    ["fact_manage_nm", "string"],
+    ["stack_code", "string"],
+    ["item", "string"],
+    ["unit", "string"],
+    ["value", "double"],
+    ["limit", "double"],
+    ["status", "string"],
+    ["ts_kst", "timestamp"],
+    ["ratio", "double"],
+    ["ts_local", "timestamp"],
+    ["code2", "string"],
+    ["flag_code_ratio_mismatch", "boolean"],
+  ]
+
+  # ML-ready: 순서와 타입은 005 data-model.md §2와 같다(= ml_ready.COLUMNS).
+  ml_ready_columns = concat(
+    [["stack_code", "string"], ["item_code", "string"], ["measured_at", "timestamp"]],
+    [for c in [
+      "ratio_pct", "headroom_pct", "measure_value", "standard_value",
+      "ratio_lag_30m", "ratio_lag_60m", "ratio_lag_90m", "ratio_lag_120m", "ratio_lag_150m",
+      "ratio_diff_30m", "ratio_diff_60m", "ratio_rolling_mean_1h", "ratio_rolling_mean_3h",
+      "ratio_rolling_std_3h", "ratio_rolling_max_3h", "ratio_range_3h", "ratio_slope_3h",
+      "rise_count_3h", "ratio_acceleration", "hour_sin", "hour_cos", "month_sin", "month_cos",
+      "day_of_week", "label_entry_60m", "label_ratio_60m",
+    ] : [c, "double"]],
+    [for c in ["feature_valid", "classification_eligible", "regression_eligible"] : [c, "boolean"]],
+    [for c in ["feature_version", "label_version", "quality_policy_version"] : [c, "string"]],
+  )
 }
 
 # ---------------------------------------------------------------------------
@@ -200,23 +233,8 @@ resource "aws_glue_catalog_table" "tw_cems" {
       serialization_library = "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
     }
 
-    # 순서와 타입은 data-model.md §2와 같다.
     dynamic "columns" {
-      for_each = [
-        ["area_nm", "string"],
-        ["fact_manage_nm", "string"],
-        ["stack_code", "string"],
-        ["item", "string"],
-        ["unit", "string"],
-        ["value", "double"],
-        ["limit", "double"],
-        ["status", "string"],
-        ["ts_kst", "timestamp"],
-        ["ratio", "double"],
-        ["ts_local", "timestamp"],
-        ["code2", "string"],
-        ["flag_code_ratio_mismatch", "boolean"],
-      ]
+      for_each = local.silver_columns
 
       content {
         name = columns.value[0]
@@ -458,21 +476,8 @@ resource "aws_glue_catalog_table" "tw_cems_ml_ready" {
       serialization_library = "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
     }
 
-    # 순서와 타입은 005 data-model.md §2와 같다(= ml_ready.COLUMNS).
     dynamic "columns" {
-      for_each = concat(
-        [["stack_code", "string"], ["item_code", "string"], ["measured_at", "timestamp"]],
-        [for c in [
-          "ratio_pct", "headroom_pct", "measure_value", "standard_value",
-          "ratio_lag_30m", "ratio_lag_60m", "ratio_lag_90m", "ratio_lag_120m", "ratio_lag_150m",
-          "ratio_diff_30m", "ratio_diff_60m", "ratio_rolling_mean_1h", "ratio_rolling_mean_3h",
-          "ratio_rolling_std_3h", "ratio_rolling_max_3h", "ratio_range_3h", "ratio_slope_3h",
-          "rise_count_3h", "ratio_acceleration", "hour_sin", "hour_cos", "month_sin", "month_cos",
-          "day_of_week", "label_entry_60m", "label_ratio_60m",
-        ] : [c, "double"]],
-        [for c in ["feature_valid", "classification_eligible", "regression_eligible"] : [c, "boolean"]],
-        [for c in ["feature_version", "label_version", "quality_policy_version"] : [c, "string"]],
-      )
+      for_each = local.ml_ready_columns
 
       content {
         name = columns.value[0]
