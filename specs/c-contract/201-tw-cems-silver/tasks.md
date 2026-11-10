@@ -61,12 +61,12 @@
 - [x] T026 [US4] 동적 파티션 덮어쓰기 확인 (다른 달 유지, 같은 달만 교체)
 - [x] T027 [US4] Glue 작업 스크립트 `scripts/glue_tw_cems_silver.py`
 - [x] T028 [US4] 실행 환경·방법 문서 `spark_migration_checklist.md`
-- [ ] T029 [US4] (보류) S3 출력 위치와 최소 IAM 권한 확정, Glue 작업·권한을 Terraform으로 생성 (A 담당, 적용은 사람이)
-- [ ] T030 [US4] (보류) Glue에서 한 달 전체 실행 후 pandas 결과와 비교 (SC-009)
+- [x] T029 [US4] S3 출력 위치와 최소 IAM 권한 확정, Glue 작업·권한을 Terraform으로 생성 (A 담당, 적용은 사람이)
+- [x] T030 [US4] Glue에서 한 달 전체 실행 후 pandas 결과와 비교 (SC-009) — 36개월 모두 일치 (재수집 원본 `silver2/` 포함)
 - [ ] T031 [US4] (보류) 실행 시간·DPU 비용 측정 후 A에게 공유
-- [ ] T032 [US4] (보류) 36개월 Glue 실행
+- [x] T032 [US4] 36개월 Glue 실행 (PR #31, 재수집 원본으로 재실행 PR #37)
 - [x] T041 ML-ready 적격 규칙 v2: 기준치 변경 구간 제외, 회귀에서 `& below` 제거 (#33). `ml_ready.py`, `tests/test_ml_ready_eligibility.py`; 36개월 pandas·Spark(로컬 도커) 35컬럼 일치, 분류 9,857,883·양성 133,715·회귀 10,687,092 (빈 슬롯 사이 기준치 변경 포함, 2026-11-10)
-- [ ] T033 [US4] (선택, 낮은 우선순위) ML-ready Spark 이식
+- [ ] T033 [US4] ML-ready Spark 이식 — PR #37(성철 님)에서 구현, Glue 실행, pandas 35컬럼 비교 일치. 머지 대기
 
 ## Phase 7: Open Questions (spec 참고)
 
