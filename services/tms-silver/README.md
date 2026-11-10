@@ -67,3 +67,22 @@ python run_ml_ready.py --mode compare    # C의 pandas 결과와 비교, passed�
 - **읽기 전에 확인:** `s3://smokestack-tms-raw-952900391026/silver/_runs/tw_cems_ml_ready/latest.json`이 있어야 한다. build는 시작할 때 이 파일을 지우고 성공한 뒤에만 쓴다. 없으면 마지막 build가 실패했거나 진행 중이다.
 - 출력은 파티션이 없다. 파일마다 연속된 `measured_at` 구간이 들어 있어, 기간으로 걸러 읽으면 해당 파일만 읽는다.
 - 로컬 테스트는 시간대를 UTC로 고정한다(`tests/conftest.py`). PySpark가 시간대 없는 `datetime`을 PC의 로컬 시간대(KST)로 해석하기 때문이다.
+
+## 재수집 원본 비교: silver2 (006)
+
+C가 다시 받은 원본(`bronze2/tw_cems/YYYY-MM.jsonl`)을 **같은 규칙**으로 `silver2/`에 만들어 기존 `silver/`와 비교한다. 기존 `silver/`는 그대로 둔다.
+- 기존 원본은 줄 수는 같지만 달마다 1.3~3.8%가 중복 줄이었고, 새 원본에서는 그 자리에 실제 측정값이 들어 있다(약 340만 줄).
+- Job·역할·카탈로그는 `infra/stacks/tms-silver/silver2.tf`에 따로 있다. 스크립트와 패키지는 기존 Job과 같은 파일을 쓴다.
+- spec·plan: [`specs/a-platform/006-tw-cems-silver2-compare/`](../../specs/a-platform/006-tw-cems-silver2-compare/)
+
+```bash
+# Silver2: bronze2/tw_cems → silver2/tw_cems (36개월)
+python run_silver.py --job-name tms-silver2-tw-cems --raw-prefix bronze2/tw_cems --runs-prefix silver2/_runs/tw_cems --dry-run
+python run_silver.py --job-name tms-silver2-tw-cems --raw-prefix bronze2/tw_cems --runs-prefix silver2/_runs/tw_cems
+
+# ML-ready2: silver2/tw_cems → silver2/tw_cems_ml_ready (build 전용)
+python run_ml_ready.py --mode build --job-name tms-silver2-tw-cems-ml-ready --runs-prefix silver2/_runs/tw_cems_ml_ready
+```
+
+- 조회: Athena `tms_silver2.tw_cems`, `tms_silver2.tw_cems_ml_ready` (워크그룹 `tms-eda`)
+- ML-ready2의 compare는 아직 없다. 새 원본 기준 정답지(C의 pandas 결과)가 생기면 정답지 읽기 권한과 `--reference`를 추가한다.
