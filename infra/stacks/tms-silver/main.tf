@@ -199,7 +199,7 @@ resource "aws_glue_catalog_database" "silver" {
 resource "aws_glue_catalog_table" "tw_cems" {
   name          = "tw_cems"
   database_name = aws_glue_catalog_database.silver.name
-  description   = "TW CEMS 30분 슬롯 Silver (계약: specs/c-contract/201-tw-cems-silver). Spark는 카탈로그가 아니라 S3 경로로 읽는다(프로젝션은 Athena 전용)"
+  description   = "[사용 금지: 옛 원본 기준, 공식은 tms_silver2.tw_cems] TW CEMS 30분 슬롯 Silver (계약: specs/c-contract/201-tw-cems-silver, 006 참고). Spark는 카탈로그가 아니라 S3 경로로 읽는다(프로젝션은 Athena 전용)"
   table_type    = "EXTERNAL_TABLE"
 
   parameters = {
@@ -459,7 +459,7 @@ resource "aws_glue_job" "tw_cems_ml_ready" {
 resource "aws_glue_catalog_table" "tw_cems_ml_ready" {
   name          = "tw_cems_ml_ready"
   database_name = aws_glue_catalog_database.silver.name
-  description   = "TW CEMS ML-ready 35컬럼 (계약: src/smokestack_guard/silver/ml_ready.py). 읽기 전에 silver/_runs/tw_cems_ml_ready/latest.json 존재 확인"
+  description   = "[사용 금지: 옛 원본 기준, 공식은 tms_silver2.tw_cems_ml_ready] TW CEMS ML-ready 35컬럼 (계약: src/smokestack_guard/silver/ml_ready.py, 006 참고)"
   table_type    = "EXTERNAL_TABLE"
 
   parameters = {

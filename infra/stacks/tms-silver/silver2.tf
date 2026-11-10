@@ -1,6 +1,6 @@
-# TW CEMS 재수집 원본 비교. specs/a-platform/006-tw-cems-silver2-compare
-# C가 다시 받은 원본(bronze2/tw_cems/)을 기존과 같은 규칙으로 silver2/에 만들어 기존 silver/와 비교한다.
-# 기존 silver/ 리소스(Job, 역할, 테이블)는 바꾸지 않는다. 비교가 끝나 정리할 때는 이 파일만 지운다.
+# TW CEMS 공식 Silver·ML-ready (재수집 원본 기준). specs/a-platform/006-tw-cems-silver2-compare
+# C가 다시 받은 원본(bronze2/tw_cems/)을 기존과 같은 규칙으로 silver2/에 만든다. 비교 결과 이쪽을 공식으로 정했다(2026-11-10).
+# 기존 silver/ 리소스(Job, 역할, 테이블)는 옛 원본 기준이라 쓰지 않지만 정리 전까지 그대로 둔다.
 # 경로 규칙: silver2/<테이블>/ = tms_silver2.<테이블> (AGENTS.md "S3 경로 규칙")
 
 locals {
@@ -286,7 +286,7 @@ resource "aws_glue_job" "silver2_tw_cems_ml_ready" {
 
 resource "aws_glue_catalog_database" "silver2" {
   name        = "tms_silver2"
-  description = "재수집 원본(bronze2)으로 만든 비교용 Silver. 경로 규칙 silver2/<테이블>/ = tms_silver2.<테이블> (specs/a-platform/006-tw-cems-silver2-compare)"
+  description = "TW CEMS 공식 Silver (재수집 원본 bronze2 기준). 경로 규칙 silver2/<테이블>/ = tms_silver2.<테이블> (specs/a-platform/006-tw-cems-silver2-compare)"
 }
 
 resource "aws_glue_catalog_table" "silver2_tw_cems" {

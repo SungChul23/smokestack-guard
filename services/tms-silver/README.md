@@ -68,7 +68,9 @@ python run_ml_ready.py --mode compare    # C의 pandas 결과와 비교, passed�
 - 출력은 파티션이 없다. 파일마다 연속된 `measured_at` 구간이 들어 있어, 기간으로 걸러 읽으면 해당 파일만 읽는다.
 - 로컬 테스트는 시간대를 UTC로 고정한다(`tests/conftest.py`). PySpark가 시간대 없는 `datetime`을 PC의 로컬 시간대(KST)로 해석하기 때문이다.
 
-## 재수집 원본 비교: silver2 (006)
+## 재수집 원본: silver2 (006) — TW CEMS 공식
+
+**학습·분석은 `tms_silver2.tw_cems`, `tms_silver2.tw_cems_ml_ready`를 쓴다.** 위의 `silver/tw_cems*`(004·005)는 중복 결함이 있는 옛 원본 기준이라 쓰지 않는다(정리 전까지 보존).
 
 C가 다시 받은 원본(`bronze2/tw_cems/YYYY-MM.jsonl`)을 **같은 규칙**으로 `silver2/`에 만들어 기존 `silver/`와 비교한다. 기존 `silver/`는 그대로 둔다.
 - 기존 원본은 줄 수는 같지만 달마다 1.3~3.8%가 중복 줄이었고, 새 원본에서는 그 자리에 실제 측정값이 들어 있다(약 340만 줄).

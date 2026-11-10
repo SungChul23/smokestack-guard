@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-10
 
-**Status**: 실행 완료 (2026-11-10)
+**Status**: 실행 완료, silver2를 TW CEMS 공식으로 결정 (2026-11-10)
 
 **Input**: User description: "C가 대만 CEMS 원본 36개월을 다시 받아 bronze2/tw_cems/에 올렸다. 기존 silver/는 유지하고, 같은 규칙으로 silver2/에 Silver와 ML-ready(v2)를 새로 만들어 기존과 비교한다. S3 저장 비용이 들어도 나란히 둔다."
 
@@ -26,7 +26,9 @@
 
 파일 크기와 줄 수가 같아서 크기 비교로는 드러나지 않았다. Silver 규칙은 완전 중복을 지우므로, 기존 Silver에는 그만큼의 측정값이 빠져 있었다.
 
-이 기능은 **기존 결과를 덮어쓰지 않고** 새 원본으로 같은 규칙을 다시 실행해 나란히 비교한다. 어느 쪽을 정식으로 쓸지는 비교 뒤 팀이 정한다.
+이 기능은 **기존 결과를 덮어쓰지 않고** 새 원본으로 같은 규칙을 다시 실행해 나란히 비교한다.
+
+**결정 (2026-11-10)**: 비교 결과 새 원본이 맞으므로 **TW CEMS의 공식 데이터는 `silver2/` (`tms_silver2.*`)다.** 기존 `silver/tw_cems*`(`tms_silver.tw_cems*`)는 옛 원본 기준이라 쓰지 않고, 정리 전까지 보존만 한다(`AGENTS.md` S3 경로 규칙).
 
 ```
 bronze/tw_cems/historical/ ──(004 Job)──▶ silver/tw_cems/  ──(005 Job)──▶ silver/tw_cems_ml_ready/   (기존, 유지)
@@ -52,9 +54,9 @@ A가 `silver2/tw_cems/`로 ML-ready(v2 규칙)를 만들고, C가 같은 `bronze
 
 **Independent Test**: compare가 `passed=True`, 행 수 일치, 한쪽에만 있는 행 0.
 
-### User Story 3 - 팀이 두 결과를 비교해 정식 데이터를 정한다 (Priority: P2)
+### User Story 3 - 팀이 두 결과를 비교해 공식 데이터를 정한다 (Priority: P2)
 
-C·E가 Athena에서 `tms_silver.*`와 `tms_silver2.*`를 비교해 학습에 쓸 데이터를 정한다.
+C·E가 Athena에서 `tms_silver.*`와 `tms_silver2.*`를 비교해 학습에 쓸 데이터를 정한다. → `tms_silver2.*`로 결정.
 
 **Independent Test**: 두 DB의 같은 이름 테이블이 각자 자기 경로를 읽는다.
 
@@ -74,7 +76,7 @@ C·E가 Athena에서 `tms_silver.*`와 `tms_silver2.*`를 비교해 학습에 �
 - **FR-004**: ML-ready2 역할은 `silver2/tw_cems/*` 읽기, `silver2/tw_cems_ml_ready/*`·`silver2/_runs/tw_cems_ml_ready/*` 쓰기·삭제, 정답지 경로 읽기만 가진다.
 - **FR-005**: 경로 규칙 `silver2/<테이블>/` = `tms_silver2.<테이블>`. 컬럼 정의는 기존 테이블과 같다(Terraform `locals` 공유).
 - **FR-006**: ML-ready2는 main에 머지된 v2 적격 규칙(#33, PR #34)을 쓴다.
-- **FR-007**: 비교가 끝나 정리할 때는 `infra/stacks/tms-silver/silver2.tf` 한 파일로 리소스를 지울 수 있어야 한다.
+- **FR-007**: silver2 리소스는 `infra/stacks/tms-silver/silver2.tf` 한 파일에 모은다. 공식으로 결정됐으므로 유지한다.
 
 ## Success Criteria
 
@@ -93,9 +95,10 @@ C·E가 Athena에서 `tms_silver.*`와 `tms_silver2.*`를 비교해 학습에 �
 |---|---|---|---|
 | 슬롯 | 80,359,440 | 80,381,988 | +22,548 |
 | `ok` | 24,743,836 | 25,854,851 | **+1,111,015 (+4.5%)** |
-| `partial` | 4,555,488 | 1,203,068 | **−74%** |
+| `partial` | 4,555,488 | 1,202,295 | **−74%** |
 
-기존 `partial`(15분 값 2개 중 하나만 있는 슬롯)이 새 원본에서 바뀐 상태: `not_monitored` 1,367,992 · `ok` 1,111,015 · `other_code` 895,601 · `partial` 그대로 1,180,156 · `invalid` 1,749.
+기존 `partial`(15분 값 2개 중 하나만 있는 슬롯)이 새 원본에서 바뀐 상태: `not_monitored` 1,367,808 · `ok` 1,111,015 · `other_code` 895,527 · `partial` 그대로 1,179,556 · `invalid` 1,582 (합 4,555,488). 새로 생긴 슬롯은 `partial` 22,522 · `invalid` 26.
+상태가 같은 슬롯은 모든 상태에서 값 변경이 0이다. 슬롯 키는 `area_nm`·`fact_manage_nm`·`stack_code`·`item`·`unit`·`ts_local`(Silver 규칙과 같음)이다.
 기존 `partial`의 약 74%는 중복 줄이 측정값 자리를 차지해 생긴 것이었다. 복구된 슬롯은 요일·시간대에 고르게 퍼져 있다(특정 시간대 장애가 아님).
 
 ### ML-ready: 기존(v1) vs ML-ready2(v2)
@@ -134,4 +137,4 @@ C·E가 Athena에서 `tms_silver.*`와 `tms_silver2.*`를 비교해 학습에 �
 
 - 정답지: `s3://smokestack-cems-local-eda-952900391026/tw_cems_ml_ready_fixed/part.parquet` (C가 bronze2로 만든 pandas v2 결과, 1.06GB).
 - 비용: Silver2 36개월 약 $3.7, ML-ready2 build·compare 약 $0.4, Athena 비교 약 $1(일회성). 보관 비용은 `bronze2/` 91.2GB 약 $2.3/월이 대부분이다.
-- 정식 경로 결정과 기존 `bronze/`·`silver/` 정리는 이 기능 범위 밖이다(tasks.md "남은 결정").
+- 기존 `bronze/`·`silver/` 정리 시점은 이 기능 범위 밖이다(tasks.md "남은 결정").

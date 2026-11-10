@@ -34,11 +34,12 @@
 
 - [x] T018 Athena ML-ready 비교: 월별 증가·양성 비율, 새로 생긴 행 분포, 굴뚝별 증가율
 - [x] T019 spec·plan·tasks 작성 (이 문서)
+- [x] T021 PR #37 리뷰 반영: Silver 상태 변화를 전체 슬롯 키로 다시 집계(새 `partial` 1,202,295), 공식 경로 명시, 기존 카탈로그 설명에 사용 금지 표시
 - [ ] T020 C·E에게 결과 공유: 학습 데이터는 `tms_silver2.tw_cems_ml_ready` (Glue 결과, C pandas와 35컬럼 일치)
 
 ## 남은 결정 (팀)
 
-- [ ] D1 정식 원본·Silver 경로: `bronze2/`·`silver2/`를 그대로 정식으로 쓸지, 정식 경로로 옮길지 (C·B)
+- [x] D1 공식 경로: `bronze2/`·`silver2/`(`tms_silver2.*`)를 TW CEMS 공식으로 쓴다 (2026-11-10, PR #37 리뷰 반영). `AGENTS.md`에 명시
 - [ ] D2 기존 `bronze/tw_cems/historical/`(91.2GB, 약 $2.3/월)과 `silver/tw_cems*` 정리 여부와 시점. 원본 버킷 객체 삭제라 사람이 확인하고 결정한다
 - [ ] D3 C의 T039(원본 공백 재다운로드 여부): 다시 받아도 공백 66일은 그대로라 "재다운로드로 채울 수 없음"으로 닫을 수 있다
-- [ ] D4 정리할 때 `silver2.tf`를 지우거나, 정식 경로로 바꾸면 기존 Job의 입력 경로를 바꾼다
+- [ ] D4 기존 `silver/tw_cems*` 리소스(004·005 Job, 역할, 테이블) 정리 시점. `silver2.tf`가 공식이므로 지우지 않는다
