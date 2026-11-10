@@ -29,7 +29,7 @@
 - [x] T007 [US1] `ratio` 계산, `flag_code_ratio_mismatch` `tw_cems.py`
 - [x] T008 [US1] 단위 테스트 (짝, 혼합 코드, `other_code`, 부분, 충돌, 기준값 변경·없음, 단위, 시각 형식, 청크 분할) `tests/test_silver.py`
 - [x] T009 [US1] 월 단위 `build`와 CLI `tw_cems.py`
-- [x] T010 [US1] 36개월 전체 실행. 슬롯 수 8,036만 = `status` 5종 합계 (SC-001)
+- [x] T010 [US1] 36개월 전체 실행. 슬롯 수 8,038만 = `status` 5종 합계 (SC-001)
 - [x] T011 [US1] 월별 단계별 행 수(입력 → `status`별) 기록 (FR-016, SC-006): [monthly-counts.md](monthly-counts.md)
 
 ## Phase 4: US2 — ML 학습용 데이터 (P2)
@@ -40,7 +40,7 @@
 - [x] T013 [US2] 정답과 `classification_eligible`/`regression_eligible`, 버전 컬럼 `ml_ready.py`
 - [x] T014 [US2] 모델 대상 선택 `ok` · `nox`/`sox` · `ppm` `ml_ready.py`
 - [x] T015 [US2] 단위 테스트 (정답 방향, 빈 구간 비연결, 추세 값, 현지 시각, 대상 선택) `tests/test_silver.py`
-- [x] T016 [US2] 36개월 ML-ready 생성 (1,769만 행, 학습 가능 양성 135,978행)
+- [x] T016 [US2] 36개월 ML-ready 생성 (재수집 원본, 1,844만 행, 학습 가능 1,416만 행, 양성 181,231행)
 - [x] T017 [US2] 실데이터에서 Feature가 미래 값을 쓰지 않았는지 표본 검증 (SC-003): 1,000행 중 999행 일치, 1행은 부동소수점 오차(1.6e-6), [monthly-counts.md](monthly-counts.md)
 - [x] T018 [US2] 정답이 t+60 실측과 일치하는지 표본 1,000행 대조 (SC-004): 1,000행 일치
 - [x] T019 [US2] 월별 양성 수 기록 (SC-006): [monthly-counts.md](monthly-counts.md)
@@ -78,7 +78,7 @@
 ## Phase 8: 마무리
 
 - [x] T038 spec·plan·tasks를 현재 구현에 맞게 현행화
-- [ ] T039 2023-11(11-27 16:30 이후), 2023-12(첫 6시간 반) 원본 공백의 재다운로드 여부 결정
+- [x] T039 2023-11(11-27 16:30 이후), 2023-12(첫 6시간 반) 원본 공백의 재다운로드 여부 결정 — 재수집(2026-11-10) 후에도 공백이 그대로여서 서버 원본 자체의 공백으로 판단
 - [x] T040 PR #17(계약 정렬)·PR #19(Spark 이식) 리뷰와 머지: 머지 후 되돌려(#21) PR #24·#25·#26으로 다시 머지
 
 ## Dependencies
