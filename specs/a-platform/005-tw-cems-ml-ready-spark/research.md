@@ -34,8 +34,9 @@
 | `feature_valid` | `count over [−5,0] = 6` | 처음 5슬롯은 false |
 | `label_ratio_60m` = `r.shift(−2)` | `v(+2)` | |
 | `label_entry_60m` | `below = r < 90`, `reached = v(+1) ≥ 90 or v(+2) ≥ 90`, `known = reached or (v(+1), v(+2) 둘 다 있음)` → `below and known`이면 `reached ? 1.0 : 0.0`, 아니면 null | null 비교는 false로 다룬다 |
-| `classification_eligible` | `feature_valid and label_entry_60m is not null` | |
-| `regression_eligible` | `feature_valid and label_ratio_60m is not null and below` | |
+| 기준치 변경 (v2, #33) | `limit_changed = max(standard_value) − min(standard_value) over [−5, +2] > 0` (null이면 false) | pandas `rolling(8).max − min`의 `shift(−2)`와 같은 범위. 빈 슬롯을 사이에 둬도 해당 |
+| `classification_eligible` | `feature_valid and label_entry_60m is not null and not limit_changed` | v1에는 `limit_changed` 조건이 없었다 |
+| `regression_eligible` | `feature_valid and label_ratio_60m is not null and not limit_changed` | v1은 `and below`(현재 90% 미만)였다. v2에서 뺐다 |
 | `hour`·`month` sin/cos | `hour(measured_at)`, `month(measured_at)` | 분은 쓰지 않는다(pandas와 같음) |
 | `day_of_week` (월=0) | `weekday(measured_at)` (월=0) | Spark `dayofweek`는 일=1이라 쓰지 않는다 |
 | `headroom_pct` | `90 − r` | |

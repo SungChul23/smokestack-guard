@@ -42,7 +42,7 @@
 | 30 | `feature_valid` | boolean | |
 | 31 | `classification_eligible` | boolean | |
 | 32 | `regression_eligible` | boolean | |
-| 33–35 | `feature_version`, `label_version`, `quality_policy_version` | string | `ml_ready.py` 상수 (`v1`) |
+| 33–35 | `feature_version`, `label_version`, `quality_policy_version` | string | `ml_ready.py` 상수 (feature·label `v1`, quality_policy `v2` — #33 적격 규칙) |
 
 컬럼 순서와 이름은 `ml_ready.COLUMNS`와 같아야 한다. 계산 규칙은 [research.md](research.md) R2에 있다.
 
