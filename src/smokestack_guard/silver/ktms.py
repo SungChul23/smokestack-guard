@@ -75,7 +75,7 @@ def to_silver(df: pd.DataFrame) -> pd.DataFrame:
     for item in ITEMS:
         raw = df[f"{item}_mesure_value"]
         limit = pd.to_numeric(df[f"{item}_exhst_perm_stdr_value"], errors="coerce")
-        part = df[STACK + ["mesure_dt", "snapshot"]].assign(item=item, value=pd.to_numeric(raw, errors="coerce"), limit=limit, raw=raw.astype("string"))
+        part = df[STACK + ["mesure_dt", "snapshot"]].assign(item=item, value=pd.to_numeric(raw, errors="coerce"), limit=limit, raw=raw.astype("string") + "|" + limit.astype("string"))  # value and limit must both agree
         text = raw.where(raw.notna() & part["value"].isna())
         part["status"] = text.map(STATUS).fillna("other").where(text.notna(), "ok")
         part.loc[part["status"].eq("ok") & (part["value"].isna() | part["limit"].isna()), "status"] = "not_monitored"
@@ -115,12 +115,23 @@ def write_partitions(silver: pd.DataFrame, silver_dir: Path, first: date | None 
     return written
 
 
-def build(silver_dir: Path, bucket: str = BUCKET, start: date | None = None, end: date | None = None) -> list[date]:
-    bronze = read_bronze(bucket, start, end)
+KST = timezone(timedelta(hours=9))
+
+
+def last_complete_day(now: datetime | None = None) -> date:
+    """Latest Korean calendar day that has fully ended, so a half-collected day is never written."""
+    return (now or datetime.now(timezone.utc)).astimezone(KST).date() - timedelta(days=1)
+
+
+def build(silver_dir: Path, bucket: str = BUCKET, start: date | None = None, end: date | None = None, s3=None) -> list[date]:
+    bronze = read_bronze(bucket, start, end, s3=s3)
+    if bronze.empty:  # collection outage or wrong dates: fail loudly and leave existing partitions alone
+        raise ValueError(f"no K-TMS snapshots in s3://{bucket}/{PREFIX} for ingest_date {start}..{end}")
     silver = to_silver(bronze)
     # ingest_date is the UTC date: KST day D lives in ingest dates D-1 (from 15:00Z) and D, so only D in [start+1, end] is complete
     first = start + timedelta(days=1) if start else None
-    written = write_partitions(silver, silver_dir, first, end)
+    done = last_complete_day()
+    written = write_partitions(silver, silver_dir, first, min(end, done) if end else done)
     dupes = int(bronze.duplicated(STACK + ["mesure_dt", "snapshot"]).sum()) if len(bronze) else 0
     print("ktms quality:", json.dumps(quality(silver, bronze["snapshot"].nunique() if len(bronze) else 0, dupes), ensure_ascii=False))
     print(f"ktms partitions written: {[str(d) for d in written]}")
@@ -133,7 +144,7 @@ def main() -> None:
     p.add_argument("--bucket", default=BUCKET)
     p.add_argument("--start-date", type=date.fromisoformat, help="first ingest_date (UTC, YYYY-MM-DD); omit both dates to read everything")
     p.add_argument("--end-date", type=date.fromisoformat, help="last ingest_date (inclusive)")
-    p.add_argument("--days", type=int, help="rebuild the last N measurement days up to today (UTC), e.g. 2")
+    p.add_argument("--days", type=int, help="rebuild the last N ingest days up to today (UTC), e.g. 2; the still-running Korean day is not written")
     args = p.parse_args()
     start, end = args.start_date, args.end_date
     if args.days:

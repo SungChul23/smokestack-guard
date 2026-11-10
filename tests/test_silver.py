@@ -109,6 +109,50 @@ class KtmsSilverTests(unittest.TestCase):
         self.assertEqual(out.loc[("1", "nox"), "status"], "ok")
         self.assertEqual(out.loc[("2", "tsp"), "status"], "ok")
 
+    def test_same_value_with_different_limits_in_one_snapshot_is_ambiguous_in_any_order(self):
+        base = {"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "mesure_dt": "2026-11-02 12:30", "snapshot": 0, "nox_mesure_value": "25"}
+        for limits in (["50", "100"], ["100", "50"]):
+            df = pd.DataFrame([base | {"nox_exhst_perm_stdr_value": limit} for limit in limits])
+            out = ktms.to_silver(df)
+            self.assertEqual(out["status"].tolist(), ["ambiguous"])
+            self.assertTrue(pd.isna(out.iloc[0]["value"]) and pd.isna(out.iloc[0]["ratio"]))
+        same = pd.DataFrame([base | {"nox_exhst_perm_stdr_value": "50"}] * 2)
+        self.assertEqual(ktms.to_silver(same)["status"].tolist(), ["ok"])
+
+    def test_build_without_snapshots_fails_and_keeps_existing_partitions(self):
+        import tempfile
+        from datetime import date
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmp:
+            part = Path(tmp) / "ktms" / "ts_date=2026-11-02" / "part.parquet"
+            part.parent.mkdir(parents=True)
+            pd.DataFrame({"status": ["ok"]}).to_parquet(part, index=False)
+            with self.assertRaisesRegex(ValueError, "no K-TMS snapshots"):
+                ktms.build(Path(tmp), "b", date(2026, 11, 1), date(2026, 11, 3), s3=self.fake_s3({}))
+            self.assertEqual(pd.read_parquet(part)["status"].tolist(), ["ok"])
+
+    def test_last_complete_day_is_yesterday_in_korea(self):
+        from datetime import date, datetime, timezone
+
+        self.assertEqual(ktms.last_complete_day(datetime(2026, 11, 9, 14, 59, tzinfo=timezone.utc)), date(2026, 11, 8))
+        self.assertEqual(ktms.last_complete_day(datetime(2026, 11, 9, 15, 0, tzinfo=timezone.utc)), date(2026, 11, 9))
+
+    def test_build_does_not_write_the_day_that_is_still_running(self):
+        import tempfile
+        from datetime import date
+        from pathlib import Path
+        from unittest import mock
+
+        def item(dt):
+            return {"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "mesure_dt": dt, "nox_mesure_value": "25", "nox_exhst_perm_stdr_value": "50"}
+
+        key = "tms_cleansys/ingest_date=2026-11-02/hour=01/run_ts=x/snapshot.json.gz"
+        s3 = self.fake_s3({key: [item("2026-11-02 12:30"), item("2026-11-03 12:30")]})
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(ktms, "last_complete_day", return_value=date(2026, 11, 2)):
+            written = ktms.build(Path(tmp), "b", date(2026, 11, 1), date(2026, 11, 3), s3=s3)
+        self.assertEqual(written, [date(2026, 11, 2)])
+
     def test_partitions_are_written_per_ts_date_inside_the_window_and_overwritten(self):
         import tempfile
         from datetime import date
