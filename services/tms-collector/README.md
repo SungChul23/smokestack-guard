@@ -117,9 +117,9 @@ S3·SSM은 `tests/conftest.py`의 가짜 클라이언트로 대신합니다. CI:
 
 ```bash
 cd services/tms-collector
-python backfill_markers.py --before <배포 시각, 예: 20261110T060000Z>              # 미리보기 (쓰지 않음)
-python backfill_markers.py --before <같은 값> --apply --report /tmp/backfill.json  # 실행
-python backfill_markers.py --before <같은 값>                                       # 재확인: would_mark=0
+uv run --with boto3 python backfill_markers.py --before <배포 시각, 예: 20261110T060000Z>              # 미리보기 (쓰지 않음)
+uv run --with boto3 python backfill_markers.py --before <같은 값> --apply --report /tmp/backfill.json  # 실행
+uv run --with boto3 python backfill_markers.py --before <같은 값>                                       # 재확인: would_mark=0
 ```
 
 - 원문·메타가 온전하고 원문 점검을 통과한 폴더에만 표지(`backfilled: true`)를 추가합니다. 실패 폴더는 사유와 함께 출력합니다.

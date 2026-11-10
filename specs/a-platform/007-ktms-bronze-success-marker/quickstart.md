@@ -36,9 +36,9 @@ terraform plan
 
 ```bash
 cd services/tms-collector
-python backfill_markers.py --before <배포 시각 UTC, 예: 20261110T060000Z>                  # 미리보기
-python backfill_markers.py --before <같은 값> --apply --report /tmp/backfill.json          # 실행
-python backfill_markers.py --before <같은 값>                                              # 재확인: would_mark=0
+uv run --with boto3 python backfill_markers.py --before <배포 시각 UTC, 예: 20261110T060000Z>                  # 미리보기
+uv run --with boto3 python backfill_markers.py --before <같은 값> --apply --report /tmp/backfill.json          # 실행
+uv run --with boto3 python backfill_markers.py --before <같은 값>                                              # 재확인: would_mark=0
 ```
 
 기대:
