@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 from pyspark.sql import Window
@@ -111,6 +111,38 @@ def test_month_boundary_lag(ours):
 )
 def test_label_entry_cases(ours, stack, item, ts, expected):
     assert _row(ours, stack, item, ts).label_entry_60m == expected
+
+
+# ---------------------------------------------------------------------------
+# 5-1. 적격 규칙 v2 (#33·#34)
+# ---------------------------------------------------------------------------
+
+
+def test_regression_includes_rows_at_or_above_90(ours):
+    r = _row(ours, "F004-P01", "nox", datetime(2025, 5, 1, 6, 0))  # 현재 95.2
+    assert r.feature_valid and r.label_ratio_60m is not None
+    assert r.regression_eligible is True
+    assert r.classification_eligible is False  # 분류는 그대로(현재 90% 이상이면 정답 없음)
+
+
+@pytest.mark.parametrize(
+    ("slot", "regression", "classification"),
+    [
+        (5, True, True),  # 창 0~7: 기준치 100만
+        (7, False, False),  # 창 2~9: 100과 120(슬롯 8 공백 사이) → 빠짐. +60(슬롯 9)은 있다
+        (14, True, True),  # 창 9~16: 120만 → 다시 학습 대상
+    ],
+)
+def test_limit_change_across_gap_excludes_window(ours, slot, regression, classification):
+    r = _row(ours, "F006-P01", "nox", datetime(2025, 8, 1) + slot * timedelta(minutes=30))
+    assert r.feature_valid is True
+    assert r.regression_eligible is regression
+    assert r.classification_eligible is classification
+
+
+def test_quality_policy_version_is_v2(ours):
+    versions = ours.select("quality_policy_version").distinct().collect()
+    assert {r.quality_policy_version for r in versions} == {"v2"}
 
 
 def test_first_five_slots_are_not_feature_valid(ours):

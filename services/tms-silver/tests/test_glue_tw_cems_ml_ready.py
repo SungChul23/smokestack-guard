@@ -70,7 +70,7 @@ def test_build_writes_sorted_time_ranges_and_records(silver_dir, tmp_path):
     assert latest == by_run
     assert BUILD_FIELDS <= set(latest)
     assert latest["silver_months"] == ["2023-11", "2023-12", "2025-03", "2025-05", "2025-07",
-                                       "2025-09", "2025-10"]  # fmt: skip
+                                       "2025-08", "2025-09", "2025-10"]  # fmt: skip
     assert latest["silver_rows"] == len(build_silver())
     assert latest["duplicate_keys"] == 0
     assert latest["output_rows"] == len(ml_ready.to_ml_ready(build_silver()))

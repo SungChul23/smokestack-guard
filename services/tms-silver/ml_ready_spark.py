@@ -136,6 +136,16 @@ def add_features(df: DataFrame) -> DataFrame:
     known = reached | (nxt1.isNotNull() & nxt2.isNotNull())
     label_entry = F.when(below & known, F.when(reached, 1.0).otherwise(0.0))
 
+    # v2: 행의 창(과거 150분 ~ 미래 60분 = slot-5 ~ slot+2)에 서로 다른 기준치가 있으면
+    # 학습 대상에서 뺀다. 빈 슬롯을 사이에 둬도 해당한다.
+    # pandas의 rolling(WINDOW + 2).max - min, shift(-2)와 같은 범위다.
+    limit_window = w.rangeBetween(-(WINDOW - 1), 2)
+    limit_changed = F.coalesce(
+        F.max("standard_value").over(limit_window) - F.min("standard_value").over(limit_window)
+        > F.lit(0.0),
+        F.lit(False),
+    )
+
     out = df.select(
         "stack_code",
         "item_code",
@@ -165,16 +175,20 @@ def add_features(df: DataFrame) -> DataFrame:
         label_entry.alias("label_entry_60m"),
         nxt2.alias("label_ratio_60m"),
         has3h.alias("feature_valid"),
-        below.alias("_below"),
+        limit_changed.alias("_limit_changed"),
     )
     out = (
         out.withColumn(
             "classification_eligible",
-            F.col("feature_valid") & F.col("label_entry_60m").isNotNull(),
+            F.col("feature_valid")
+            & F.col("label_entry_60m").isNotNull()
+            & ~F.col("_limit_changed"),
         )
-        .withColumn(
+        .withColumn(  # v2: 현재 90% 이상인 행도 회귀 대상이다
             "regression_eligible",
-            F.col("feature_valid") & F.col("label_ratio_60m").isNotNull() & F.col("_below"),
+            F.col("feature_valid")
+            & F.col("label_ratio_60m").isNotNull()
+            & ~F.col("_limit_changed"),
         )
         .withColumn("feature_version", F.lit(FEATURE_VERSION))
         .withColumn("label_version", F.lit(LABEL_VERSION))
