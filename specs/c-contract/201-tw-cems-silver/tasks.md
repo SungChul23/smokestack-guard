@@ -1,6 +1,6 @@
 # Tasks: 대만 CEMS Silver 정제
 
-**Input**: [spec.md](spec.md), [plan.md](plan.md) | **Updated**: 2026-11-06
+**Input**: [spec.md](spec.md), [plan.md](plan.md) | **Updated**: 2026-11-09
 
 **Tests**: 포함한다 (spec의 FR-017, FR-018이 같은 결과와 pandas·Spark 일치를 요구한다).
 
@@ -30,7 +30,7 @@
 - [x] T008 [US1] 단위 테스트 (짝, 혼합 코드, `other_code`, 부분, 충돌, 기준값 변경·없음, 단위, 시각 형식, 청크 분할) `tests/test_silver.py`
 - [x] T009 [US1] 월 단위 `build`와 CLI `tw_cems.py`
 - [x] T010 [US1] 36개월 전체 실행. 슬롯 수 8,036만 = `status` 5종 합계 (SC-001)
-- [ ] T011 [US1] 월별 단계별 행 수(입력 → `status`별) 기록 (FR-016, SC-006)
+- [x] T011 [US1] 월별 단계별 행 수(입력 → `status`별) 기록 (FR-016, SC-006): [monthly-counts.md](monthly-counts.md)
 
 ## Phase 4: US2 — ML 학습용 데이터 (P2)
 
@@ -41,10 +41,10 @@
 - [x] T014 [US2] 모델 대상 선택 `ok` · `nox`/`sox` · `ppm` `ml_ready.py`
 - [x] T015 [US2] 단위 테스트 (정답 방향, 빈 구간 비연결, 추세 값, 현지 시각, 대상 선택) `tests/test_silver.py`
 - [x] T016 [US2] 36개월 ML-ready 생성 (1,769만 행, 학습 가능 양성 135,978행)
-- [ ] T017 [US2] 실데이터에서 Feature가 미래 값을 쓰지 않았는지 표본 검증 (SC-003)
-- [ ] T018 [US2] 정답이 t+60 실측과 일치하는지 표본 1,000행 대조 (SC-004)
-- [ ] T019 [US2] 월별 양성 수 기록 (SC-006)
-- [ ] T020 [US2] 도은 님과 Feature 목록·정답·제외 조건 승인, 학습 입력 확인 (SC-008)
+- [x] T017 [US2] 실데이터에서 Feature가 미래 값을 쓰지 않았는지 표본 검증 (SC-003): 1,000행 중 999행 일치, 1행은 부동소수점 오차(1.6e-6), [monthly-counts.md](monthly-counts.md)
+- [x] T018 [US2] 정답이 t+60 실측과 일치하는지 표본 1,000행 대조 (SC-004): 1,000행 일치
+- [x] T019 [US2] 월별 양성 수 기록 (SC-006): [monthly-counts.md](monthly-counts.md)
+- [x] T020 [US2] 도은 님과 Feature 목록·정답·제외 조건 승인, 학습 입력 확인 (SC-008): 도은 님 확인(문제 없음)
 
 ## Phase 5: US3 — 시간 의미 검증 (P3)
 
@@ -61,10 +61,10 @@
 - [x] T026 [US4] 동적 파티션 덮어쓰기 확인 (다른 달 유지, 같은 달만 교체)
 - [x] T027 [US4] Glue 작업 스크립트 `scripts/glue_tw_cems_silver.py`
 - [x] T028 [US4] 실행 환경·방법 문서 `spark_migration_checklist.md`
-- [ ] T029 [US4] S3 출력 위치와 최소 IAM 권한 확정, Glue 작업·권한을 Terraform으로 생성 (A 담당, 적용은 사람이)
-- [ ] T030 [US4] Glue에서 한 달 전체 실행 후 pandas 결과와 비교 (SC-009)
-- [ ] T031 [US4] 실행 시간·DPU 비용 측정 후 A에게 공유
-- [ ] T032 [US4] 36개월 Glue 실행
+- [ ] T029 [US4] (보류) S3 출력 위치와 최소 IAM 권한 확정, Glue 작업·권한을 Terraform으로 생성 (A 담당, 적용은 사람이)
+- [ ] T030 [US4] (보류) Glue에서 한 달 전체 실행 후 pandas 결과와 비교 (SC-009)
+- [ ] T031 [US4] (보류) 실행 시간·DPU 비용 측정 후 A에게 공유
+- [ ] T032 [US4] (보류) 36개월 Glue 실행
 - [x] T041 ML-ready 적격 규칙 v2: 기준치 변경 구간 제외, 회귀에서 `& below` 제거 (#33). `ml_ready.py`, `tests/test_ml_ready_eligibility.py`; 36개월 pandas·Spark(로컬 도커) 35컬럼 일치, 분류 9,857,883·양성 133,715·회귀 10,687,092 (빈 슬롯 사이 기준치 변경 포함, 2026-11-10)
 - [ ] T033 [US4] (선택, 낮은 우선순위) ML-ready Spark 이식
 
@@ -79,7 +79,7 @@
 
 - [x] T038 spec·plan·tasks를 현재 구현에 맞게 현행화
 - [ ] T039 2023-11(11-27 16:30 이후), 2023-12(첫 6시간 반) 원본 공백의 재다운로드 여부 결정
-- [ ] T040 PR #17(계약 정렬)·PR #19(Spark 이식) 리뷰와 머지
+- [x] T040 PR #17(계약 정렬)·PR #19(Spark 이식) 리뷰와 머지: 머지 후 되돌려(#21) PR #24·#25·#26으로 다시 머지
 
 ## Dependencies
 

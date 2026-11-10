@@ -42,6 +42,147 @@ class KtmsSilverTests(unittest.TestCase):
         self.assertEqual(out.iloc[0]["status"], "not_monitored")
         self.assertTrue(pd.isna(out.iloc[0]["ratio"]))
 
+    @staticmethod
+    def fake_s3(snapshots):
+        import gzip
+        import json
+
+        class Paginator:
+            def paginate(self, Bucket, Prefix):
+                yield {"Contents": [{"Key": k} for k in sorted(snapshots) if k.startswith(Prefix)]}
+
+        class Client:
+            def get_paginator(self, name):
+                return Paginator()
+
+            def get_object(self, Bucket, Key):
+                body = gzip.compress(json.dumps({"response": {"body": {"items": snapshots[Key]}}}).encode())
+                return {"Body": type("B", (), {"read": lambda self: body})()}
+
+        return Client()
+
+    def test_read_bronze_reads_only_the_ingest_date_range(self):
+        from datetime import date
+
+        def key(day, hour):
+            return f"tms_cleansys/ingest_date={day}/hour={hour:02d}/run_ts={day}T{hour:02d}0000Z/snapshot.json.gz"
+
+        stack = {"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "mesure_dt": "2026-11-02 12:30"}
+        s3 = self.fake_s3({
+            key("2026-11-01", 1): [stack | {"nox_mesure_value": "1"}],
+            key("2026-11-02", 1): [stack | {"nox_mesure_value": "2"}],
+            key("2026-11-02", 2): [stack | {"nox_mesure_value": "3"}],
+            key("2026-11-03", 1): [stack | {"nox_mesure_value": "4"}],
+            "tms_cleansys/ingest_date=2026-11-02/hour=01/run_ts=x/snapshot.meta.json": [],
+        })
+        df = ktms.read_bronze("b", date(2026, 11, 2), date(2026, 11, 2), s3=s3)
+        self.assertEqual(df["nox_mesure_value"].tolist(), ["2", "3"])
+        self.assertEqual(df["snapshot"].tolist(), [0, 1])
+        self.assertEqual(len(ktms.read_bronze("b", s3=s3)), 4)
+        self.assertEqual(len(ktms.read_bronze("b", date(2026, 11, 2), s3=s3)), 2)
+        self.assertTrue(ktms.read_bronze("b", date(2026, 11, 4), s3=s3).empty)
+
+    def test_quality_counts_rows_stacks_status_and_duplicates(self):
+        stack = {"area_nm": "A", "fact_manage_nm": "F", "nox_exhst_perm_stdr_value": "50"}
+        df = pd.DataFrame([
+            stack | {"stack_code": "1", "mesure_dt": "2026-11-02 12:30", "snapshot": 0, "nox_mesure_value": "25"},
+            stack | {"stack_code": "2", "mesure_dt": "2026-11-02 12:30", "snapshot": 0, "nox_mesure_value": "미수신"},
+            stack | {"stack_code": "1", "mesure_dt": "2026-11-03 00:00", "snapshot": 1, "nox_mesure_value": "30"},
+        ])
+        q = ktms.quality(ktms.to_silver(df), snapshots=2)
+        self.assertEqual((q["snapshots"], q["rows"], q["stacks"], q["duplicate_keys"]), (2, 3, 2, 0))
+        self.assertEqual(q["status"], {"ok": 2, "no_signal": 1})
+        self.assertEqual(q["rows_per_day"], {"2026-11-02": 2, "2026-11-03": 1})
+
+    def test_conflicting_rows_with_the_same_key_in_one_snapshot_are_ambiguous(self):
+        base = {"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "mesure_dt": "2026-11-02 12:30", "snapshot": 0,
+                "tsp_exhst_perm_stdr_value": "50", "nox_exhst_perm_stdr_value": "50"}
+        df = pd.DataFrame([
+            base | {"tsp_mesure_value": "미수신", "nox_mesure_value": None},
+            base | {"tsp_mesure_value": "0.43", "nox_mesure_value": "25"},  # nox is reported by one row only
+            base | {"stack_code": "2", "tsp_mesure_value": "5", "nox_mesure_value": "7"},
+            base | {"stack_code": "2", "tsp_mesure_value": "5", "nox_mesure_value": "7"},  # identical rows are not a conflict
+        ])
+        out = ktms.to_silver(df).set_index(["stack_code", "item"])
+        self.assertEqual(out.loc[("1", "tsp"), "status"], "ambiguous")
+        self.assertTrue(pd.isna(out.loc[("1", "tsp"), "value"]) and pd.isna(out.loc[("1", "tsp"), "ratio"]))
+        self.assertEqual(out.loc[("1", "nox"), "status"], "ok")
+        self.assertEqual(out.loc[("2", "tsp"), "status"], "ok")
+
+    def test_same_value_with_different_limits_in_one_snapshot_is_ambiguous_in_any_order(self):
+        base = {"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "mesure_dt": "2026-11-02 12:30", "snapshot": 0, "nox_mesure_value": "25"}
+        for limits in (["50", "100"], ["100", "50"]):
+            df = pd.DataFrame([base | {"nox_exhst_perm_stdr_value": limit} for limit in limits])
+            out = ktms.to_silver(df)
+            self.assertEqual(out["status"].tolist(), ["ambiguous"])
+            self.assertTrue(pd.isna(out.iloc[0]["value"]) and pd.isna(out.iloc[0]["ratio"]))
+        same = pd.DataFrame([base | {"nox_exhst_perm_stdr_value": "50"}] * 2)
+        self.assertEqual(ktms.to_silver(same)["status"].tolist(), ["ok"])
+
+    def test_build_without_snapshots_fails_and_keeps_existing_partitions(self):
+        import tempfile
+        from datetime import date
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmp:
+            part = Path(tmp) / "ktms" / "ts_date=2026-11-02" / "part.parquet"
+            part.parent.mkdir(parents=True)
+            pd.DataFrame({"status": ["ok"]}).to_parquet(part, index=False)
+            with self.assertRaisesRegex(ValueError, "no K-TMS snapshots"):
+                ktms.build(Path(tmp), "b", date(2026, 11, 1), date(2026, 11, 3), s3=self.fake_s3({}))
+            self.assertEqual(pd.read_parquet(part)["status"].tolist(), ["ok"])
+
+    def test_last_complete_day_is_yesterday_in_korea(self):
+        from datetime import date, datetime, timezone
+
+        self.assertEqual(ktms.last_complete_day(datetime(2026, 11, 9, 14, 59, tzinfo=timezone.utc)), date(2026, 11, 8))
+        self.assertEqual(ktms.last_complete_day(datetime(2026, 11, 9, 15, 0, tzinfo=timezone.utc)), date(2026, 11, 9))
+
+    def test_build_does_not_write_the_day_that_is_still_running(self):
+        import tempfile
+        from datetime import date
+        from pathlib import Path
+        from unittest import mock
+
+        def item(dt):
+            return {"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "mesure_dt": dt, "nox_mesure_value": "25", "nox_exhst_perm_stdr_value": "50"}
+
+        key = "tms_cleansys/ingest_date=2026-11-02/hour=01/run_ts=x/snapshot.json.gz"
+        s3 = self.fake_s3({key: [item("2026-11-02 12:30"), item("2026-11-03 12:30")]})
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(ktms, "last_complete_day", return_value=date(2026, 11, 2)):
+            written = ktms.build(Path(tmp), "b", date(2026, 11, 1), date(2026, 11, 3), s3=s3)
+        self.assertEqual(written, [date(2026, 11, 2)])
+
+    def test_partitions_are_written_per_ts_date_inside_the_window_and_overwritten(self):
+        import tempfile
+        from datetime import date
+        from pathlib import Path
+
+        def rows(*days, status="ok"):
+            return pd.DataFrame({"ts_kst": pd.to_datetime([f"{d} 12:00" for d in days]), "status": status})
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            written = ktms.write_partitions(rows("2026-11-01", "2026-11-02", "2026-11-03"), root, date(2026, 11, 2), date(2026, 11, 3))
+            self.assertEqual(written, [date(2026, 11, 2), date(2026, 11, 3)])
+            self.assertFalse((root / "ktms" / "ts_date=2026-11-01").exists())
+            ktms.write_partitions(rows("2026-11-02", status="stopped"), root, date(2026, 11, 2), date(2026, 11, 3))
+            again = pd.read_parquet(root / "ktms" / "ts_date=2026-11-02" / "part.parquet")
+            self.assertEqual(again["status"].tolist(), ["stopped"])
+
+    def test_later_snapshot_wins_when_dates_are_split(self):
+        from datetime import date
+
+        stack = {"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "mesure_dt": "2026-11-02 12:30",
+                 "nox_exhst_perm_stdr_value": "50"}
+        s3 = self.fake_s3({
+            "tms_cleansys/ingest_date=2026-11-02/hour=04/run_ts=a/snapshot.json.gz": [stack | {"nox_mesure_value": "측정자료확인중"}],
+            "tms_cleansys/ingest_date=2026-11-02/hour=05/run_ts=b/snapshot.json.gz": [stack | {"nox_mesure_value": "25"}],
+        })
+        out = ktms.to_silver(ktms.read_bronze("b", date(2026, 11, 2), date(2026, 11, 2), s3=s3))
+        self.assertEqual(out.iloc[0]["status"], "ok")
+        self.assertEqual(out.iloc[0]["ratio"], 0.5)
+
 
 if __name__ == "__main__":
     unittest.main()
@@ -191,6 +332,45 @@ class TwCemsMlReadyTests(unittest.TestCase):
         self.assertTrue(out["feature_valid"].iloc[5])
         self.assertAlmostEqual(out["ratio_lag_30m"].iloc[1], 3.33)
         self.assertAlmostEqual(out["label_ratio_60m"].iloc[0], 3.10)
+
+    def test_ktms_silver_becomes_the_same_ml_ready_columns(self):
+        from smokestack_guard.silver import ktms, ml_ready
+
+        slots = pd.date_range("2026-11-02 00:00", periods=10, freq="30min")
+        stack = {"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "limit": 100.0}
+        rows = [stack | {"item": "nox", "value": float(v), "status": "ok", "ts_kst": t, "ratio": v / 100}
+                for t, v in zip(slots, [50, 55, 60, 62, 65, 70, 80, 85, 91, 95])]
+        rows += [stack | {"item": "tsp", "value": 5.0, "status": "ok", "ts_kst": slots[0], "ratio": 0.5},  # not a model item
+                 stack | {"item": "nox", "value": None, "status": "stopped", "ts_kst": slots[0], "ratio": None}]
+        out = ml_ready.to_ml_ready(pd.DataFrame(rows))
+        self.assertEqual(list(out.columns), ml_ready.COLUMNS)
+        self.assertEqual(set(out["stack_code"]), {"A|F|1"})
+        self.assertEqual(set(out["item_code"]), {"nox"})
+        self.assertEqual(out["measured_at"].iloc[0], slots[0])  # K-TMS clock stays as is
+        row = out[out["measured_at"] == slots[5]].iloc[0]  # 70%: label looks at +30/+60 min (80%, 85%)
+        self.assertEqual(row["ratio_pct"], 70.0)
+        self.assertEqual(row["label_entry_60m"], 0.0)
+        self.assertEqual(out[out["measured_at"] == slots[7]].iloc[0]["label_entry_60m"], 1.0)  # 85% -> 91% within 30 min
+
+    def test_build_reads_only_ts_date_partitions_of_a_ktms_directory(self):
+        import tempfile
+        from pathlib import Path
+
+        from smokestack_guard.silver import ml_ready
+
+        def day(d):
+            ts = pd.date_range(f"{d} 00:00", periods=8, freq="30min")
+            return pd.DataFrame({"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "item": "nox", "value": 10.0,
+                                 "limit": 100.0, "status": "ok", "ts_kst": ts, "ratio": 0.1})
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ktms"
+            for d in ("2026-11-01", "2026-11-02"):
+                (root / f"ts_date={d}").mkdir(parents=True)
+                day(d).to_parquet(root / f"ts_date={d}" / "part.parquet", index=False)
+            day("2026-10-01").to_parquet(root / "part.parquet", index=False)  # old full-rebuild file stays out
+            out = ml_ready.build(root, Path(tmp) / "out", "ktms_ml_ready")
+            self.assertEqual(pd.read_parquet(out)["measured_at"].dt.month.unique().tolist(), [11])
 
     def test_trend_features_and_eligibility(self):
         from smokestack_guard.silver.ml_ready import to_ml_ready
