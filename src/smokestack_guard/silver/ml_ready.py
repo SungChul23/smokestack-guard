@@ -10,7 +10,8 @@ import pandas as pd
 ENTRY_PCT = 90.0
 ML_ITEMS = ["nox", "sox"]
 WINDOW = 6  # 30-min slots in 3 hours
-FEATURE_VERSION = LABEL_VERSION = QUALITY_POLICY_VERSION = "v1"
+FEATURE_VERSION = LABEL_VERSION = "v1"
+QUALITY_POLICY_VERSION = "v2"
 LAGS = [30, 60, 90, 120, 150]
 COLUMNS = (
     ["stack_code", "item_code", "measured_at", "ratio_pct", "headroom_pct", "measure_value", "standard_value"]
@@ -108,8 +109,12 @@ def to_ml_ready(df: pd.DataFrame) -> pd.DataFrame:
         below = r < ENTRY_PCT
         # 1 = reaches 90% at +30/+60 min, 0 = does not, NaN = already >= 90% or undecidable
         g["label_entry_60m"] = np.where(below & known, np.where(reached, 1.0, 0.0), np.nan)
-        g["classification_eligible"] = g["feature_valid"] & g["label_entry_60m"].notna()
-        g["regression_eligible"] = g["feature_valid"] & g["label_ratio_60m"].notna() & below
+        # two different limits seen in a row's window (150 min back .. 60 min ahead) taint that row,
+        # even when slots between them are missing
+        sv = g["standard_value"]
+        limit_changed = (sv.rolling(WINDOW + 2, min_periods=1).max() - sv.rolling(WINDOW + 2, min_periods=1).min()).shift(-2).fillna(0).gt(0)
+        g["classification_eligible"] = g["feature_valid"] & g["label_entry_60m"].notna() & ~limit_changed
+        g["regression_eligible"] = g["feature_valid"] & g["label_ratio_60m"].notna() & ~limit_changed
 
         g = g[observed.to_numpy()]
         g["stack_code"] = stack_code
