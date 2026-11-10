@@ -103,11 +103,10 @@ def to_ml_ready(df: pd.DataFrame) -> pd.DataFrame:
         below = r < ENTRY_PCT
         # 1 = reaches 90% at +30/+60 min, 0 = does not, NaN = already >= 90% or undecidable
         g["label_entry_60m"] = np.where(below & known, np.where(reached, 1.0, 0.0), np.nan)
-        # a limit change between two adjacent observed slots taints every row whose window
-        # (150 min back .. 60 min ahead) contains it: change at slot k hits rows k-2 .. k+4
+        # two different limits seen in a row's window (150 min back .. 60 min ahead) taint that row,
+        # even when slots between them are missing
         sv = g["standard_value"]
-        changed = (sv.notna() & sv.shift(1).notna() & sv.ne(sv.shift(1))).astype(float)
-        limit_changed = changed.rolling(7, min_periods=1).sum().shift(-2).fillna(0).gt(0)
+        limit_changed = (sv.rolling(WINDOW + 2, min_periods=1).max() - sv.rolling(WINDOW + 2, min_periods=1).min()).shift(-2).fillna(0).gt(0)
         g["classification_eligible"] = g["feature_valid"] & g["label_entry_60m"].notna() & ~limit_changed
         g["regression_eligible"] = g["feature_valid"] & g["label_ratio_60m"].notna() & ~limit_changed
 

@@ -29,10 +29,10 @@ class EligibilityTests(unittest.TestCase):
         out = to_ml_ready(silver([10.0] * 16, [100.0] * 16))
         self.assertEqual(eligible(out, "classification_eligible"), list(range(5, 14)))
 
-    def test_change_across_a_gap_is_not_a_change(self):
-        # slot 8 missing: slots 7 and 9 are not adjacent, so the limit step is not detected
+    def test_change_across_a_gap_still_excludes_rows_that_see_both_limits(self):
+        # slot 8 missing: slot 7 (limit 100) predicts slot 9 (limit 50), so row 7 must not be trained on
         out = to_ml_ready(silver([10.0] * 16, [100.0] * 9 + [50.0] * 7, drop=[8]))
-        self.assertEqual(eligible(out, "regression_eligible"), [5, 7])  # row 7 would drop if the step were seen
+        self.assertEqual(eligible(out, "regression_eligible"), [5])
 
     def test_regression_includes_rows_already_at_or_above_90(self):
         out = to_ml_ready(silver([95.0] * 10, [100.0] * 10))
