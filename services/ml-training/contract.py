@@ -6,7 +6,10 @@ C파트에서 받은 ML-ready 데이터가 약속한 35개 컬럼 구조인지 �
 from datetime import datetime
 
 import pandas as pd
-from pandas.api.types import is_bool, is_datetime64_any_dtype, is_number
+from pandas.api.types import (
+    is_bool, is_bool_dtype, is_complex_dtype, is_datetime64_any_dtype,
+    is_number, is_numeric_dtype,
+)
 
 
 NUMERIC_COLUMNS = (
@@ -33,6 +36,12 @@ REQUIRED_COLUMNS = (
     *FLAG_COLUMNS, "feature_version", "label_version", "quality_policy_version",
 )
 
+EXPECTED_VERSIONS = {
+    "feature_version": "v1",
+    "label_version": "v1",
+    "quality_policy_version": "v2",
+}
+
 
 def validate_contract(data: pd.DataFrame) -> None:
     """불일치는 컬럼명과 함께 알리고 입력 변환·결측 보완은 수행하지 않는다."""
@@ -49,16 +58,24 @@ def validate_contract(data: pd.DataFrame) -> None:
     # NULL 정책은 미확정이므로 비결측 값의 기본 자료형만 검증한다.
     invalid = []
     for name in NUMERIC_COLUMNS:
-        values = data[name].dropna()
-        if not values.map(
+        column = data[name]
+        if is_numeric_dtype(column.dtype) and not (
+            is_bool_dtype(column.dtype) or is_complex_dtype(column.dtype)
+        ):
+            continue
+        if not column.dropna().map(
             lambda value: is_number(value) and not is_bool(value)
             and not isinstance(value, complex)
         ).all():
             invalid.append(f"{name}: 숫자 자료형 필요")
     for name in STRING_COLUMNS:
+        if isinstance(data[name].dtype, pd.StringDtype):
+            continue
         if not data[name].dropna().map(lambda value: isinstance(value, str)).all():
             invalid.append(f"{name}: 문자 자료형 필요")
     for name in FLAG_COLUMNS:
+        if is_bool_dtype(data[name].dtype):
+            continue
         if not data[name].dropna().map(is_bool).all():
             invalid.append(f"{name}: 불리언 자료형 필요")
 
@@ -71,5 +88,9 @@ def validate_contract(data: pd.DataFrame) -> None:
     if invalid:
         raise TypeError("; ".join(invalid))
 
-    # 세부 dtype·NULL·버전 허용값·시간대 정책은 최종 계약 확정 후 반영한다.
+    # 확정 버전만 허용하며 버전 결측도 자동 보정하지 않는다.
+    for name, expected in EXPECTED_VERSIONS.items():
+        if not data[name].eq(expected).fillna(False).all():
+            raise ValueError(f"{name}: 모든 행의 버전이 {expected}이어야 합니다")
+    # 그 외 세부 dtype·NULL 정책은 변경하지 않는다.
 

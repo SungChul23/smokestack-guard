@@ -1,6 +1,7 @@
 """RN1·RS1 Random Forest 회귀 학습. import만으로 실행하지 않는다."""
 
 from math import isfinite
+from os import PathLike
 from typing import Literal
 
 import pandas as pd
@@ -10,7 +11,7 @@ from dataset import prepare_datasets
 
 
 def _train_regressor(
-    data: pd.DataFrame,
+    data: pd.DataFrame | str | PathLike,
     pollutant: Literal["nox", "sox"],
     model_name: str,
 ) -> dict:
@@ -45,11 +46,11 @@ def _train_regressor(
     return {"model": model, "datasets": datasets, "metadata": metadata}
 
 
-def train_rn1_regressor(data: pd.DataFrame) -> dict:
+def train_rn1_regressor(data: pd.DataFrame | str | PathLike) -> dict:
     """NOx RN1 모델·분할별 X/y·메타데이터를 반환한다."""
     return _train_regressor(data, pollutant="nox", model_name="RN1")
 
 
-def train_rs1_regressor(data: pd.DataFrame) -> dict:
+def train_rs1_regressor(data: pd.DataFrame | str | PathLike) -> dict:
     """SO₂ RS1 모델·분할별 X/y·메타데이터를 반환한다."""
     return _train_regressor(data, pollutant="sox", model_name="RS1")

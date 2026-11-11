@@ -1,12 +1,14 @@
 """SO₂의 S1-C·S1-R 학습 함수. import만으로 학습하지 않는다."""
 
+from os import PathLike
+
 import pandas as pd
 from xgboost import XGBClassifier, XGBRegressor
 
 from dataset import prepare_datasets
 
 
-def train_s1_classifier(data: pd.DataFrame) -> dict:
+def train_s1_classifier(data: pd.DataFrame | str | PathLike) -> dict:
     """S1-C 모델과 분할별 X·y, 분할 메타데이터를 반환한다."""
     # 전체 입력의 공통 시간 경계를 사용하며 SO₂ 분류 적격 행을 준비한다.
     datasets, metadata = prepare_datasets(data, task="classification", pollutant="sox")
@@ -24,7 +26,7 @@ def train_s1_classifier(data: pd.DataFrame) -> dict:
     return {"model": model, "datasets": datasets, "metadata": metadata}
 
 
-def train_s1_regressor(data: pd.DataFrame) -> dict:
+def train_s1_regressor(data: pd.DataFrame | str | PathLike) -> dict:
     """S1-R 모델과 분할별 X·y, 분할 메타데이터를 반환한다."""
     # 회귀 전용 적격 행과 label_ratio_60m을 공통 모듈에서 준비한다.
     datasets, metadata = prepare_datasets(data, task="regression", pollutant="sox")

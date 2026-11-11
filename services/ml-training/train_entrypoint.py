@@ -48,8 +48,6 @@ def main(argv=None) -> dict:
         raise ValueError("입력 데이터 경로와 모델 결과 경로를 분리해야 합니다")
 
     # 의존성 로딩과 모든 작업은 명시적인 main 호출 이후에만 수행한다.
-    import pandas as pd
-
     from artifacts import save_artifacts
     from evaluation import (
         evaluate_classifier,
@@ -59,15 +57,9 @@ def main(argv=None) -> dict:
 
     module_name, function_name = TRAINERS[args.model_id]
     train = getattr(import_module(module_name), function_name)
-    try:
-        # 전체 범위를 한 번 로딩하고 기존 데이터 준비 흐름에 그대로 전달한다.
-        data = pd.read_parquet(input_path)
-    except ImportError as exc:
-        raise ImportError("Parquet 로딩에 필요한 엔진이 없습니다. 실행 환경 확인이 필요합니다") from exc
-    except (OSError, ValueError) as exc:
-        raise ValueError(f"Parquet 입력 로딩 실패: {input_path}: {exc}") from exc
-    result = train(data)
-    del data
+    # 경로만 전달한다. 공통 데이터 준비가 두 번 스캔한 뒤 전체 적격 X/y를
+    # 반환하므로 fit 중 원본 35개 컬럼 DataFrame을 보관하지 않는다.
+    result = train(input_path)
     model = result["model"]
     datasets = result["datasets"]
     metadata = dict(result["metadata"])

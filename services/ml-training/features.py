@@ -23,6 +23,13 @@ FEATURE_COLUMNS = (
 )
 
 
+def _eligibility_mask(data: pd.DataFrame, task: str) -> pd.Series:
+    """검증된 내부 입력에서 기존 플래그의 참 여부만 선택한다."""
+    return (
+        data["feature_valid"].eq(True) & data[f"{task}_eligible"].eq(True)
+    ).fillna(False)
+
+
 def select_features(
     data: pd.DataFrame,
     task: Literal["classification", "regression"],
@@ -33,6 +40,6 @@ def select_features(
     validate_contract(data)
 
     # 참으로 확인된 행만 선택한다. NULL 플래그는 적격으로 간주하지 않는다.
-    eligible = data["feature_valid"].eq(True) & data[f"{task}_eligible"].eq(True)
+    eligible = _eligibility_mask(data, task)
     # 원본 인덱스·결측값을 유지하고 입력 데이터나 기존 플래그를 변경하지 않는다.
     return data.loc[eligible, list(FEATURE_COLUMNS)].copy()
