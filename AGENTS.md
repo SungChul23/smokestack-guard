@@ -136,7 +136,8 @@ smokestack-tms-raw-952900391026/
 
 - 10분마다 실행, 공개 API 전체 스냅샷을 받아 S3에 gzip 원문 + 메타 파일로 저장한다.
 - 응답 SHA-256 해시를 `tms_cleansys/_state/latest.json`에 기록하고, 이전 해시와 다를 때만 원문을 저장한다. 실행 시각은 매번 기록해 "갱신 없음"과 "수집 중단"을 구분한다.
-- 원본 경로: `tms_cleansys/ingest_date=YYYY-MM-DD/hour=HH/run_ts=YYYYMMDDTHHMMSSZ/snapshot.json.gz` (+ `snapshot.meta.json`)
+- 원본 경로: `tms_cleansys/ingest_date=YYYY-MM-DD/hour=HH/run_ts=YYYYMMDDTHHMMSSZ/snapshot.json.gz` (+ `snapshot.meta.json`, `manifest.json`, `_SUCCESS`)
+- 확정 표지: 원문 점검을 통과한 폴더에만 `manifest.json` → `_SUCCESS`를 마지막에 쓴다. **읽는 쪽은 `_SUCCESS`가 있는 폴더만 완성된 스냅샷으로 본다.** 표지가 있는 폴더는 다시 쓰지 않는다. (`specs/a-platform/007-ktms-bronze-success-marker/contracts/bronze-snapshot-folder.md`)
 - 상태 파일: `tms_cleansys/_state/latest.json` (`sha256_raw`, `last_changed_at`, `last_checked_at`, `raw_key`)
 - `reserved_concurrent_executions`는 쓰지 않는다. 계정 동시 실행 한도가 10이면 설정할 수 없다. 한도 상향 후 상태 파일 경합 방지를 위해 `1`로 설정한다.
 - API 키는 환경 변수로 받은 SSM 파라미터 **이름**으로 읽고, **핸들러 밖 전역 변수에 캐시**한다.

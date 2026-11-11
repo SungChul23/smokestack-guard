@@ -13,6 +13,8 @@ from datetime import datetime, timezone
 import boto3
 from botocore.exceptions import ClientError
 
+import bronze_marker as bm                  # 확정 표지(manifest.json, _SUCCESS) 형식
+
 URL = "https://apis.data.go.kr/B552584/cleansys/rltmMesureResult"
 RETRY_STATUS = {429, 500, 502, 503, 504}    # 재시도 대상 HTTP 상태 코드
 MAX_ATTEMPTS = 3                            # 최대 시도 횟수
@@ -147,24 +149,53 @@ def build_meta(result: FetchResult, run_ts: datetime, raw_key: str, gz_size: int
     }
 
 
-# 수집 결과와 실행 시각을 받아 S3에 저장, 결과 반환
+# S3 업로드. ChecksumSHA256을 함께 보내 S3가 받은 내용이 다르면 업로드를 거부하게 한다(BadDigest).
+# 일시 오류 재시도는 botocore 기본 재시도에 맡긴다. 그래도 실패하면 예외 → 상태 미갱신 → 다음 실행이 다시 저장.
+def put_verified(key: str, body: bytes, content_type: str) -> None:
+    s3.put_object(
+        Bucket = BUCKET,
+        Key = key,
+        Body = body,
+        ContentType = content_type,
+        ChecksumSHA256 = bm.checksum_b64(body),
+    )
+
+
+# 수집 결과와 실행 시각을 받아 원문·메타를 S3에 저장, 결과 반환 (표지는 commit_snapshot에서)
 def save_snapshot(result: FetchResult, run_ts: datetime) -> dict:
     prefix = build_prefix(run_ts)
-    raw_key = f"{prefix}/snapshot.json.gz"
-    meta_key = f"{prefix}/snapshot.meta.json"
+    raw_key = bm.key(prefix, bm.RAW_NAME)
+    meta_key = bm.key(prefix, bm.META_NAME)
 
     gz = gzip.compress(result.content, mtime = 0)
-    s3.put_object(Bucket = BUCKET, Key = raw_key, Body = gz, ContentType = "application/gzip")
+    put_verified(raw_key, gz, "application/gzip")
 
     inspected = inspect_payload(result.content)                     # 검증 실패 원문도 남기기 위해 저장 후 검증
     meta = build_meta(result, run_ts, raw_key, len(gz), inspected)
-    s3.put_object(
-        Bucket = BUCKET,
-        Key = meta_key,
-        Body = json.dumps(meta, ensure_ascii = False, indent = 2).encode("utf-8"),
-        ContentType = "application/json"
-    )
-    return {"raw_key": raw_key, "meta_key": meta_key, "inspect": inspected}
+    meta_bytes = json.dumps(meta, ensure_ascii = False, indent = 2).encode("utf-8")
+    put_verified(meta_key, meta_bytes, "application/json")
+    return {"raw_key": raw_key, "meta_key": meta_key, "inspect": inspected, "gz": gz, "meta_bytes": meta_bytes}
+
+
+# 원문 점검을 통과한 폴더에 manifest.json → _SUCCESS 순으로 확정 표지를 남긴다. _SUCCESS가 폴더의 마지막 파일이다.
+def commit_snapshot(prefix: str, gz: bytes, meta_bytes: bytes, raw_sha256: str) -> None:
+    manifest = bm.build_manifest(gz, meta_bytes, raw_sha256, bm.now_iso())
+    put_verified(bm.key(prefix, bm.MANIFEST_NAME), manifest, "application/json")
+    put_verified(bm.key(prefix, bm.SUCCESS_NAME), b"", "application/octet-stream")
+
+
+# 같은 run_ts 폴더가 이미 완성(_SUCCESS 있음)됐으면 그 manifest의 raw_sha256, 아니면 None
+# Lambda 자동 재실행은 같은 run_ts로 같은 폴더에 쓰므로, 완성된 폴더를 덮어쓰지 않으려고 확인한다.
+def find_committed(prefix: str) -> str | None:
+    try:
+        s3.head_object(Bucket = BUCKET, Key = bm.key(prefix, bm.SUCCESS_NAME))
+    except ClientError as exc:
+        code = exc.response["Error"]["Code"]
+        if code not in ("404", "NoSuchKey", "NotFound", "403", "AccessDenied"):  # ListBucket 권한이 없으면 없는 키도 403
+            raise
+        return None
+    body = s3.get_object(Bucket = BUCKET, Key = bm.key(prefix, bm.MANIFEST_NAME))["Body"].read()
+    return json.loads(body)["raw_sha256"]
 
 
 # 마지막 수집 상태 조회 (첫 실행이면 None)
@@ -208,20 +239,41 @@ def lambda_handler(event, context):
         }, ensure_ascii = False))
         return {"changed": False, "last_changed_at": state["last_changed_at"]}
 
+    prefix = build_prefix(run_ts)
+    committed_sha = find_committed(prefix)                          # 같은 run_ts 재실행이면 앞 시도가 완성했는지 확인
+    if committed_sha is not None:
+        raw_key = bm.key(prefix, bm.RAW_NAME)
+        if committed_sha == result.sha256:                          # 앞 시도가 표지까지 쓰고 상태 저장에서 끊긴 경우
+            save_state({
+                "sha256_raw": result.sha256,
+                "last_changed_at": run_ts_iso,
+                "last_checked_at": run_ts_iso,
+                "raw_key": raw_key,
+            })
+            marker = "already_committed"
+        else:                                                       # 완성된 폴더는 덮어쓰지 않는다. 상태를 그대로 두면 다음 실행이 새 폴더에 저장
+            marker = "skipped_committed_folder"
+        print(json.dumps({"changed": True, "marker": marker, "raw_key": raw_key,
+                          "attempts": result.attempts, "elapsed_ms": result.elapsed_ms}, ensure_ascii = False))
+        return {"changed": True, "marker": marker, "raw_key": raw_key}
+
     saved = save_snapshot(result, run_ts)
 
     inspected = saved["inspect"]
     if not inspected["ok"]:                                         # 예외를 던져야 Lambda 실패로 집계됨
-        raise RuntimeError(                                         # 상태는 갱신하지 않아 마지막 정상 응답과 계속 비교
+        raise RuntimeError(                                         # 표지·상태를 쓰지 않아 마지막 정상 응답과 계속 비교
             f"원문 점검 실패: {inspected.get('reason')} "
             f"(total = {inspected.get('total_count')}, items = {inspected.get('item_count')})"
         )
 
-    save_state({                                                    # 원문, 메타 저장이 끝난 뒤 마지막에 갱신
+    commit_snapshot(prefix, saved["gz"], saved["meta_bytes"], result.sha256)
+
+    save_state({                                                    # 원문, 메타, 표지 저장이 끝난 뒤 마지막에 갱신
         "sha256_raw": result.sha256,
         "last_changed_at": run_ts_iso,
         "last_checked_at": run_ts_iso,
         "raw_key": saved["raw_key"],
     })
-    print(json.dumps({"changed": True, **saved, "attempts": result.attempts, "elapsed_ms": result.elapsed_ms}, ensure_ascii = False))
-    return {"changed": True, **saved}
+    summary = {"raw_key": saved["raw_key"], "meta_key": saved["meta_key"], "inspect": inspected, "marker": "written"}
+    print(json.dumps({"changed": True, **summary, "attempts": result.attempts, "elapsed_ms": result.elapsed_ms}, ensure_ascii = False))
+    return {"changed": True, **summary}
