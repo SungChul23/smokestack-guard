@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-10
 
-**Status**: Draft
+**Status**: 배포·백필 완료 (2026-11-11)
 
 **Input**: User description: "K-TMS 수집 Lambda(services/tms-collector)에 B가 8-k-tms-bronze 브랜치(ab11d17)에서 설계한 Bronze 확정 표지(manifest.json, _SUCCESS)를 구현하고, 배포 이전에 쌓인 tms_cleansys/ 스냅샷 폴더에 표지를 백필한다. 수집 스케줄(10분)은 끄지 않는다. 범위 밖: ktms.py가 _SUCCESS만 읽도록 바꾸기(C), 누락률 리포트 기준 변경."
 
