@@ -103,9 +103,9 @@ description: "Task list for K-TMS Bronze 확정 표지(manifest, _SUCCESS)와 �
 
 - [X] T021 [US3] `services/tms-collector/README.md`: S3 경로 트리에 `manifest.json`·`_SUCCESS`, 처리 흐름 4~6단계(체크섬·표지·상태 순서), 재시도 표에 "같은 `run_ts` 재실행은 표지 있는 폴더를 다시 쓰지 않음", "백필" 절(명령은 quickstart §4), "배포" 절(수집 직후 apply, 확인 항목, 되돌림).
 - [X] T022 [US3] `infra/` `terraform fmt -recursive` + `infra/stacks/tms-collection`에서 `terraform validate` (에이전트, `/mnt/c/terraform/terraform.exe`).
-- [ ] T023 [US3] (사람) `terraform plan`: 변경이 `module.collector`의 Lambda 코드(zip 해시) 하나뿐인지 확인. 다른 변경이 있으면 멈춘다.
-- [ ] T024 [US3] (사람) 수집 직후(x2~x5분) `terraform apply`, 배포 시각 UTC 기록.
-- [ ] T025 [US3] (사람) quickstart §3 확인: 다음 실행 오류 없음·`marker` 필드, 첫 저장 실행 폴더 네 파일, 알람 없음. 실패 시 되돌림.
+- [X] T023 [US3] (사람) `terraform plan`: 변경이 `module.collector`의 Lambda 코드(zip 해시) 하나뿐인지 확인. 다른 변경이 있으면 멈춘다.
+- [X] T024 [US3] (사람) 수집 직후(x2~x5분) `terraform apply`, 배포 시각 UTC 기록.
+- [X] T025 [US3] (사람) quickstart §3 확인: 다음 실행 오류 없음·`marker` 필드, 첫 저장 실행 폴더 네 파일, 알람 없음. 실패 시 되돌림.
 
 **Checkpoint**: 새 폴더에 표지가 붙고 수집 실행이 빠지지 않았다(SC-001, SC-002).
 
@@ -113,9 +113,9 @@ description: "Task list for K-TMS Bronze 확정 표지(manifest, _SUCCESS)와 �
 
 ## Phase 6: 백필 실행과 공유 (US2 실데이터)
 
-- [ ] T026 [US2] (사람) `python backfill_markers.py --before <배포 시각>` 미리보기 → 결과 확인(`targets`, `would_mark`, `failed` 사유).
-- [ ] T027 [US2] (사람) `--apply --report` 실행 → 재실행해 `would_mark=0` 확인. 원문·메타 개수·크기 전후 비교(SC-004).
-- [ ] T028 [US2] 결과를 `specs/a-platform/007-ktms-bronze-success-marker/quickstart.md` 끝 "실행 결과"에 기록(배포 시각, 대상·표지·실패 수와 사유).
+- [X] T026 [US2] (사람) `python backfill_markers.py --before <배포 시각>` 미리보기 → 결과 확인(`targets`, `would_mark`, `failed` 사유).
+- [X] T027 [US2] (사람) `--apply --report` 실행 → 재실행해 `would_mark=0` 확인. 원문·메타 개수·크기 전후 비교(SC-004).
+- [X] T028 [US2] 결과를 `specs/a-platform/007-ktms-bronze-success-marker/quickstart.md` 끝 "실행 결과"에 기록(배포 시각, 대상·표지·실패 수와 사유).
 
 ---
 

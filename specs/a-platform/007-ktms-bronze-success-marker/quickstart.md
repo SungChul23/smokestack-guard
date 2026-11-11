@@ -51,3 +51,18 @@ uv run --with boto3 python backfill_markers.py --before <같은 값>            
 - 원문·메타 개수·크기: 백필 전후 `aws s3 ls --recursive` 결과에서 `snapshot.*` 줄을 비교해 같음.
 - `_SUCCESS` 폴더 수 = `marked` + 배포 이후 수집 Lambda가 표지를 붙인 폴더 수.
 - C에게 공유: 배포 시각, 백필 결과(표지 수, 실패 폴더와 사유).
+
+## 실행 결과 (2026-11-11)
+
+| 항목 | 결과 |
+|---|---|
+| `terraform plan` | 2 to change: 수집 Lambda `source_code_hash`, 스케줄 호출 정책(Lambda 변경 때문에 apply 시 다시 읽을 뿐 내용 같음). 누락률 Lambda·스케줄·버킷 변경 없음 |
+| 배포 | 10:32 KST (`20261111T0132xxZ`), 10:30 실행 직후. 스케줄은 끄지 않음 |
+| 첫 표지 폴더 | `ingest_date=2026-11-11/hour=01/run_ts=20261111T014000Z/` 네 파일, manifest `backfilled: false`, `committed_at` 01:40:32Z |
+| 백필 `--before` | `20261111T013500Z` (마지막 옛 코드 실행 01:30Z와 첫 새 코드 실행 01:40Z 사이) |
+| 미리보기 | `targets=562 would_mark=561 skipped=0 failed=1` |
+| 실행 (`--apply`) | `marked=561 failed=1` |
+| 재확인 | `would_mark=0 skipped=561 failed=1` |
+| 실패 폴더 | `ingest_date=2026-10-31/hour=23/run_ts=20261031T235000Z` `inspect_fail`: 수집 당시 메타에 점검 실패(`inspect.ok=false`)로 기록된 스냅샷. 표지 없이 보존, 읽는 쪽은 건너뜀 |
+
+- 원문·메타 개수·크기 전후 비교(SC-004)는 백필 전 목록을 받지 않아 하지 않았다. 백필은 `IfNoneMatch="*"`로 `manifest.json`·`_SUCCESS`만 새로 쓰고 원문·메타·상태 파일에는 put하지 않는다(`tests/test_backfill.py`).
