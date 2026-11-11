@@ -49,6 +49,7 @@ def main(argv=None) -> dict:
 
     # 의존성 로딩과 모든 작업은 명시적인 main 호출 이후에만 수행한다.
     from artifacts import save_artifacts
+    from dataset import _log_memory
     from evaluation import (
         evaluate_classifier,
         evaluate_regressor,
@@ -75,21 +76,27 @@ def main(argv=None) -> dict:
             raise ValueError("분류 모델에 양성 클래스 1이 없습니다")
         positive_column = classes.index(1)
         validation = datasets["validation"]
+        _log_memory(f"{args.model_id}/validation_before")
         probability = model.predict_proba(validation["X"])[:, positive_column]
         metrics["validation"] = select_f2_threshold(validation["y"], probability)
         threshold = metrics["validation"]["threshold"]
         del probability
+        _log_memory(f"{args.model_id}/validation_after")
         test = datasets["test"]
+        _log_memory(f"{args.model_id}/test_before")
         probability = model.predict_proba(test["X"])[:, positive_column]
         metrics["test"] = evaluate_classifier(test["y"], probability, threshold)
         metadata["classification_threshold"] = threshold
         del probability
+        _log_memory(f"{args.model_id}/test_after")
     else:
         for name in ("validation", "test"):
             dataset = datasets[name]
+            _log_memory(f"{args.model_id}/{name}_before")
             prediction = model.predict(dataset["X"])
             metrics[name] = evaluate_regressor(dataset["y"], prediction)
             del prediction
+            _log_memory(f"{args.model_id}/{name}_after")
 
     # 기존 메타데이터의 분할 시각·전체/적격 건수를 유지하고 확인된 정보만 추가한다.
     metadata["model_id"] = args.model_id
@@ -102,7 +109,10 @@ def main(argv=None) -> dict:
     metadata["input_path"] = str(input_path)
     # 전체 get_params에는 NaN 기본값 등이 있을 수 있어 JSON에 그대로 넘기지 않는다.
     # 모델 객체 자체의 전체 설정은 model.joblib에 보존된다.
-    return save_artifacts(model, args.model_id, metrics, metadata, output_dir)
+    _log_memory(f"{args.model_id}/save_before")
+    paths = save_artifacts(model, args.model_id, metrics, metadata, output_dir)
+    _log_memory(f"{args.model_id}/save_after")
+    return paths
 
 
 if __name__ == "__main__":

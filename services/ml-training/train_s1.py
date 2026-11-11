@@ -5,7 +5,7 @@ from os import PathLike
 import pandas as pd
 from xgboost import XGBClassifier, XGBRegressor
 
-from dataset import prepare_datasets
+from dataset import prepare_datasets, _log_memory
 
 
 def train_s1_classifier(data: pd.DataFrame | str | PathLike) -> dict:
@@ -22,7 +22,9 @@ def train_s1_classifier(data: pd.DataFrame | str | PathLike) -> dict:
 
     # Feature 순서와 X-y 대응은 공통 모듈에 맡기고 Train만 학습한다.
     model = XGBClassifier(random_state=42)
+    _log_memory("S1-C/fit_before")
     model.fit(train["X"], train["y"])
+    _log_memory("S1-C/fit_after")
     return {"model": model, "datasets": datasets, "metadata": metadata}
 
 
@@ -36,7 +38,9 @@ def train_s1_regressor(data: pd.DataFrame | str | PathLike) -> dict:
 
     # 기본 설정으로 비율(%)을 그대로 학습하며 100% 초과값도 보존한다.
     model = XGBRegressor(random_state=42)
+    _log_memory("S1-R/fit_before")
     model.fit(train["X"], train["y"])
+    _log_memory("S1-R/fit_after")
 
     # Validation·Test는 fit에 전달하지 않고 후속 선택·평가용으로 반환한다.
     return {"model": model, "datasets": datasets, "metadata": metadata}

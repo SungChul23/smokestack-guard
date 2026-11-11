@@ -5,7 +5,7 @@ from os import PathLike
 import pandas as pd
 from xgboost import XGBClassifier, XGBRegressor
 
-from dataset import prepare_datasets
+from dataset import prepare_datasets, _log_memory
 
 
 def train_n1_classifier(data: pd.DataFrame | str | PathLike) -> dict:
@@ -22,7 +22,9 @@ def train_n1_classifier(data: pd.DataFrame | str | PathLike) -> dict:
 
     # 확정 Feature 순서와 X-y 대응을 그대로 사용한다. 나머지 설정은 기본값이다.
     model = XGBClassifier(random_state=42)
+    _log_memory("N1-C/fit_before")
     model.fit(train["X"], train["y"])
+    _log_memory("N1-C/fit_after")
 
     # Validation·Test는 fit에 전달하지 않고 후속 선택·평가용으로 반환한다.
     return {"model": model, "datasets": datasets, "metadata": metadata}
@@ -38,7 +40,9 @@ def train_n1_regressor(data: pd.DataFrame | str | PathLike) -> dict:
 
     # 비율(%) Target을 변환·클리핑하지 않아 100% 초과값도 보존한다.
     model = XGBRegressor(random_state=42)
+    _log_memory("N1-R/fit_before")
     model.fit(train["X"], train["y"])
+    _log_memory("N1-R/fit_after")
 
     # 실제 학습은 이 함수가 명시적으로 호출될 때만 수행한다.
     return {"model": model, "datasets": datasets, "metadata": metadata}

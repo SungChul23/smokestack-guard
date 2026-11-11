@@ -9,3 +9,4 @@ scikit-learn
 pyarrow
 xgboost
 joblib
+psutil

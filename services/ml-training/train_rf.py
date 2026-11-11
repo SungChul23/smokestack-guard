@@ -7,7 +7,7 @@ from typing import Literal
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 
-from dataset import prepare_datasets
+from dataset import prepare_datasets, _log_memory
 
 
 def _train_regressor(
@@ -42,7 +42,9 @@ def _train_regressor(
 
     # Target은 비율(%) 그대로 사용하며 100% 초과값을 제한하지 않는다.
     model = RandomForestRegressor(random_state=42)
+    _log_memory(f"{model_name}/fit_before")
     model.fit(train["X"], train["y"])
+    _log_memory(f"{model_name}/fit_after")
     return {"model": model, "datasets": datasets, "metadata": metadata}
 
 

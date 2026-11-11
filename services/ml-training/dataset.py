@@ -2,8 +2,10 @@
 
 from contextlib import contextmanager
 import hashlib
+import json
 from math import isfinite
 import os
+import sys
 from pathlib import Path
 from typing import Literal
 
@@ -13,6 +15,26 @@ import pandas as pd
 from contract import REQUIRED_COLUMNS, validate_contract
 from features import FEATURE_COLUMNS, _eligibility_mask
 from split import _normalize_times, _time_metadata, _split_masks
+
+
+def _log_memory(stage: str) -> None:
+    """프로세스 현재·누적 최대 RSS를 바이트 단위로 출력한다. 컨테이너 합계는 아니다."""
+    try:
+        import psutil
+
+        info = psutil.Process().memory_info()
+        if sys.platform.startswith("linux"):
+            import resource
+
+            peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
+        else:
+            peak = getattr(info, "peak_wset", None)
+        record = {"event": "memory", "stage": stage,
+                  "rss_bytes": info.rss, "peak_rss_bytes": peak}
+    except (ImportError, OSError) as exc:
+        # 계측 실패는 명시적으로 기록하되 학습 결과에는 영향을 주지 않는다.
+        record = {"event": "memory_error", "stage": stage, "reason": str(exc)}
+    print(json.dumps(record, ensure_ascii=False), flush=True)
 
 
 def _update_split_summary(metadata, masks, times):
@@ -82,6 +104,7 @@ def _finish_datasets(parts, metadata, task, pollutant, label, dtypes, total_rows
     metadata["prepared_rows"] = {name: len(value["y"]) for name, value in datasets.items()}
     metadata["has_valid_data"] = {name: not value["y"].empty for name, value in datasets.items()}
     metadata.update(task=task, pollutant=pollutant, label_column=label)
+    _log_memory(f"{pollutant}/{task}/data_ready")
     return datasets, metadata
 
 
