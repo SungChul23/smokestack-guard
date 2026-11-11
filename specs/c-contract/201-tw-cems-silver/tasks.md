@@ -66,7 +66,7 @@
 - [ ] T031 [US4] (보류) 실행 시간·DPU 비용 측정 후 A에게 공유
 - [x] T032 [US4] 36개월 Glue 실행 (PR #31, 재수집 원본으로 재실행 PR #37)
 - [x] T041 ML-ready 적격 규칙 v2: 기준치 변경 구간 제외, 회귀에서 `& below` 제거 (#33). `ml_ready.py`, `tests/test_ml_ready_eligibility.py`; 36개월 pandas·Spark(로컬 도커) 35컬럼 일치, 분류 9,857,883·양성 133,715·회귀 10,687,092 (빈 슬롯 사이 기준치 변경 포함, 2026-11-10)
-- [ ] T033 [US4] ML-ready Spark 이식 — PR #37(성철 님)에서 구현, Glue 실행, pandas 35컬럼 비교 일치. 머지 대기
+- [x] T033 [US4] ML-ready Spark 이식 — PR #37(성철 님)에서 구현, Glue 실행, pandas 35컬럼 비교 일치. 머지 완료
 
 ## Phase 7: Open Questions (spec 참고)
 
