@@ -63,7 +63,7 @@
 - [x] T028 [US4] 실행 환경·방법 문서 `spark_migration_checklist.md`
 - [x] T029 [US4] S3 출력 위치와 최소 IAM 권한 확정, Glue 작업·권한을 Terraform으로 생성 (A 담당, 적용은 사람이)
 - [x] T030 [US4] Glue에서 한 달 전체 실행 후 pandas 결과와 비교 (SC-009) — 36개월 모두 일치 (재수집 원본 `silver2/` 포함)
-- [ ] T031 [US4] (보류) 실행 시간·DPU 비용 측정 후 A에게 공유
+- [x] T031 [US4] 실행 시간·DPU 측정 (2026-11-11): `tms-silver2-tw-cems` 36개월 성공 36회, 월당 평균 118초(최대 201초), 합계 11.87 DPU-시간(G.1X 10대). ML-ready build 162초 + compare 125초 ≈ 0.8 DPU-시간. A 공유는 PR 본문에 적는다
 - [x] T032 [US4] 36개월 Glue 실행 (PR #31, 재수집 원본으로 재실행 PR #37)
 - [x] T041 ML-ready 적격 규칙 v2: 기준치 변경 구간 제외, 회귀에서 `& below` 제거 (#33). `ml_ready.py`, `tests/test_ml_ready_eligibility.py`; 36개월 pandas·Spark(로컬 도커) 35컬럼 일치, 분류 9,857,883·양성 133,715·회귀 10,687,092 (빈 슬롯 사이 기준치 변경 포함, 2026-11-10)
 - [x] T033 [US4] ML-ready Spark 이식 — PR #37(성철 님)에서 구현, Glue 실행, pandas 35컬럼 비교 일치. 머지 완료

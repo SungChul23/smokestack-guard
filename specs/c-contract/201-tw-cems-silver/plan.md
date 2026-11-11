@@ -28,7 +28,7 @@ AQX_P_186 월별 JSONL의 모든 항목·상태코드를 30분 슬롯으로 변�
 
 **Glue에 필요한 최소 권한(안)**: `bronze/tw_cems/historical/*` 읽기(`s3:GetObject`, `s3:ListBucket`), `silver/tw_cems/*` 쓰기(`s3:PutObject`, `s3:DeleteObject`는 파티션 덮어쓰기에 필요), CloudWatch Logs. Bronze 접두사에는 쓰기·삭제를 주지 않는다.
 
-**비용 영향**: Glue 작업은 월 1회 이하 실행한다. 월 2~3GB 입력의 실행 시간·DPU는 아직 측정하지 않았다(tasks T031). 측정 후 A에게 알린다.
+**비용 영향**: Glue 작업은 월 1회 이하 실행한다. 측정 결과(tasks T031): 월 1회 실행은 평균 118초, 36개월 전체 재생성은 약 11.9 DPU-시간이고 ML-ready build·compare는 약 0.8 DPU-시간이다.
 
 ## 구조
 
