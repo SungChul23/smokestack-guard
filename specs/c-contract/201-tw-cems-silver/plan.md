@@ -67,7 +67,7 @@ spark_migration_checklist.md   # Docker(Spark 3.5) 검증 방법과 Glue 실행 
 5. Spark 이식과 패리티 검증 — **완료**(Docker, 샘플 3개 달 모든 컬럼 일치)
 6. Glue 실행과 월 전체 비교 — **남음** (출력 위치·권한, 비용 측정)
 7. 월별 단계별 행 수·양성 수 기록, 표본 검증(SC-003, 004, 006) — **남음**
-8. ML-ready Spark 이식 — **PR #37 리뷰 중**(성철 님): Glue 실행과 pandas 35컬럼 비교 일치. 학습용은 `tms_silver2.tw_cems_ml_ready`
+8. ML-ready Spark 이식 — **PR #37 머지**(성철 님): Glue 실행과 pandas 35컬럼 비교 일치. 학습용은 `tms_silver2.tw_cems_ml_ready`
 
 ## 위험과 미결
 
