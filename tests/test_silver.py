@@ -43,13 +43,15 @@ class KtmsSilverTests(unittest.TestCase):
         self.assertTrue(pd.isna(out.iloc[0]["ratio"]))
 
     @staticmethod
-    def fake_s3(snapshots):
+    def fake_s3(snapshots, unfinished=()):
         import gzip
         import json
 
+        keys = set(snapshots) | {k.rsplit("/", 1)[0] + "/_SUCCESS" for k in snapshots if k.endswith("snapshot.json.gz") and k not in unfinished}
+
         class Paginator:
             def paginate(self, Bucket, Prefix):
-                yield {"Contents": [{"Key": k} for k in sorted(snapshots) if k.startswith(Prefix)]}
+                yield {"Contents": [{"Key": k} for k in sorted(keys) if k.startswith(Prefix)]}
 
         class Client:
             def get_paginator(self, name):
@@ -81,6 +83,32 @@ class KtmsSilverTests(unittest.TestCase):
         self.assertEqual(len(ktms.read_bronze("b", s3=s3)), 4)
         self.assertEqual(len(ktms.read_bronze("b", date(2026, 11, 2), s3=s3)), 2)
         self.assertTrue(ktms.read_bronze("b", date(2026, 11, 4), s3=s3).empty)
+
+    def test_read_bronze_skips_runs_without_success_marker(self):
+        from datetime import date
+
+        stack = {"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "mesure_dt": "2026-11-02 12:30"}
+        done = "tms_cleansys/ingest_date=2026-11-02/hour=01/run_ts=a/snapshot.json.gz"
+        failed = "tms_cleansys/ingest_date=2026-11-02/hour=02/run_ts=b/snapshot.json.gz"
+        s3 = self.fake_s3({done: [stack | {"nox_mesure_value": "1"}], failed: [stack | {"nox_mesure_value": "2"}]}, unfinished=[failed])
+        df = ktms.read_bronze("b", date(2026, 11, 2), date(2026, 11, 2), s3=s3)
+        self.assertEqual(df["nox_mesure_value"].tolist(), ["1"])
+        self.assertTrue(ktms.read_bronze("b", s3=self.fake_s3({failed: []}, unfinished=[failed])).empty)
+
+    def test_values_with_a_thousands_separator_are_kept(self):
+        base = {"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "snapshot": 0, "nox_exhst_perm_stdr_value": "42.5"}
+        df = pd.DataFrame([
+            base | {"mesure_dt": "2026-11-02 12:30", "nox_mesure_value": "1,910.17"},
+            base | {"mesure_dt": "2026-11-02 13:00", "nox_mesure_value": "10,003.90"},
+            base | {"mesure_dt": "2026-11-02 13:30", "nox_mesure_value": "미수신"},
+            base | {"mesure_dt": "2026-11-02 14:00", "nox_mesure_value": "1,2x"},
+            base | {"mesure_dt": "2026-11-02 14:30", "nox_mesure_value": "25"},
+        ])
+        out = ktms.to_silver(df).set_index("ts_kst")
+        self.assertEqual(out["status"].tolist(), ["ok", "ok", "no_signal", "other", "ok"])
+        self.assertEqual(out["value"].dropna().tolist(), [1910.17, 10003.9, 25.0])
+        self.assertEqual((out["value"].dtype, out["ratio"].dtype), ("float64", "float64"))  # a nullable Float64 would break ml_ready
+        self.assertAlmostEqual(out.iloc[0]["ratio"], 1910.17 / 42.5)
 
     def test_quality_counts_rows_stacks_status_and_duplicates(self):
         stack = {"area_nm": "A", "fact_manage_nm": "F", "nox_exhst_perm_stdr_value": "50"}

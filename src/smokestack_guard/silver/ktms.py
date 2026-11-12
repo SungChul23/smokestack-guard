@@ -3,6 +3,8 @@
 Silver rules:
 - the API repeats the latest measurement every 10 minutes (measurements are on :00/:30), so rows are
   deduplicated on stack + mesure_dt + item, keeping the latest snapshot (a "checking" value can be filled in later).
+- only runs with a `_SUCCESS` marker are read (the collector writes it last, so a failed or half-written run is skipped).
+- big values come with a thousands separator ("1,910.17"); it is removed so the value is kept instead of becoming `other`.
 - text values become a `status` code and a NaN value; null value + null limit means the item is not monitored there.
 - the API has no id to tell apart two rows with the same area + facility + stack_code in one snapshot; when such
   rows disagree on an item, that item is `ambiguous` (NaN value) instead of an arbitrary winner.
@@ -43,12 +45,15 @@ def _keys(s3, bucket: str, start: date | None, end: date | None) -> list[str]:
     else:
         start, end = start or end, end or start
         prefixes = [f"{PREFIX}ingest_date={start + timedelta(days=n)}/" for n in range((end - start).days + 1)]
-    return sorted(  # keys sort by ingest time
+    keys = [
         o["Key"]
         for prefix in prefixes
         for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix)
         for o in page.get("Contents", [])
-        if o["Key"].endswith("snapshot.json.gz")
+    ]
+    done = {k.rsplit("/", 1)[0] for k in keys if k.endswith("/_SUCCESS")}  # the collector writes _SUCCESS last
+    return sorted(  # keys sort by ingest time
+        k for k in keys if k.endswith("snapshot.json.gz") and k.rsplit("/", 1)[0] in done
     )
 
 
@@ -63,6 +68,12 @@ def read_bronze(bucket: str = BUCKET, start: date | None = None, end: date | Non
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
+def _plain_number(raw: pd.Series) -> pd.Series:
+    """Drop the thousands separator the API puts in big values ("1,910.17"); other strings stay as they are."""
+    s = raw.astype("string")
+    return s.where(~s.str.fullmatch(r"-?\d{1,3}(,\d{3})+(\.\d+)?", na=False), s.str.replace(",", "", regex=False))
+
+
 def to_silver(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     for item in ITEMS:
@@ -73,9 +84,9 @@ def to_silver(df: pd.DataFrame) -> pd.DataFrame:
     df = df.dropna(subset=STACK + ["mesure_dt"])
     parts = []
     for item in ITEMS:
-        raw = df[f"{item}_mesure_value"]
+        raw = _plain_number(df[f"{item}_mesure_value"])
         limit = pd.to_numeric(df[f"{item}_exhst_perm_stdr_value"], errors="coerce")
-        part = df[STACK + ["mesure_dt", "snapshot"]].assign(item=item, value=pd.to_numeric(raw, errors="coerce"), limit=limit, raw=raw.astype("string") + "|" + limit.astype("string"))  # value and limit must both agree
+        part = df[STACK + ["mesure_dt", "snapshot"]].assign(item=item, value=pd.to_numeric(raw, errors="coerce").astype("float64"), limit=limit, raw=raw.astype("string") + "|" + limit.astype("string"))  # value and limit must both agree
         text = raw.where(raw.notna() & part["value"].isna())
         part["status"] = text.map(STATUS).fillna("other").where(text.notna(), "ok")
         part.loc[part["status"].eq("ok") & (part["value"].isna() | part["limit"].isna()), "status"] = "not_monitored"
