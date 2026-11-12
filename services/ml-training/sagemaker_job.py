@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 
 
 REGION = "ap-northeast-2"
-INSTANCE_TYPE = "ml.m5.xlarge"
+INSTANCE_TYPE = "ml.r5.2xlarge"
 INSTANCE_COUNT = 1
 DEFAULT_MAX_RUN = 3600
 MODEL_IDS = ("N1-C", "N1-R", "S1-C", "S1-R", "RN1", "RS1")
@@ -57,6 +57,7 @@ def main(argv=None):
     parser.add_argument("--output-s3-uri", required=True, type=_s3_uri)
     parser.add_argument("--role-arn", required=True, type=_role_arn)
     parser.add_argument("--max-run", type=int, default=DEFAULT_MAX_RUN)
+    parser.add_argument("--instance-type", default=INSTANCE_TYPE)
     parser.add_argument("--submit", action="store_true")
     args = parser.parse_args(argv)
     if args.max_run <= 0:
@@ -81,7 +82,7 @@ def main(argv=None):
         "model_id": args.model_id,
         "region": REGION,
         "training_image": TRAINING_IMAGE,
-        "instance_type": INSTANCE_TYPE,
+        "instance_type": args.instance_type,
         "instance_count": INSTANCE_COUNT,
         "max_runtime_in_seconds": args.max_run,
         "source_dir": str(source_dir),
@@ -130,7 +131,7 @@ def main(argv=None):
             requirements="requirements.txt",
         ),
         compute=Compute(
-            instance_type=INSTANCE_TYPE,
+            instance_type=args.instance_type,
             instance_count=INSTANCE_COUNT,
             enable_managed_spot_training=False,
         ),

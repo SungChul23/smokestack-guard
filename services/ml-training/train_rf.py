@@ -41,7 +41,8 @@ def _train_regressor(
         )
 
     # Target은 비율(%) 그대로 사용하며 100% 초과값을 제한하지 않는다.
-    model = RandomForestRegressor(random_state=42)
+    # V1.0 실행 최적화 실험: RS1만 CPU 병렬화하고 RN1은 기본값(None)을 유지한다.
+    model = RandomForestRegressor(random_state=42, n_jobs=4 if model_name == "RS1" else None)
     _log_memory(f"{model_name}/fit_before")
     model.fit(train["X"], train["y"])
     _log_memory(f"{model_name}/fit_after")
