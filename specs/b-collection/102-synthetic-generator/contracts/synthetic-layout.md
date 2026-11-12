@@ -14,7 +14,7 @@ tms_synthetic/episode=<에피소드ID>/ingest_date=YYYY-MM-DD/hour=HH/run_ts=YYY
 
 - 실측과 다른 점은 앞의 **`tms_synthetic/`** 와 **`episode=…/`** 두 단계뿐이다. 나머지는 실측과 같다(UTC).
 - 쓰기 대상은 `tms_synthetic/` 아래뿐이다. `tms_cleansys/` 아래 경로는 쓰지 않는다.
-- 에피소드 ID 예: `S-01-E`, `S-02-E-NOX`, `S-02-E-SOX`, `S-02-E-NOXSOX`.
+- 에피소드 ID 예: `S-01-E-NOX`, `S-02-E-NOXSOX-NOXUP`, `S-03-E-OVER-SOX`, `S-04-E-PLATEAU-NOX`, `S-07-E-CONFLICT`. 형식은 `<시나리오>-E[-<변형>][-<성분>]`이다.
 
 ## 스냅샷 원문
 
@@ -38,7 +38,7 @@ tms_synthetic/episode=<에피소드ID>/ingest_date=YYYY-MM-DD/hour=HH/run_ts=YYY
 - 항목은 실측과 같은 18필드이며 **그 밖의 필드를 넣지 않는다**.
 - 측정값·허용기준은 문자열(측정값 소수 둘째 자리, 허용기준 정수). 상태 문구와 콤마 숫자는 원문 그대로.
 - 합성 배출구 코드는 `SYN-` 접두어. 실제 배출구 코드를 쓰지 않는다.
-- `totalCount`는 `items` 개수와 같다 (S-07 결함 제외).
+- `totalCount`는 `items` 개수와 같다 (S-06 결함 제외).
 
 ## 메타
 
@@ -46,7 +46,7 @@ tms_synthetic/episode=<에피소드ID>/ingest_date=YYYY-MM-DD/hour=HH/run_ts=YYY
 
 | 키 | 값 |
 |---|---|
-| (실측 키) | `source`(합성 표시), `run_ts`, `saved_at`, `raw_bytes`, `gz_bytes`, `sha256_raw`, `raw_key`, `inspect` |
+| (실측 키) | `source`(합성 표시), `run_ts`, `requested_at`, `saved_at`, `status_code`, `elapsed_ms`, `attempts`, `raw_bytes`, `gz_bytes`, `sha256_raw`, `raw_key`, `inspect`. 합성은 `requested_at`·`saved_at`을 `run_ts`와 같게, `status_code` 200, `elapsed_ms` 0, `attempts` 1로 고정한다(같은 설정이면 같은 바이트) |
 | `synthetic` | `{"episode_id": ..., "scenario_id": ..., "generator_version": ..., "stats_version": ...}` |
 
 ## 정보 파일 (스냅샷 밖, 평가 대조용)

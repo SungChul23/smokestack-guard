@@ -96,7 +96,11 @@ def make_data_files(snapshot: dict, episode_id: str, run_ts, info: dict) -> dict
     meta = {                                                                   # meta 생성
         "source": "synthetic",                                                                 # 합성 데이터 표기
         "run_ts": ts,                                                                          # 실행 시각
+        "requested_at": ts,                                                                    # 요청 시각
         "saved_at": ts,                                                                        # 저장 시각
+        "status_code": 200,                                                                    # HTTP 응답 코드: 정상 응답으로 고정
+        "elapsed_ms": 0,                                                                       # 응답에 걸린 시간: 합성은 0 고정
+        "attempts": 1,                                                                         # 시도 횟수: 한 번에 성공한 것으로 고정
         "raw_bytes": len(raw),                                                                 # 압축 전 크기
         "gz_bytes": len(gz),                                                                   # 압축 후 크기
         "sha256_raw": _sha256(raw),                                                            # 원문의 지문

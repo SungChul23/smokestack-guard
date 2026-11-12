@@ -2,60 +2,94 @@
 - 에피소드 계획 모듈: 설정(config)을 읽어 어떤 에피소드르 만들지 계획표 생성
 - 값을 만드는 것이 아닌 이름, 배출구 코드, seed, 시작 시각을 결정
 '''
+import zlib
 import numpy as np
 import yaml
 from synth import schedule
 
-S02_VARIANTS = {"NOX": ["nox"], "SOX": ["sox"], "NOXSOX": ["nox", "sox"]}
+VALID_ITEMS = {"nox", "sox"}
 
 # config.yaml파일을 읽어 dict 형식으로 만듬
-def load_config(path) -> dict:
+def load_config(path) -> dict:              
     with open(path, encoding = "utf-8") as f:       # 한글 주석이 포함되어 있어 utf-8로 읽기
-        return yaml.safe_load(f)                    # safe_load: 데이터만 읽고 코드는 실행하지 않음ㅇ
+        return yaml.safe_load(f)                    # 데이터만 읽고 코드를 실행하지 않음
 
 # 에피소드 ID에서 시나리오 번호를 뽑음 ("S-02-E-NOX" -> "S-02")
 def scenario_of(episode_id: str) -> str:
     return "-".join(episode_id.split("-")[:2])      # "-"로 쪼갠 후 앞 두 조각만 다시 붙임
 
-# 합성 배출구 코드 생성
+# 합성 배출구 코드 생성 ("S-02-E-NOX", 1 -> "SYN-S02ENOX-01")
 def make_stack_code(episode_id: str, n: int) -> str:
-    return f"SYN-{episode_id.replace('-', '')}-{n:02d}"     # episode_id의 "-"을 빼고(S-01-E -> S01E), 번호는 두 자리로 채워(1 -> 01) 이어 붙임
+    return f"SYN-{episode_id.replace('-', '')}-{n:02d}"     # "-"를 빼고, 번호를 두 자리로 채워 이어 붙임
 
-# 설정의 시나리오 개수를 개별 에피소드로 펼침
+# 성분 목록이 비어 있지 않고, 모르는 성분이 없는지 확인
+def _check_items(owner: str, items: list) -> None:
+    if not items:
+        raise ValueError(f"{owner}: 성분 목록이 비어 있음")
+    unknown = set(items) - VALID_ITEMS
+    if unknown:
+        raise ValueError(f"{owner}: 모르는 성분 {sorted(unknown)}")
+
+# 에피소드 ID 생성: 시나리오 + (변형) + (성분은 성분이 2개 이상일 때)
+def make_episode_id(base_id: str, variant, item: str, multi_item: bool) -> str:
+    parts = [base_id]
+    if variant:
+        parts.append(variant)
+    if multi_item:
+        parts.append(item.upper())
+    return "-".join(parts)
+
+# 설정의 시나리오를 개별 에피소드로 펼침
 def expand_episodes(episodes_cfg: dict) -> list:
-    result = []                                                             # 결과를 쌓을 빈 목록
-    for base_id, count in episodes_cfg.items():                                   # 설정의 항목을 하나씩 돈다. 
-        if base_id == "S-02-E":                                                   # S-02는 서서히 상승 시나리오로 NOX, SOX, NOX+SOX 3가지 로 나뉨
-            if count != 3:                                                        # 개수가 3이 아니라면 설정이 잘못된 것. 에러로 알림
-                raise ValueError("S-02는 3(NOX, SOX, NOX+SOX)이여야 함")
-            for suffix, items in S02_VARIANTS.items():                            # 변형마다 "S-02-E-NOX"같이 접미사를 붙여 하나의 에피소드 생성
-                result.append((f"{base_id}-{suffix}", items))
-        else:                                                                     # 나머지 시나리오는 에피소드가 각 1개씩, 항목은 NOX 하나
-            if count != 1:                                                        # 1이 아니면 설정 오류
-                raise ValueError(f"{base_id}의 개수는 1이어야 함: {count}")
-            result.append((base_id, ["nox"]))
+    result = []
+    for base_id, spec in episodes_cfg.items():
+        if "episodes" in spec:
+            for entry in spec["episodes"]:
+                items = entry["items"]
+                _check_items(base_id, items)
+                rising = entry.get("rising", items)
+                _check_items(base_id, rising)
+                if not set(rising) <= set(items):
+                    raise ValueError(f"{base_id}-{entry['suffix']}: rising {rising}이 items{items}에 없음")
+                result.append({"episode_id": f"{base_id}-{entry['suffix']}", "variant": None, "items": items, "rising": rising})
+        else:
+            items = spec["items"]
+            _check_items(base_id, items)
+            variants = spec.get("variants") or [None]
+            multi_item = len(items) > 1
+            for variant in variants:
+                for item in items:
+                    result.append({"episode_id": make_episode_id(base_id, variant, item, multi_item), "variant": variant, "items": [item], "rising": [item]})
+    
+    ids = [r["episode_id"] for r in result]
+    duplicated = {i for i in ids if ids.count(i) > 1}
+    if duplicated:
+        raise ValueError(f"에피소드 ID가 겹침: {sorted(duplicated)}")
     return result
 
-# 에피소드마다 다른 seed를 생성. 같은 base_seed, index면 항상 같은 값
-def make_seed(base_seed: int, index: int) -> int:
-    return int(np.random.SeedSequence([base_seed, index]).generate_state(1)[0])
+# 에피소드마다 다른 seed 생성
+def make_seed(base_seed: int, episode_id: str) -> int:
+    key = zlib.crc32(episode_id.encode("utf-8"))
+    return int(np.random.SeedSequence([base_seed, key]).generate_state(1)[0])
 
 # 설정으로 에피소드 계획표 작성
 def build_plan(config: dict) -> list:
-    run = config["run"]                                                             # 설정에서 실행 공통 부분(seed, 시작 시각 등)을 꺼냄
-    try:                                                                                 # 시작 시각 문자열이 올바른 시각인지 확인
+    run = config["run"]
+    try:
         schedule.parse_kst(run["start_kst"])
     except ValueError:
         raise ValueError(f"start_kst가 시각이 아님: {run['start_kst']!r}")
 
-    plans = []                                                                     # 에피소드별 계획서를 쌓을 빈 목록
-    for index, (episode_id, items) in enumerate(expand_episodes(config["episodes"])):    # 11개 에피소드를 번호와 함께 하나씩 돌음
-        plans.append({                                                                   # 에피소드 하나의 계획서(dict)를 만들어 목록에 추가
-            "episode_id": episode_id,                                                      
-            "scenario_id": scenario_of(episode_id),
-            "items": items,
-            "stack_codes": [make_stack_code(episode_id, 1)],
-            "seed": make_seed(run["seed"], index),
+    plans = []
+    for ep in expand_episodes(config["episodes"]):
+        plans.append({
+            "episode_id": ep["episode_id"],
+            "scenario_id": scenario_of(ep["episode_id"]),
+            "variant": ep["variant"],
+            "items": ep["items"],
+            "rising": ep["rising"],
+            "stack_codes": [make_stack_code(ep["episode_id"], 1)],
+            "seed": make_seed(run["seed"], ep["episode_id"]),
             "start_kst": run["start_kst"],
         })
     return plans

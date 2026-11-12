@@ -13,18 +13,24 @@ run:
 ref_selection:
   min_valid: 200                                            # 최소 측정 개수
   # 평범한 시나리오 조건(평소 값이 10~50 %), (직전 값과 얼마나 달랐는지), (100 번중 99번은 80% 아래인 굴뚝 -> 정상 기준선)
-  normal: {mean: [10, 50], phi: [0.5, 0.95], p99_max: 80}   
-  # 정해진 시나리오 조건(평소 80% 이하인 굴뚝), (정해진 모양의 첫 값이 평소 값에서 표준편차 2배 이내)
-  trajectory: {p99_max: 80, first_value_within_sigma: 2.0}    
+  normal: {mean: [10, 50], phi: [0.5, 0.95], p99_max: 70}   
+  # 정해진 시나리오 조건
+  trajectory: 
+    default: {p99_max: 70, first_value_within_sigma: 2.0}  # 첫 값이 정상 단계
+    S-03: {p99_max: 100, first_value_within_sigma: 2.0}     # 첫 값이 주의, 경고 단계
 
 # 시나리오 개수 설정
 episodes:
-  S-01-E: 1   # 정상 기준선   | 계속 80% 미만으로 평온함 유지
-  S-02-E: 3   # 서서히 상승   | 3시간 동안 62~92%로 올라감 (NOX, SOX, NOX+SOX 각 1개)
-  S-03-E: 1   # 경계 오락가락 | 87, 91, 88, 92, 89, 91 (90% 경계를 오락 가락)
-  S-04-E: 1   # 한 번에 초과  | 58% -> 113%로 갑자기 100% 초과
-  S-05-E: 1   # 뛰었다 복귀   | 61%  -> 94% -> 63% (한 번만 기준 초과 후 돌아옴)
-  S-06-E: 1   # 문자열 값     | "미수신", "1,047.55" 같은 숫자가 아닌 값
-  S-07-E: 1   # 깨진 데이터   | 필드 누락, 잘린 JSON 등 
-  S-08-E: 1   # 중복          | 같은 값이 여러번 반복해서 나타남
-  S-09-E: 1   # 지연          | 값이 측정 시간보다 30, 60, 90분 늦게 나타남
+  S-01-E: {items: [nox, sox]}                                       # 정상 기준선   | 계속 70% 미만으로 평온함 유지
+  S-02-E:                                                           # 서서히 상승   
+    episodes:                           
+      - {suffix: NOX, items: [nox]}                                 # NOX 단독
+      - {suffix: SOX, items: [sox]}                                 # SOX 단독
+      - {suffix: NOXSOX-NOXUP, items: [nox, sox], rising: [nox]}    # NOX+SOX 에서 NOX만 상승
+      - {suffix: NOXSOX-SOXUP, items: [nox, sox], rising: [sox]}    # NOX+SOX 에서 SOX만 상승
+  S-03-E: {variants: [OVER, UNDER], items: [nox, sox]}              # 임계치 부근 진동 (OVER: 90% 넘나듦, UNDER: 90%미만에서 맴돎)
+  S-04-E: {variants: [EXCEED, SPIKE, PLATEAU], items: [nox, sox]}   # 예고 없는 급등 | 초과, 유지, 일시적, 위험 유지
+  S-05-E: {items: [nox]}                                            # 문자열 값   | 상태 문구, 콤마가 포함된 숫자
+  S-06-E: {items: [nox]}                                            # 깨진 데이터 | 필드 누락, 잘린 JSON
+  S-07-E: {variants: [SAME, CONFLICT], items: [nox]}                # 중복, 충돌  | 같은 값 반복, 같은 측정 다른 값
+  S-08-E: {items: [nox]}                                            # 지연, 누락 

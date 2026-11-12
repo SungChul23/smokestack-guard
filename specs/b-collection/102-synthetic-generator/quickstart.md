@@ -20,7 +20,7 @@ python -m synth validate --out out --expected expected
 ```
 
 - `generate`: 합성 스냅샷과 정보 파일(`manifest.jsonl`, `delivery.jsonl`)을 `out/` 아래 합성 경로 레이아웃으로 만든다.
-- `validate`: 만든 파일을 다시 읽어 합격 기준 9개와 기대 결과를 대조하고, `to_silver`로 Silver 결과도 확인한다.
+- `validate`: 만든 파일을 다시 읽어 합격 기준(구조·경로·시각·값·응답 점검, 라벨 교차 확인)과 기대 결과를 대조하고, `to_silver`로 Silver 결과도 확인한다.
 
 ## 기대 결과
 
