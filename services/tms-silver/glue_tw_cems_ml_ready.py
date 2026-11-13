@@ -182,7 +182,7 @@ def run_build(spark, args, paths, store, base: dict) -> dict:
     if selected_rows == 0:
         raise ValueError("no ml-ready target rows")
     deduped, duplicate_keys = mrs.dedupe(norm)
-    out = mrs.add_features(deduped)
+    out = mrs.add_features(deduped, "tw_cems")
     if out.columns != COLUMNS:
         raise ValueError("column contract mismatch")
     out = out.persist(StorageLevel.MEMORY_AND_DISK)

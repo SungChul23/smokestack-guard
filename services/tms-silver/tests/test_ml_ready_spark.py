@@ -47,7 +47,8 @@ def _row(df, stack, item, ts):
 def test_matches_pandas_on_all_35_columns(ours, theirs):
     result = mrs.compare(ours, theirs)
     assert result["only_ours"] == 0 and result["only_theirs"] == 0, result
-    assert result["column_mismatches"] == {c: 0 for c in ml_ready.COLUMNS if c not in KEYS}, result
+    compared = {c: 0 for c in ml_ready.COLUMNS if c not in KEYS and c not in mrs.META_COLUMNS}
+    assert result["column_mismatches"] == compared, result
     assert result["passed"] is True
     assert ours.count() == theirs.count() > 0
 
@@ -55,6 +56,18 @@ def test_matches_pandas_on_all_35_columns(ours, theirs):
 # ---------------------------------------------------------------------------
 # 2. 컬럼 계약
 # ---------------------------------------------------------------------------
+
+
+def test_data_source_matches_pandas_and_override(ours, ml_ready_silver_df, ml_ready_silver_pdf):
+    assert {r.data_source for r in ours.select("data_source").distinct().collect()} == {
+        ml_ready.default_data_source(ml_ready_silver_df.columns)
+    }
+    assert set(ml_ready.to_ml_ready(ml_ready_silver_pdf)["data_source"]) == {
+        ml_ready.default_data_source(ml_ready_silver_pdf.columns)
+    }
+    synth = mrs.to_ml_ready(ml_ready_silver_df, "ktms_synth")
+    sources = {r.data_source for r in synth.select("data_source").distinct().collect()}
+    assert sources == {"ktms_synth"}
 
 
 def test_column_names_order_and_types(ours):

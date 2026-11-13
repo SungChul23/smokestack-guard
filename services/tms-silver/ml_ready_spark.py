@@ -30,6 +30,7 @@ from smokestack_guard.silver.ml_ready import (
     ML_ITEMS,
     QUALITY_POLICY_VERSION,
     WINDOW,
+    default_data_source,
 )
 
 KEYS = ["stack_code", "item_code", "measured_at"]
@@ -42,7 +43,9 @@ COLUMN_ABS_TOL = {"ratio_rolling_std_3h": 1e-5}
 SLOT_SECONDS = 30 * 60
 BOOL_COLUMNS = ["feature_valid", "classification_eligible", "regression_eligible"]
 STRING_COLUMNS = ["stack_code", "item_code", "feature_version", "label_version",
-                  "quality_policy_version"]  # fmt: skip
+                  "quality_policy_version", "data_source"]  # fmt: skip
+# data_source는 입력 출처 표시일 뿐 피처에서 계산한 값이 아니다. 정답지(pandas) 비교에서 뺀다.
+META_COLUMNS = ["data_source"]
 
 
 # ---------------------------------------------------------------------------
@@ -84,7 +87,7 @@ def dedupe(df: DataFrame) -> tuple[DataFrame, int]:
 # ---------------------------------------------------------------------------
 
 
-def add_features(df: DataFrame) -> DataFrame:
+def add_features(df: DataFrame, data_source: str | None = None) -> DataFrame:
     df = df.withColumn(
         "_slot", F.floor(F.unix_timestamp("measured_at") / SLOT_SECONDS).cast("long")
     )
@@ -193,6 +196,7 @@ def add_features(df: DataFrame) -> DataFrame:
         .withColumn("feature_version", F.lit(FEATURE_VERSION))
         .withColumn("label_version", F.lit(LABEL_VERSION))
         .withColumn("quality_policy_version", F.lit(QUALITY_POLICY_VERSION))
+        .withColumn("data_source", F.lit(data_source))
     )
     return cast_contract(out.select(*COLUMNS))
 
@@ -212,9 +216,9 @@ def cast_contract(df: DataFrame) -> DataFrame:
     return df.select(*[F.col(c).cast(target(c)).alias(c) for c in COLUMNS])
 
 
-def to_ml_ready(silver: DataFrame) -> DataFrame:
+def to_ml_ready(silver: DataFrame, data_source: str | None = None) -> DataFrame:
     deduped, _ = dedupe(normalize(silver))
-    return add_features(deduped)
+    return add_features(deduped, data_source or default_data_source(silver.columns))
 
 
 def ml_ready_stats(df: DataFrame) -> dict:
@@ -266,6 +270,9 @@ def read_reference(spark: SparkSession, path: str) -> tuple[DataFrame, str]:
     original = dict(df.dtypes)["measured_at"]
     if isinstance(df.schema["measured_at"].dataType, T.LongType):  # ns since epoch
         df = df.withColumn("measured_at", F.timestamp_micros(F.floor(F.col("measured_at") / 1000)))
+    for c in META_COLUMNS:  # data_source 도입 전에 만든 정답지에는 없다
+        if c not in df.columns:
+            df = df.withColumn(c, F.lit(None).cast("string"))
     return nan_to_null(cast_contract(df.select(*COLUMNS))), original
 
 
@@ -277,8 +284,8 @@ def compare(
     samples: int = 5,
 ) -> dict:
     """키로 full outer join 해서 한쪽에만 있는 키와 컬럼별 불일치를 센다. 값은 돌려주지 않는다."""
-    value_cols = [c for c in COLUMNS if c not in KEYS]
-    o = ours.select(*KEYS, *[F.col(c).alias(f"o__{c}") for c in value_cols]).withColumn(
+    value_cols = [c for c in COLUMNS if c not in KEYS and c not in META_COLUMNS]
+    o =ours.select(*KEYS, *[F.col(c).alias(f"o__{c}") for c in value_cols]).withColumn(
         "_o", F.lit(True)
     )
     t = cast_contract(theirs).select(
