@@ -25,9 +25,14 @@ def main(argv=None) -> dict:
     """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-id", required=True, choices=tuple(TRAINERS))
+    parser.add_argument("--model-version", help="제출 코드가 전달하는 major.minor 실험 버전")
     parser.add_argument("--input-path", default=os.environ.get("SM_CHANNEL_TRAIN"))
     parser.add_argument("--output-dir", default=os.environ.get("SM_MODEL_DIR"))
     args = parser.parse_args(argv)
+    if args.model_version is not None:
+        import re
+        if not re.fullmatch(r"\d+\.\d+", args.model_version):
+            parser.error("--model-version은 major.minor 형식이어야 합니다")
     if not args.input_path or not args.output_dir:
         parser.error("입력·출력 경로 인자 또는 SM_CHANNEL_TRAIN·SM_MODEL_DIR가 필요합니다")
 
@@ -100,11 +105,18 @@ def main(argv=None) -> dict:
 
     # 기존 메타데이터의 분할 시각·전체/적격 건수를 유지하고 확인된 정보만 추가한다.
     metadata["model_id"] = args.model_id
+    if args.model_version is not None:
+        metadata["model_version"] = f"V{args.model_version}"
+        metadata.setdefault("experiment", {})["submission_model_version"] = f"V{args.model_version}"
     metadata["model_class"] = type(model).__name__
-    metadata["model_settings"] = {
-        "random_state": model.get_params()["random_state"],
-        "remaining_parameters": "library_defaults",
-    }
+    if args.model_id in ("RN1", "RS1"):
+        # RF V1.1의 실제 설정을 기본값이라는 설명으로 덮어쓰지 않는다.
+        metadata["model_settings"] = model.get_params(deep=False)
+    else:
+        metadata["model_settings"] = {
+            "random_state": model.get_params()["random_state"],
+            "remaining_parameters": "library_defaults",
+        }
     metadata["feature_columns"] = list(datasets["train"]["X"].columns)
     metadata["input_path"] = str(input_path)
     # 전체 get_params에는 NaN 기본값 등이 있을 수 있어 JSON에 그대로 넘기지 않는다.

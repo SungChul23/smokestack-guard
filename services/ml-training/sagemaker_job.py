@@ -9,6 +9,7 @@ API 근거: https://sagemaker.readthedocs.io/en/stable/training/
 import argparse
 import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -18,6 +19,22 @@ INSTANCE_TYPE = "ml.r5.2xlarge"
 INSTANCE_COUNT = 1
 DEFAULT_MAX_RUN = 3600
 MODEL_IDS = ("N1-C", "N1-R", "S1-C", "S1-R", "RN1", "RS1")
+MODEL_VERSIONS = {model_id: ("1.1" if model_id in ("RN1", "RS1") else "1.0")
+                  for model_id in MODEL_IDS}
+
+
+def _job_identity(model_id, now=None):
+    """모델별 버전 설정으로 이름·태그를 함께 만든다. 시각은 UTC다."""
+    version = MODEL_VERSIONS[model_id]
+    if not re.fullmatch(r"\d+\.\d+", version):
+        raise ValueError("모델 버전은 major.minor 형식이어야 합니다")
+    stamp = (now or datetime.now(timezone.utc)).strftime("%Y%m%d-%H%M%S-%f")
+    name = f"e-ml-{model_id.lower()}-v{version.replace('.', '-')}-{stamp}"
+    if len(name) > 63:
+        raise ValueError("Training Job 이름은 63자 이하여야 합니다")
+    tags = [{"key": "model-id", "value": model_id},
+            {"key": "model-version", "value": f"V{version}"}]
+    return name, version, tags
 TRAINING_IMAGE = (
     "366743142698.dkr.ecr.ap-northeast-2.amazonaws.com/"
     "sagemaker-scikit-learn:1.9-0"
@@ -76,10 +93,15 @@ def main(argv=None):
     ):
         parser.error("입력과 출력은 서로 포함되지 않는 별도 S3 경로로 지정하세요")
 
+    job_name, model_version, tags = _job_identity(args.model_id)
     # 기본 모드는 표준 라이브러리만 사용한다. SDK import·Session도 생성하지 않는다.
     settings = {
         "mode": "submit" if args.submit else "review_only",
         "model_id": args.model_id,
+        "model_version": f"V{model_version}",
+        "training_job_name_example": job_name,
+        "job_name_note": "실제 timestamp는 SDK가 제출 시 생성합니다 (UTC)",
+        "tags": tags,
         "region": REGION,
         "training_image": TRAINING_IMAGE,
         "instance_type": args.instance_type,
@@ -137,8 +159,9 @@ def main(argv=None):
         ),
         stopping_condition=StoppingCondition(max_runtime_in_seconds=args.max_run),
         output_data_config=OutputDataConfig(s3_output_path=args.output_s3_uri),
-        hyperparameters={"model-id": args.model_id},
-        base_job_name=f"e-ml-{args.model_id.lower()}",
+        hyperparameters={"model-id": args.model_id, "model-version": model_version},
+        tags=tags,
+        base_job_name=f"e-ml-{args.model_id.lower()}-v{model_version.replace('.', '-')}",
     )
     # 전체 입력을 train 채널에 전달한다. 물질 선필터링·여러 Job 반복 제출은 없다.
     return trainer.train(

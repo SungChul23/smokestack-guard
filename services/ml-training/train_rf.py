@@ -2,12 +2,55 @@
 
 from math import isfinite
 from os import PathLike
+from contextlib import contextmanager
+from threading import Event, Thread
+from time import perf_counter
 from typing import Literal
 
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 
 from dataset import prepare_datasets, _log_memory
+
+
+@contextmanager
+def _monitor_rn1_fit(interval_seconds=15, *, model_name="RN1"):
+    """15초 간격으로 계측하며 fit 예외는 그대로 전달한다."""
+    started = perf_counter()
+    stopped = Event()
+    timing = {"monitor_interval_seconds": interval_seconds}
+
+    def sample(stage):
+        try:
+            _log_memory(stage, elapsed_seconds=perf_counter() - started, include_cgroup=True)
+        except Exception:
+            # 계측이 실패해도 실제 fit은 계속 수행한다.
+            pass
+
+    def monitor():
+        while not stopped.wait(interval_seconds):
+            sample(f"{model_name}/fit_running")
+
+    sample(f"{model_name}/fit_start")
+    thread = Thread(target=monitor, name=f"{model_name.lower()}-memory-monitor", daemon=True)
+    try:
+        thread.start()
+    except Exception:
+        thread = None
+        sample(f"{model_name}/monitor_start_failed")
+    succeeded = False
+    try:
+        yield timing
+        succeeded = True
+    finally:
+        stopped.set()
+        if thread is not None:
+            try:
+                thread.join(timeout=2)
+            except Exception:
+                pass
+        timing["fit_elapsed_seconds"] = perf_counter() - started
+        sample(f"{model_name}/fit_complete" if succeeded else f"{model_name}/fit_failed")
 
 
 def _train_regressor(
@@ -41,10 +84,24 @@ def _train_regressor(
         )
 
     # Target은 비율(%) 그대로 사용하며 100% 초과값을 제한하지 않는다.
-    # V1.0 실행 최적화 실험: RS1만 CPU 병렬화하고 RN1은 기본값(None)을 유지한다.
-    model = RandomForestRegressor(random_state=42, n_jobs=4 if model_name == "RS1" else None)
+    if model_name == "RN1":
+        # V1.1 확정 설정. verbose는 완료 작업 수·경과 시간 표시용이다.
+        model = RandomForestRegressor(n_estimators=100, max_depth=20,
+            min_samples_leaf=1, n_jobs=2, random_state=42, verbose=1)
+    else:
+        # RS1에도 사용자 확정 V1.1 설정을 적용한다.
+        model = RandomForestRegressor(n_estimators=100, max_depth=20,
+            min_samples_leaf=1, n_jobs=2, random_state=42, verbose=1)
     _log_memory(f"{model_name}/fit_before")
-    model.fit(train["X"], train["y"])
+    with _monitor_rn1_fit(model_name=model_name) as timing:
+        model.fit(train["X"], train["y"])
+    metadata["model_settings"] = model.get_params(deep=False)
+    metadata["experiment"] = {
+        "model_version": "V1.1", "experiment_id": f"{model_name}-V1.1-depth20-jobs2",
+        "changed_parameters": {"max_depth": 20, "n_jobs": 2},
+        "progress_logging": "sklearn/joblib verbose=1 completed tasks and elapsed time",
+        **timing,
+    }
     _log_memory(f"{model_name}/fit_after")
     return {"model": model, "datasets": datasets, "metadata": metadata}
 
