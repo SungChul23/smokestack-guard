@@ -4,7 +4,7 @@
 
 ## R1. 실행 환경: Glue 5.0, 계산은 driver의 pandas
 
-- **결정**: Glue 5.0(Spark 3.5.4, Python 3.11, Iceberg 1.7.1 내장)에서 driver가 C의 pandas 함수를 그대로 부르고, Spark는 Iceberg 테이블을 읽고 쓰는 데만 쓴다. 작업자는 G.1X 2대(Glue 최소값)다.
+- **결정**: Glue 5.0(Spark 3.5.4, Python 3.11, Iceberg 1.7.1 내장)에서 driver가 C의 pandas 함수를 그대로 부르고, Spark는 Iceberg 테이블을 읽고 쓰는 데만 쓴다. 작업자는 G.1X 2대(Glue 최소값)다. 계산은 driver 한 대가 하므로 작업자 수를 늘려도 빨라지지 않는다. 메모리가 부족하면 변수 `ktms_worker_type`을 G.2X(driver 32GB, DPU당 2배 비용)로 잠깐 올린다. 매일 2일치는 G.1X로 충분하다(하루치 시험에서 확인, 2026-11-13).
 - **이유**:
   - 하루 Silver 약 30만 행, ML-ready 입력(ok인 NOx·SOx)은 그 절반 이하다. pandas로 충분하고, C가 로컬에서 같은 크기로 검증했다.
   - C의 함수를 그대로 부르면 규칙을 다시 짤 일이 없다. 005처럼 Spark로 다시 짜면 규칙이 두 벌이 되고 비교 작업이 생긴다.
@@ -99,7 +99,7 @@
   - Silver는 날짜마다 독립이라 나눠도 결과가 같다.
   - ML-ready를 묶음별로 하면 묶음 경계의 라벨이 다음 묶음 Silver 없이 계산돼 비게 된다. Silver를 다 만든 뒤 한 번에 하면 경계 문제가 없다.
   - ML-ready 입력은 15일 기준 약 150만 행이라 driver 하나로 충분하다. C가 같은 범위를 로컬에서 처리했다.
-- **대안**: Silver 잡을 G.2X로 한 번에. 메모리 추정이 불확실하고 비용이 2배다. 첫 시도가 실패하면 그때 검토한다.
+- **대안**: Silver를 한 번에. 메모리 추정이 확실하지 않아 묶음을 유지한다. 5일 묶음이 메모리 부족으로 실패하면 `--chunk-days 3`이나 G.2X로 대응한다. 묶음을 7일(`max_days`)까지 키우는 것은 첫 백필 결과를 보고 정한다.
 
 ## R8. 흐름: EventBridge Scheduler → Step Functions(Standard) → Glue
 
@@ -113,7 +113,10 @@
 - **재시도**:
   - `Glue.ConcurrentRunsExceededException`: 120초 간격 × 5회. 겹친 실행을 기다린다.
   - 그 밖의 오류(`States.ALL`): 60초 뒤 1회(FR-013).
-- **실패 처리**: `Catch`가 `sns:publish`(토픽 `tms-collector-alerts`, 제목 `[tms] K-TMS silver2 실패`, 본문은 실행 이름·단계·오류 요약)를 보낸 뒤 `Fail`로 끝낸다.
+- **실패 처리**: `Catch`가 `sns:publish`(토픽 `tms-collector-alerts`, 제목 `[tms] K-TMS silver2 failed`(SNS 제목은 ASCII만 허용), 본문은 실행 이름·단계·오류 요약)를 보낸 뒤 `Fail`로 끝낸다.
+  - 메일 본문(2026-11-13 개선): Glue 원인 JSON에서 오류 메시지, 잡 실행 ID, 실행 시간, 워커를 꺼내 줄바꿈으로 보여 주고, 실행 기록 경로와 그대로 붙여 쓸 수 있는 `run_ktms.py rerun` 명령을 넣는다.
+  - 원인이 JSON이 아니거나(시간 초과, 동시 실행 거부 등) 꺼낼 값이 없으면 알림이 빠지지 않도록 원문 메일(`NotifyRaw`)로 대신 보낸다. 자세한 메일은 Parallel 상태 안에 두고 그 Catch로 처리한다.
+  - Slack 연동(AWS Chatbot)은 워크스페이스 앱 설치 승인이 필요해 나중으로 미뤘다.
   - SC-006(10분 안 알림): Glue 실패까지 수 분, 재시도 간격 60초 뒤 바로 게시되므로 맞출 수 있다.
 - **Standard를 쓰는 이유**: `.sync` 통합과 실행 이력(90일)을 쓰려고 한다. 하루 1회라 상태 전환 비용은 무시할 만하다.
 - **대안**:
@@ -134,6 +137,7 @@
   - 합성 전용 잡 2개: 같은 스크립트를 쓰고 기본 인자만 다르다. 실측 잡과 동시 실행 한도를 나누려는 것이다(FR-019).
   - 상태 머신 하나
   - 권한: `tms_synthetic/*` 읽기, `silver2/ktms_synthetic*` 쓰기
+  - 착수 조건은 두 가지다. C의 `read_bronze`가 경로 인자를 받고, B가 합성 스냅샷을 실제로 올리기 시작해야 한다. 그때 별도 이슈로 위 리소스를 `ktms.tf`에 더하고 `contracts/ktms-tables.md` §6에 합성 테이블을 적는다. 진입 스크립트는 이미 `--source_prefix`, `--silver_table`, `--ml_ready_table`을 받으므로 코드 변경은 C의 인자 이름 확인 정도다.
 
 ## R10. 실행 기록과 버전
 
@@ -162,7 +166,7 @@
 
 | 항목 | 추정 |
 |---|---|
-| Glue | 매일 2잡 × 2 DPU × 약 4분 = 하루 약 0.27 DPU-시간. 저장소 `run_silver.py`의 단가($0.308/DPU-시간)로 **월 약 $2.5**, 단가가 $0.44여도 월 약 $3.5다. 첫 실행 기록으로 다시 계산한다 |
+| Glue | 매일 2잡 × G.1X 2대(2 DPU) × 약 4분 = 하루 약 0.27 DPU-시간. 저장소 `run_silver.py`의 단가($0.308/DPU-시간)로 **월 약 $2.5**, 단가가 $0.44여도 월 약 $3.5다. G.2X로 올리면 2배다. 첫 실행 기록으로 다시 계산한다 |
 | Step Functions(Standard) | 하루 약 10번 상태 전환. 무료 한도 안 |
 | EventBridge Scheduler | 월 30번 호출. 무료 한도 안 |
 | S3 | 매일 GET 수백 건과 PUT 수십 건, 매일 다시 쓰는 2일치(수십 MB) 누적. 오래된 Iceberg 버전을 정리하지 않으면 월 1GB 안팎씩 늘어 월 $0.03 수준 |

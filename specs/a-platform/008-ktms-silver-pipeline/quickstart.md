@@ -119,7 +119,7 @@ python run_ktms.py rerun --from 2026-10-01 --to 2026-10-01
 
 기대 결과:
 - Silver 단계가 "원본 스냅샷 0개"로 실패하고 1회 재시도 뒤에도 실패한다.
-- 10분 안에 `[tms] K-TMS silver2 실패` 메일이 온다.
+- 10분 안에 `[tms] K-TMS silver2 failed` 메일이 온다.
 - ML-ready는 실행되지 않는다.
 - 두 테이블의 최신 `snapshot_id`가 바뀌지 않는다.
 - `silver2/_runs/ktms/`에 `result: failed` 기록이 2개(첫 시도와 재시도) 생긴다.
@@ -127,7 +127,9 @@ python run_ktms.py rerun --from 2026-10-01 --to 2026-10-01
 ## 7. 매일 실행 켜기 (US1, SC-003)
 
 ```powershell
-$env:TF_VAR_ktms_schedule_enabled = "true"; terraform apply
+# variables.tf의 기본값을 true로 바꿔 커밋한 뒤 apply한다(2026-11-13).
+# 환경 변수로 켜면 다음에 환경 변수 없이 apply할 때 다시 꺼진다.
+terraform apply
 ```
 
 - 다음 날 아침 실행 기록과 `$snapshots`에 새 버전이 생겼는지 본다.

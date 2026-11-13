@@ -40,7 +40,7 @@ K-TMS 원본(`tms_cleansys/`, `_SUCCESS` 있는 폴더)으로 Iceberg 테이블 
 - CI: `.github/workflows/tms-silver.yml`
 - 실제 데이터 비교: quickstart
 
-**Target Platform**: AWS Glue 5.0(G.1X × 2), Step Functions Standard, EventBridge Scheduler (ap-northeast-2)
+**Target Platform**: AWS Glue 5.0(G.1X × 2. 변수 `ktms_worker_type`으로 G.2X 전환 가능), Step Functions Standard, EventBridge Scheduler (ap-northeast-2)
 
 **Project Type**: 데이터 파이프라인(배치 잡 + 오케스트레이션 + IaC)
 
@@ -69,7 +69,7 @@ K-TMS 원본(`tms_cleansys/`, `_SUCCESS` 있는 폴더)으로 Iceberg 테이블 
 | **IV. 데이터 계약 우선** | 계약: [contracts/ktms-tables.md](contracts/ktms-tables.md)(읽는 법), [data-model.md](data-model.md)(저장 형식), [contracts/run-interface.md](contracts/run-interface.md)(실행). 컬럼 의미는 C의 코드가 정한다. **테이블 형식·파티션은 C의 리뷰를 받는다.** E에게는 PR로 알린다. | 통과(리뷰 필요) |
 | **V. 같은 조건의 정직한 비교** | 학습 데이터는 `snapshot_id`로 고정할 수 있다. 합성은 별도 테이블이라 실측 평가에 섞이지 않는다. | 통과 |
 | **VI. 설명 가능한 결과** | 실행 기록에 `snapshot_id`와 `package_md5`(규칙 코드 버전)가 같이 남고, Iceberg 스냅샷 요약에 `job_run_id`가 남는다. | 통과 |
-| 운영: 비용 | Glue 월 약 $2.5~3.5. 나머지는 무료 한도 안이거나 월 $0.1 미만이다(research R12). | 기록함 |
+| 운영: 비용 | Glue 월 약 $2.5~3.5(G.1X 기준, G.2X면 2배). 나머지는 무료 한도 안이거나 월 $0.1 미만이다(research R12). | 기록함 |
 | 운영: 외부 패키지 | 런타임 추가 없음. 테스트용 Iceberg jar만 추가(Glue와 같은 버전). | 기록함 |
 
 **Phase 1 뒤 재확인**: 설계 문서에서 원칙 위반이 새로 생기지 않았다. III의 예외는 그대로 Complexity Tracking에 둔다.
@@ -128,7 +128,7 @@ services/tms-silver/                  # 기존 폴더에 추가 (CEMS와 같은 
 infra/stacks/tms-silver/
 ├── ktms.tf                           # Glue 잡 2, 역할 4, 상태 머신, 스케줄, 스크립트 업로드
 ├── ktms_pipeline.asl.json            # 상태 머신 정의 (templatefile)
-└── variables.tf                      # ktms_schedule_enabled, ktms_worker_count 추가
+└── variables.tf                      # ktms_schedule_enabled, ktms_worker_type(기본 G.1X), ktms_worker_count 추가
 
 AGENTS.md                             # S3 경로 규칙에 Iceberg 예외, 저장소 구조 설명 (research R13)
 .github/workflows/tms-silver.yml      # 테스트를 두 단계로: 일반(not iceberg) → Iceberg(jar가 필요해 SparkSession을 따로 띄운다)
