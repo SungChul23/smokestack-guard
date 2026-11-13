@@ -123,6 +123,7 @@ _ML_STRING = {
     "feature_version",
     "label_version",
     "quality_policy_version",
+    "data_source",  # C #48: 출처 구분(tw_cems / ktms / ktms_synth). 없으면 double로 잘못 잡힌다
 }
 _ML_BOOL = {"feature_valid", "classification_eligible", "regression_eligible"}
 
@@ -217,8 +218,22 @@ def build_spark(app: str):
     return spark
 
 
-def ensure_table(spark, table: str, schema, ts_col: str, location: str | None) -> None:
+def ensure_table(spark, table: str, schema, ts_col: str, location: str | None) -> list[str]:
+    """테이블이 없으면 만들고, 있으면 스키마에만 있는 컬럼을 끝에 추가한다.
+
+    돌려주는 값은 추가한 컬럼 이름 목록이다.
+
+    C가 ml_ready.COLUMNS 끝에 컬럼을 더하면(#48 data_source) 기존 테이블도 따라가게 하려는 것이다.
+    Iceberg 컬럼 추가는 metadata만 바뀌고, 기존 행의 새 컬럼은 null로 읽힌다.
+    컬럼 삭제·타입 변경·순서 변경은 하지 않는다(쓰기에서 실패하게 두고 사람이 판단한다).
+    """
     spark.sql(table_ddl(qualified(table), schema, ts_col, location))
+    existing = set(spark.table(qualified(table)).columns)
+    missing = [f for f in schema.fields if f.name not in existing]
+    if missing:
+        cols = ", ".join(f"`{f.name}` {f.dataType.simpleString()}" for f in missing)
+        spark.sql(f"ALTER TABLE {qualified(table)} ADD COLUMNS ({cols})")
+    return [f.name for f in missing]
 
 
 def to_spark(spark, pdf: pd.DataFrame, schema):

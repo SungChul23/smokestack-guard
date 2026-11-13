@@ -44,7 +44,9 @@
 | 파티션 | `days(measured_at)` = KST 날짜 |
 | 키 | `stack_code`, `item_code`, `measured_at` |
 
-- **컬럼**: `ml_ready.COLUMNS` 35개. 순서와 타입은 `tw_cems_ml_ready`와 같다(005 data-model §2, `infra/stacks/tms-silver/main.tf`의 `ml_ready_columns`).
+- **컬럼**: `ml_ready.COLUMNS`를 그대로 따른다. 지금은 35개이고, 순서와 타입은 `tw_cems_ml_ready`와 같다(005 data-model §2, `infra/stacks/tms-silver/main.tf`의 `ml_ready_columns`).
+  - C의 PR #48이 머지되면 맨 끝에 `data_source`(string)가 붙어 36개가 된다. K-TMS 실측은 `ktms`, 합성은 `ktms_synth`이고, 값 계산은 바뀌지 않는다.
+  - 잡은 실행할 때마다 `COLUMNS`에 있고 테이블에 없는 컬럼을 끝에 추가한다(`ALTER TABLE ... ADD COLUMNS`). 추가 전 행의 새 컬럼은 null이므로 `rerun --stage ml_ready`로 다시 계산해 채운다.
   - `stack_code`, `item_code`: string
   - `measured_at`: timestamp(시간대 없음)
   - 피처, 라벨 26개: double
@@ -54,7 +56,7 @@
   - `stack_code`는 `area_nm|fact_manage_nm|stack_code`다.
   - `measured_at`은 KST 벽시계다.
   - 단위 컬럼이 없어 NOx·SOx를 ppm으로 본다.
-- **학습 때 처리**(E): `month_sin`, `month_cos`는 드랍한다. 테이블에는 35컬럼을 그대로 둔다(tw_cems와 같은 구조).
+- **학습 때 처리**(E): `month_sin`, `month_cos`는 드랍한다. 테이블에는 `COLUMNS` 전체를 그대로 둔다(tw_cems와 같은 구조).
 - **규칙**:
   - 한 실행은 `measured_at`이 `[start, end + 1일)`인 행을 교체한다.
   - 계산 입력은 Silver `[start 00:00 − 150분, end + 1일 00:00 + 30분]`(양 끝 포함)이다. 마지막 칸 23:30의 60분 뒤가 다음날 00:30이기 때문이다.

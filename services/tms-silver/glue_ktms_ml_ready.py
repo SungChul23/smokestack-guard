@@ -99,7 +99,9 @@ def main(argv: list[str] | None = None, s3=None, now: datetime | None = None) ->
 
         schema = kp.ml_ready_schema()
         location = None if args.local else kp.table_location(args.bucket, args.ml_ready_table)
-        kp.ensure_table(spark, args.ml_ready_table, schema, TS_COL, location)
+        record["added_columns"] = kp.ensure_table(
+            spark, args.ml_ready_table, schema, TS_COL, location
+        )
         record["snapshot_id"] = kp.overwrite_range(
             spark,
             result,

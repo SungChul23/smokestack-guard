@@ -172,3 +172,15 @@ def test_ml_ready_window_one_slot_shorter_differs(side):
     lo, hi = (lo + step, hi) if side == "lo" else (lo, hi - step)
     with pytest.raises(AssertionError):
         pd.testing.assert_frame_equal(_windowed(silver, r, lo, hi), full, check_dtype=False)
+
+
+def test_ml_ready_schema_types_data_source_as_string(monkeypatch):
+    """#48 머지 뒤 COLUMNS에 data_source가 붙어도 문자열로 잡힌다(double이면 "ktms"가 NaN이 됨)."""
+    from smokestack_guard.silver import ml_ready
+
+    import ktms_pipeline
+
+    monkeypatch.setattr(ml_ready, "COLUMNS", [*COLUMNS, "data_source"])
+    schema = ktms_pipeline.ml_ready_schema()
+    assert schema.names[-1] == "data_source"
+    assert schema["data_source"].dataType.typeName() == "string"

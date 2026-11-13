@@ -110,7 +110,9 @@ def main(argv: list[str] | None = None, s3=None, now: datetime | None = None) ->
         record["versions"] = kp.runtime_versions(spark)
         schema = kp.silver_schema()
         location = None if args.local else kp.table_location(args.bucket, args.silver_table)
-        kp.ensure_table(spark, args.silver_table, schema, TS_COL, location)
+        record["added_columns"] = kp.ensure_table(
+            spark, args.silver_table, schema, TS_COL, location
+        )
         record["snapshot_id"] = kp.overwrite_range(
             spark,
             silver,

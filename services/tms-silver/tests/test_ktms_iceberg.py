@@ -130,3 +130,33 @@ def test_ddl_partition_and_columns(iceberg_spark):
     assert len(parts) == 4  # 11-01 ~ 11-04, 날짜 하나당 파티션 하나
     props = dict(iceberg_spark.sql(f"SHOW TBLPROPERTIES {qualified(table)}").collect())
     assert props.get("format-version") == "2"
+
+
+def test_ensure_table_adds_new_trailing_column(iceberg_spark):
+    """C가 ml_ready.COLUMNS 끝에 컬럼을 더해도(#48 data_source) 기존 테이블이 따라간다."""
+    from pyspark.sql import types as T
+
+    table = _table(iceberg_spark, "add_column")
+    old = build_silver()
+    overwrite_range(iceberg_spark, old, silver_schema(), table, "ts_kst", MID, {})
+    before = latest_snapshot_id(iceberg_spark, table)
+
+    wider = T.StructType([*silver_schema().fields, T.StructField("data_source", T.StringType())])
+    assert ensure_table(iceberg_spark, table, wider, "ts_kst", None) == ["data_source"]
+    assert ensure_table(iceberg_spark, table, wider, "ts_kst", None) == []  # 두 번째는 할 일 없음
+    assert iceberg_spark.table(qualified(table)).columns == wider.names
+
+    # 기존 행은 null로 읽히고, 컬럼 추가 전 버전도 같은 행으로 읽힌다(새 컬럼은 null)
+    assert _read(iceberg_spark, table)["data_source"].isna().all()
+    old_version = _read(iceberg_spark, table, before)
+    assert len(old_version) == len(
+        old[old["ts_kst"].dt.date.astype(str).isin(["2026-11-02", "2026-11-03"])]
+    )
+    assert old_version.get("data_source", pd.Series(dtype=object)).isna().all()
+
+    day = DayRange(date(2026, 11, 2), date(2026, 11, 2))
+    overwrite_range(iceberg_spark, old.assign(data_source="ktms"), wider, table, "ts_kst", day, {})
+    after = _read(iceberg_spark, table)
+    on_day = after["ts_kst"].dt.date.astype(str) == "2026-11-02"
+    assert (after.loc[on_day, "data_source"] == "ktms").all()
+    assert after.loc[~on_day, "data_source"].isna().all()  # 다시 계산하기 전 날짜는 null

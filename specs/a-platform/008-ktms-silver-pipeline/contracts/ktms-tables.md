@@ -72,3 +72,4 @@ spark.read.option("snapshot-id", 1234567890123456789).table("glue_catalog.tms_si
 
 - 합성 테이블(`ktms_synthetic*`)은 B의 생성기에 따라 이름·구조가 정해진다. 생기면 이 문서에 추가한다.
 - 컬럼 의미가 바뀌면 C의 PR과 `feature_version`, `label_version`, `quality_policy_version` 값으로 알린다.
+- **`data_source` 컬럼 (C #48):** 머지와 재배포 뒤 ML-ready 맨 끝에 붙는다(`ktms`, 합성은 `ktms_synth`). 테이블을 합칠 때 출처 구분에 쓴다. 다시 계산하기 전 행은 null이다. 컬럼 추가 전 버전(`snapshot_id`)도 같은 행으로 읽히고, 이 컬럼은 null로 나온다(Spark 확인. 도구에 따라 컬럼 자체가 없게 보일 수 있다).
