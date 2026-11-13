@@ -33,8 +33,10 @@ ref_selection:
   min_valid: 200
   normal: {mean: [10, 50], phi: [0.5, 0.95], p99_max: 70}   # S-01 (70% 미만 = 정상 단계)
   trajectory:
-    default: {p99_max: 70,  first_value_within_sigma: 2.0}  # S-02, S-04 (첫 값이 정상 단계)
-    S-03:    {p99_max: 100, first_value_within_sigma: 2.0}  # 첫 값이 주의·경고 단계(76, 87): 평소 70~90% 수준, 초과는 드문 굴뚝
+    default: {p99_max: 70,  background_max: 70, first_value_within_sigma: 2.0}  # S-02, S-04 (첫 값이 정상 단계)
+    S-03:    {p99_max: 100, background_max: 90, first_value_within_sigma: 2.0}  # 첫 값이 주의·경고 단계(76, 87): 평소 70~90% 수준, 초과는 드문 굴뚝
+    # p99_max: 참조 굴뚝을 고르는 조건 / background_max: 궤적 밖 배경 곡선의 상한(생략하면 p99_max와 같음)
+    # 궤적 뒤 복귀 구간의 상한은 90%(궤적이 70%보다 높게 끝나는 S-02도 자연스럽게 내려오게)
 episodes:                  # 평가·시연용 21개 (변형 × 성분)
   S-01-E: {items: [nox, sox]}
   S-02-E:

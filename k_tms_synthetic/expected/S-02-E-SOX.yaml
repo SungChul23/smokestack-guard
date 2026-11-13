@@ -1,0 +1,26 @@
+# 서서히 상승(SOX): 정상에서 3시간 동안 올라 위험 단계 도달
+episode_id: S-02-E-SOX
+scenario_id: S-02
+items: [sox]
+rising: [sox]                                                           # sox가 시나리오 궤적을 따름
+steps: 96                                                               # 96개 측정
+
+trajectory_start_step: 48                                               # 첫 값이 들어가는 칸.
+trajectory_pct: [62, 69, 76, 82, 87, 92]                                # 48~53번째 칸의 기준대비율
+trajectory_stage: [normal, normal, caution, warning, warning, danger]   # 정상, 정상, 주의, 경고, 경고, 위험
+
+silver_expect:                                                          # Silver가 낼 결과
+  sox:                                                                  
+    rows: 96                                                            # 중복 제거 후 측정 시각당 1행
+    status: ok                                                          # 모든 행의 상태가 ok
+    trajectory_ratio_tol: 0.005                                         # 궤적 칸의 ratio가 값/100과 +-0.005 이내
+    ratio_max_exclusive_outside: 0.90                                   # 궤적 밖 칸은 모두 90% 미만
+    lead_in_max_exclusive: 0.70                                         # 앞 구간은 70% 미만
+
+label_expect:                                                           # label-v1 예상
+  sox:
+    positive: 2                                                         # 51번쨰와 52번째 
+    negative: 91
+    excluded: 3                                                         # 53번째 + 끝 2칸
+
+known_mismatch: []

@@ -51,3 +51,18 @@ def pick_one(df: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
     if df.empty:
         raise ValueError("조건에 맞는 참조 굴뚝이 존재하지 않음. 조건 재확인")
     return df.iloc[int(rng.integers(len(df)))]
+
+# NOX+SOX 에피소드용: 같은 굴뚝의 NOX, SOX 한 쌍을 고름
+def pick_pair(df: pd.DataFrame, rising_item: str, first_value: float, traj_cond: dict, normal_cond: dict, min_valid: int, rng: np.random.Generator) -> dict:
+    both = usable(df[df["items_measured"] == "NOX+SOX"], min_valid)
+    other_item = "SOX" if rising_item == "NOX" else "NOX"
+    rising_rows = filter_trajectory(both[both["item"] == rising_item], first_value, traj_cond)
+    other_rows = filter_normal(both[both["item"] == other_item], normal_cond)
+    key = ["fact_manage_nm", "stack_code"]
+    pairs = rising_rows[key].merge(other_rows[key], on = key)
+    chosen = pick_one(pairs, rng)
+    def row_of(rows):
+        mask = (rows["fact_manage_nm"] == chosen["fact_manage_nm"]) & (rows["stack_code"] == chosen["stack_code"])
+        return rows[mask].iloc[0]
+
+    return {"rising": row_of(rising_rows), "other": row_of(other_rows)}

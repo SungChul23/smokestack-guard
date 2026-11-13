@@ -33,7 +33,7 @@ description: "102 K-TMS 합성 데이터 생성기 (평가·시연용) 작업 �
 - [ ] T003 [P] `.gitignore`에 `k_tms_synthetic/out/`, `k_tms_synthetic/data/`를 추가한다 (루트 `.gitignore`는 이 브랜치에서 이미 로그·샘플을 추가함. 합성 줄만 더한다).
 - [ ] T004 🧑 `.github/CODEOWNERS`에 `/k_tms_synthetic/  @olchangiagi @SungChul23` 한 줄을 추가한다 (AGENTS.md: 새 작업 폴더는 담당자가 추가).
 - [ ] T005 🧑 Athena에서 통계 쿼리 B를 실행해 CSV를 받고 `k_tms_synthetic/data/ref_stats.csv`로 둔다. 컬럼은 [data-model.md](data-model.md) 입력 표와 같아야 한다. (2026-11-09에 받은 CSV로 시작 가능)
-- [ ] T006 `config/config.yaml`을 [data-model.md](data-model.md)의 예시대로 만든다(에피소드 21개와 시나리오별 변형·성분, seed, 참조 조건(정상 `p99_max` 70, S-03 100), `start_kst`).
+- [ ] T006 `config/config.yaml`을 [data-model.md](data-model.md)의 예시대로 만든다(에피소드 21개와 시나리오별 변형·성분, seed, 참조 조건(정상 `p99_max` 70, S-03 100), 배경 상한(`background_max`: S-03 90), `start_kst`).
 
 **Checkpoint**: 입력과 설정이 있고, 빈 패키지를 import할 수 있다.
 
@@ -46,7 +46,7 @@ description: "102 K-TMS 합성 데이터 생성기 (평가·시연용) 작업 �
 ### 테스트 먼저
 
 - [ ] T007 [P] `tests/test_stats.py`: `ref_stats.csv`를 읽어 후보를 거르는 규칙(유효 값 ≥200, std>0, 허용기준 1종)이 spec FR-008의 숫자와 같은지 (2,985개 사용 가능). 작은 샘플 CSV를 `tests/fixtures/`에 둔다.
-- [ ] T008 [P] `tests/test_episode.py`: AR(1) 통계 복원(평균·표준편차·φ), 거부 샘플링이 상한(`hi`, 기본 시나리오별 70·100%) 미만만 내는지(값을 자르지 않음), 재시도 상한 초과 시 실패, **궤적 앞 구간이 첫 값 근처에서 끝나고 뒤 구간이 마지막 값에서 평균으로 돌아오는지**.
+- [ ] T008 [P] `tests/test_episode.py`: AR(1) 통계 복원(평균·표준편차·φ), 거부 샘플링이 상한(`hi`, 시나리오별 70·90%) 미만만 내는지(값을 자르지 않음), 재시도 상한 초과 시 실패, **궤적 앞 구간이 첫 값 근처에서 끝나고 뒤 구간이 마지막 값에서 평균으로 돌아오는지**.
 - [ ] T009 [P] `tests/test_snapshot.py`: 직렬화 형식(18필드 문자열, 측정값 소수 둘째 자리, 허용기준 정수, 재지 않는 항목은 null, 항목 밖 필드 없음), 응답 헤더(`resultCode "0"`, `totalCount` = 항목 수), 폴더 규칙(`episode=`/`ingest_date`/`hour`/`run_ts`).
 - [ ] T010 [P] `tests/test_writer.py`: `tms_cleansys/` 아래 경로를 쓰려 하면 **거부**하는지(원칙 I), 같은 입력이면 gzip 바이트가 같은지(`mtime=0`).
 
@@ -80,12 +80,12 @@ description: "102 K-TMS 합성 데이터 생성기 (평가·시연용) 작업 �
 
 ### 테스트 먼저
 
-- [ ] T023 [P] [US1] `tests/test_trajectory.py`: 궤적 값 순서·개수가 정확하고, 앞뒤 구간이 시나리오 상한(S-01·S-02·S-04 70%, S-03 100%) 이내이며, S-02에서 6번째 값에서 처음 90% 이상, S-04 `SPIKE`에서 한 값만 90% 이상인지. NOXSOX 에피소드에서 오르지 않는 성분이 정상 배경인지.
+- [ ] T023 [P] [US1] `tests/test_trajectory.py`: 궤적 값 순서·개수가 정확하고, 궤적 밖의 값이 모두 90% 미만이고 시나리오 배경 상한(S-01·S-02 앞 구간·S-04 70%, S-03 90%) 이내이며, S-02에서 6번째 값에서 처음 90% 이상, S-04 `SPIKE`에서 한 값만 90% 이상인지. NOXSOX 에피소드에서 오르지 않는 성분이 정상 배경인지.
 - [ ] T024 [P] [US1] `tests/test_silver_integration.py`: 생성 결과를 `to_silver`(저장소 `src/smokestack_guard/silver/ktms.py`, `PYTHONPATH=../src`)에 통과시켜 행 수·`status`·ratio가 expected와 같은지. S3 없이 파일을 읽어 DataFrame으로 만든다.
 
 ### 구현
 
-- [ ] T025 [US1] `synth/scenarios/trajectory.py`: S-02~S-04 주입 함수 `inject(r, rng, params) -> (r', meta)`. params에 오르는 성분 `rising`을 받는다. 참조 조건에 `|첫 값 − 평균| ≤ 2σ` 반영(조건에 맞는 후보가 적으면 배수 조정, 근거를 research 메모로 남김). 시나리오별 상한(`p99_max`·`hi`)은 설정에서 받는다. (T023)
+- [ ] T025 [US1] `synth/scenarios/trajectory.py`: S-02~S-04 주입 함수 `inject(r, rng, params) -> (r', meta)`. params에 오르는 성분 `rising`을 받는다. 참조 조건에 `|첫 값 − 평균| ≤ 2σ` 반영(조건에 맞는 후보가 적으면 배수 조정, 근거를 research 메모로 남김). 시나리오별 참조 조건(`p99_max`)과 배경 상한(`background_max`, 궤적 뒤 복귀 구간은 90%)은 설정에서 받는다. (T023)
 - [ ] T026 [US1] S-01 정상 기준선 에피소드(NOX, SOX) 계획과 생성(`plan.py`, `episode.py` 연결, `hi` 70). (T019)
 - [ ] T027 [US1] `synth/validate.py`에 **expected 대조**를 추가한다: `trajectory_pct`와 `silver_expect`를 읽어 비교, 불일치 목록 출력. 합격 기준 8·9(S-01 통계 ±10%/±0.1)도 구현. (T024)
 - [ ] T028 [US1] 에피소드 16개를 `generate`로 만들고 `validate`를 통과시킨다. (SC-001, SC-002)

@@ -1,0 +1,26 @@
+# 예고 없는 급등 EXCEED (nox): 정상에서 갑자기 100%를 넘어 초과 단게를 3칸 유지한 뒤 돌아옴
+episode_id: S-04-E-EXCEED-NOX
+scenario_id: S-04
+items: [nox]
+rising: [nox]
+steps: 96
+
+trajectory_start_step: 48
+trajectory_pct: [56, 58, 113, 109, 104, 71, 60]
+trajectory_stage: [normal, normal, exceed, exceed, exceed, caution, normal]
+
+silver_expect:
+  nox:
+    rows: 96
+    status: ok
+    trajectory_ratio_tol: 0.005
+    ratio_max_exclusive_outside: 0.90
+    lead_in_max_exclusive: 0.70
+
+label_expect:
+  nox:
+    positive: 2
+    negative: 89
+    excluded: 5
+
+known_mismatch: []

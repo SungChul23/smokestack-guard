@@ -1,0 +1,35 @@
+# 서서히 상승(NOX+SOX, SOX만 상승): 한 굴뚝, 한 행에 두 성분이 담기고, NOX가 정상에서 위험 단계까지 오름
+# SOX는 같은 해에서 정상 배경으로 움직임.
+episode_id: S-02-E-NOXSOX-SOXUP
+scenario_id: S-02
+items: [nox, sox]
+rising: [sox]
+steps: 96
+
+trajectory_start_step: 48
+trajectory_pct: [62, 69, 76, 82, 87, 92]
+trajectory_stage: [normal, normal, caution, warning, warning, danger]
+
+silver_expect:
+  nox:
+    rows: 96
+    status: ok
+    ratio_max_exclusive: 0.70
+  sox:
+    rows: 96
+    status: ok  
+    trajectory_ratio_tol: 0.005
+    ratio_max_exclusive_outside: 0.90
+    lead_in_max_exclusive: 0.70
+
+label_expect:
+  nox:
+    positive: 0
+    negative: 94
+    excluded: 2
+  sox:
+    positive: 2
+    negative: 91
+    excluded: 3
+
+known_mismatch: []

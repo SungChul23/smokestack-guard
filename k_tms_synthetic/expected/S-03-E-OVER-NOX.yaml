@@ -1,0 +1,31 @@
+# 임계치 부근 진동 OVER(NOX): 90% 경계를 넘나든다.
+episode_id: S-03-E-OVER-NOX
+scenario_id: S-03
+items: [nox]
+rising: [nox]
+steps: 96
+
+trajectory_start_step: 48
+trajectory_pct: [87, 91, 88, 92, 89, 91]
+trajectory_stage: [warning, danger, warning, danger, warning, danger]
+
+silver_expect:
+  nox:
+    rows: 96
+    status: ok
+    trajectory_ratio_tol: 0.005
+    ratio_max_exclusive: 0.90
+
+label-expect:
+  nox:
+    positive: 4
+    negative: 87
+    excluded: 5
+
+label_expect:
+  nox:
+    positive: 4
+    negative: 87
+    excluded: 5
+
+known_mismatch: []

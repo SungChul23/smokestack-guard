@@ -1,0 +1,25 @@
+# 임계치 부분 진동 UNDER (sox): 90%에 닿지 않고 주의, 경고 단계를 오르내림
+episode_id: S-03-E-UNDER-SOX
+scenario_id: S-03
+items: [sox]
+rising: [sox]
+steps: 96
+
+trajectory_start_step: 48
+trajectory_pct: [76, 84, 79, 88, 81, 87, 78]
+trajectory_stage: [caution, warning, caution, warning, warning, warning, caution]
+
+silver_expect:
+  sox:
+    rows: 96
+    status: ok  
+    trajectory_ratio_tol: 0.005
+    ratio_max_exclusive: 0.90
+
+label_expect:
+  sox:
+    positive: 0
+    negative: 94
+    excluded: 2
+
+known_mismatch: []
