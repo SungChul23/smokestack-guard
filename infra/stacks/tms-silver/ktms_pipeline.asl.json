@@ -1,0 +1,194 @@
+{
+  "Comment": "K-TMS Silver -> ML-ready (specs/a-platform/008-ktms-silver-pipeline). Input: {start_date, end_date, stage} all optional.",
+  "StartAt": "Defaults",
+  "States": {
+    "Defaults": {
+      "Type": "Pass",
+      "Parameters": {
+        "args.$": "States.JsonMerge(States.StringToJson('{\"start_date\":\"auto\",\"end_date\":\"auto\",\"stage\":\"all\"}'), $$.Execution.Input, false)"
+      },
+      "Next": "RouteStart"
+    },
+    "RouteStart": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.args.stage",
+          "StringEquals": "ml_ready",
+          "Next": "MlReady"
+        }
+      ],
+      "Default": "Silver"
+    },
+    "Silver": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "${silver_job}",
+        "Arguments": {
+          "--start_date.$": "$.args.start_date",
+          "--end_date.$": "$.args.end_date",
+          "--sfn_execution.$": "$$.Execution.Name"
+        }
+      },
+      "ResultPath": "$.silver",
+      "ResultSelector": {
+        "JobRunId.$": "$.Id",
+        "JobRunState.$": "$.JobRunState"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["Glue.ConcurrentRunsExceededException"],
+          "IntervalSeconds": 120,
+          "MaxAttempts": 5,
+          "BackoffRate": 1
+        },
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 1,
+          "BackoffRate": 1
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "SilverFailed"
+        }
+      ],
+      "Next": "RouteAfterSilver"
+    },
+    "RouteAfterSilver": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.args.stage",
+          "StringEquals": "silver",
+          "Next": "Done"
+        }
+      ],
+      "Default": "MlReady"
+    },
+    "MlReady": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "${ml_ready_job}",
+        "Arguments": {
+          "--start_date.$": "$.args.start_date",
+          "--end_date.$": "$.args.end_date",
+          "--sfn_execution.$": "$$.Execution.Name"
+        }
+      },
+      "ResultPath": "$.ml_ready",
+      "ResultSelector": {
+        "JobRunId.$": "$.Id",
+        "JobRunState.$": "$.JobRunState"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["Glue.ConcurrentRunsExceededException"],
+          "IntervalSeconds": 120,
+          "MaxAttempts": 5,
+          "BackoffRate": 1
+        },
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 1,
+          "BackoffRate": 1
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "MlReadyFailed"
+        }
+      ],
+      "Next": "Done"
+    },
+    "SilverFailed": {
+      "Comment": "실패 단계 정보. 메일 본문과 다시 실행 명령에 쓴다. Silver가 실패하면 ML-ready도 안 돌았으므로 stage all로 다시 실행한다",
+      "Type": "Pass",
+      "Result": {
+        "stage": "silver",
+        "job": "${silver_job}",
+        "runs": "ktms",
+        "rerun_stage": "all"
+      },
+      "ResultPath": "$.failed",
+      "Next": "Notify"
+    },
+    "MlReadyFailed": {
+      "Type": "Pass",
+      "Result": {
+        "stage": "ml_ready",
+        "job": "${ml_ready_job}",
+        "runs": "ktms_ml_ready",
+        "rerun_stage": "ml_ready"
+      },
+      "ResultPath": "$.failed",
+      "Next": "Notify"
+    },
+    "Notify": {
+      "Comment": "Glue 실패 원인(JobRun JSON)에서 필요한 값만 꺼내 읽기 좋은 메일을 보낸다. 원인이 JSON이 아니거나 값이 없어 실패하면 NotifyRaw가 원문 그대로 보낸다(알림이 빠지지 않게)",
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "ParseCause",
+          "States": {
+            "ParseCause": {
+              "Type": "Pass",
+              "Parameters": {
+                "args.$": "$.args",
+                "failed.$": "$.failed",
+                "run.$": "States.StringToJson($.error.Cause)"
+              },
+              "Next": "NotifyDetailed"
+            },
+            "NotifyDetailed": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "${topic_arn}",
+                "Subject": "[tms] K-TMS silver2 failed",
+                "Message.$": "States.Format('K-TMS Silver/ML-ready 실행 실패 (재시도 1회 후)\n\n단계: {} ({})\n범위: {} ~ {}\n오류: {}\nGlue 실행: {} ({}초, {} x {})\n실행 이름: {}\n\n실행 기록: s3://${bucket}/silver2/_runs/{}/\n다시 실행: python run_ktms.py rerun --from {} --to {} --stage {}\n읽는 법: specs/a-platform/008-ktms-silver-pipeline/contracts/run-interface.md', $.failed.stage, $.failed.job, $.args.start_date, $.args.end_date, $.run.ErrorMessage, $.run.Id, $.run.ExecutionTime, $.run.WorkerType, $.run.NumberOfWorkers, $$.Execution.Name, $.failed.runs, $.args.start_date, $.args.end_date, $.failed.rerun_stage)"
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultPath": null,
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.notify_error",
+          "Next": "NotifyRaw"
+        }
+      ],
+      "Next": "Failed"
+    },
+    "NotifyRaw": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${topic_arn}",
+        "Subject": "[tms] K-TMS silver2 failed",
+        "Message.$": "States.Format('K-TMS Silver/ML-ready 실행 실패 (재시도 1회 후)\n\n단계: {} ({})\n범위: {} ~ {}\n오류 종류: {}\n원인(원문): {}\n실행 이름: {}\n\n실행 기록: s3://${bucket}/silver2/_runs/{}/\n다시 실행: python run_ktms.py rerun --from {} --to {} --stage {}', $.failed.stage, $.failed.job, $.args.start_date, $.args.end_date, $.error.Error, $.error.Cause, $$.Execution.Name, $.failed.runs, $.args.start_date, $.args.end_date, $.failed.rerun_stage)"
+      },
+      "ResultPath": null,
+      "Next": "Failed"
+    },
+    "Failed": {
+      "Type": "Fail",
+      "Error": "KtmsSilverFailed",
+      "Cause": "Glue job failed after retry; alert sent to SNS"
+    },
+    "Done": {
+      "Type": "Succeed"
+    }
+  }
+}

@@ -1,4 +1,5 @@
 # TW CEMS Silver 실행. specs/a-platform/004-tw-cems-silver-glue
+# (이 스택에는 K-TMS Silver·ML-ready도 있다: ktms.tf, specs/a-platform/008-ktms-silver-pipeline)
 # 원본 JSONL을 C의 Silver 규칙(src/smokestack_guard/silver)으로 변환해 원본 버킷의 silver/tw_cems/에 쓴다.
 
 # 원본 버킷은 tms-collection 스택이 관리한다. 여기서는 이름으로 참조만 한다.
