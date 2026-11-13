@@ -103,7 +103,7 @@ AI 담당자가 Silver만으로 분류·회귀 학습을 시작한다. 시계열
 - **FR-012**: 시스템은 현재 포함 연속 6개의 유효 30분 관측이 있는 행만 `feature_valid`로 표시해야 한다. 시간 기준으로 계산해 빈 구간을 건너뛰지 않는다.
 - **FR-013**: 시스템은 분류 정답(`label_entry_60m`)과 회귀 정답(`label_ratio_60m`)을 설계서 정의대로 만들어야 한다. 현재 90% 이상인 행은 진입 예측(분류) 대상에서 제외한다. 회귀(`regression_eligible`)는 현재 비율과 상관없이 60분 뒤 값이 있으면 대상이다(2026-11-09 E 결정, `quality_policy_version` v2).
 - **FR-014**: 시스템은 정답 값을 학습용으로만 쓰도록 분리할 수 있어야 한다 (`classification_eligible`, `regression_eligible`로 학습 가능 여부 표시).
-- **FR-015**: 시스템은 ML-ready에 `feature_version`, `label_version`, `quality_policy_version`을 남겨야 한다.
+- **FR-015**: 시스템은 ML-ready에 `feature_version`, `label_version`, `quality_policy_version`을 남겨야 한다. 또한 입력 출처를 `data_source`(`tw_cems`, `ktms`, 합성은 `ktms_synth` 등 지정값)로 남겨 소스별 학습·평가를 구분할 수 있어야 한다.
 - **FR-016**: 시스템은 정제 단계별 행 수(입력 → 슬롯 `status`별 → Feature 유효 → 양성 수)를 월별로 기록해야 한다.
 - **FR-017**: 같은 입력을 다시 처리하면 같은 결과가 나와야 하며(멱등), 월 단위로 다시 처리할 수 있어야 한다.
 - **FR-018**: 정제 코드는 **Spark 3.5 기준**(AWS Glue 5.0/5.1)으로 실행할 수 있어야 하고, pandas 구현을 의미 기준선으로 삼아 두 구현의 결과가 일치해야 한다.
@@ -113,7 +113,7 @@ AI 담당자가 Silver만으로 분류·회귀 학습을 시작한다. 시계열
 ### Key Entities
 
 - **tw_cems** (Silver): 굴뚝·항목·단위·30분 슬롯 단위 정제 측정값. K-TMS 계약 컬럼 9개(`area_nm`, `fact_manage_nm`, `stack_code`, `item`, `value`, `limit`, `status`, `ts_kst`, `ratio`)와 대만 전용 4개(`unit`, `ts_local`, `code2`, `flag_code_ratio_mismatch`)를 가진다.
-- **tw_cems_ml_ready**: `tw_cems`에서 파생한 학습 테이블. Feature, 정답, 학습 가능 여부, 버전을 가진 35개 컬럼.
+- **tw_cems_ml_ready**: `tw_cems`에서 파생한 학습 테이블. Feature, 정답, 학습 가능 여부, 버전, 입력 출처(`data_source`)를 가진 36개 컬럼.
 
 ## Success Criteria *(mandatory)*
 

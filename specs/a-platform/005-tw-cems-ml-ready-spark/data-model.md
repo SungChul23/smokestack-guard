@@ -43,6 +43,7 @@
 | 31 | `classification_eligible` | boolean | |
 | 32 | `regression_eligible` | boolean | |
 | 33–35 | `feature_version`, `label_version`, `quality_policy_version` | string | `ml_ready.py` 상수 (feature·label `v1`, quality_policy `v2` — #33 적격 규칙) |
+| 36 | `data_source` | string | 입력 출처. Silver에 `ts_local`이 있으면 `tw_cems`, 없으면 `ktms`. 합성데이터 등은 `to_ml_ready(df, "ktms_synth")` 처럼 직접 지정. 피처가 아니며 pandas–Spark 비교에서 제외 (#47) |
 
 컬럼 순서와 이름은 `ml_ready.COLUMNS`와 같아야 한다. 계산 규칙은 [research.md](research.md) R2에 있다.
 
@@ -87,7 +88,7 @@
 |---|---|
 | `ours_rows`, `theirs_rows` | 두 결과의 행 수 |
 | `only_ours`, `only_theirs` | 한쪽에만 있는 키 수 |
-| `column_mismatches` | 컬럼별 불일치 행 수 (35개 키, 키 컬럼 제외 32개) |
+| `column_mismatches` | 컬럼별 불일치 행 수 (36개 중 키 컬럼과 `data_source`를 뺀 32개) |
 | `mismatch_samples` | 컬럼별 최대 5개 키 (값은 남기지 않음) |
 | `max_abs_diff` | 숫자 컬럼별 \|ours − theirs\|의 최댓값 (차이의 크기만, 값 자체는 아님) |
 | `tolerance` | `abs 1e-9, rel 1e-9`, 컬럼별 `column_abs` (`ratio_rolling_std_3h`: 1e-5) |

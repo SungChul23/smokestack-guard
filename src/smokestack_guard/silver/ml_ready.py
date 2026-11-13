@@ -21,8 +21,13 @@ COLUMNS = (
        "hour_sin", "hour_cos", "month_sin", "month_cos", "day_of_week",
        "label_entry_60m", "label_ratio_60m",
        "feature_valid", "classification_eligible", "regression_eligible",
-       "feature_version", "label_version", "quality_policy_version"]
+       "feature_version", "label_version", "quality_policy_version", "data_source"]
 )
+
+
+def default_data_source(silver_columns) -> str:
+    """Silver 입력에서 data_source 기본값. 합성데이터 등은 직접 지정한다(예: "ktms_synth")."""
+    return "tw_cems" if "ts_local" in silver_columns else "ktms"
 
 
 def _time_features(ts: pd.DatetimeIndex) -> pd.DataFrame:
@@ -40,11 +45,12 @@ def _time_features(ts: pd.DatetimeIndex) -> pd.DataFrame:
     )
 
 
-def to_ml_ready(df: pd.DataFrame) -> pd.DataFrame:
+def to_ml_ready(df: pd.DataFrame, data_source: str | None = None) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame(columns=COLUMNS)
 
     if "ts_kst" in df.columns:  # silver (tw_cems or ktms): keep the slots the model may use
+        data_source = data_source or default_data_source(df.columns)
         df = df[(df["status"] == "ok") & df["item"].isin(ML_ITEMS)]
         if "unit" in df.columns:  # ktms has no unit column; its nox/sox are taken as ppm
             df = df[df["unit"] == "ppm"]
@@ -128,13 +134,14 @@ def to_ml_ready(df: pd.DataFrame) -> pd.DataFrame:
     result = pd.concat(frames, ignore_index=True)
     result = result.sort_values(["stack_code", "item_code", "measured_at"]).reset_index(drop=True)
     result["feature_version"], result["label_version"], result["quality_policy_version"] = FEATURE_VERSION, LABEL_VERSION, QUALITY_POLICY_VERSION
+    result["data_source"] = data_source
     return result[COLUMNS]
 
 
-def build(source: Path, output_dir: Path, table: str = "tw_cems_ml_ready") -> Path:
+def build(source: Path, output_dir: Path, table: str = "tw_cems_ml_ready", data_source: str | None = None) -> Path:
     files = sorted(source.glob("ts_date=*/part.parquet")) if source.is_dir() else [source]  # ktms: partitions only
     silver = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
-    ml_ready = to_ml_ready(silver)
+    ml_ready = to_ml_ready(silver, data_source)
     out = output_dir / table / "part.parquet"
     out.parent.mkdir(parents=True, exist_ok=True)
     ml_ready.to_parquet(out, index=False)
@@ -147,8 +154,9 @@ def main() -> None:
     parser.add_argument("source", type=Path, help="Path to a silver parquet file or partition directory")
     parser.add_argument("--output-dir", type=Path, default=Path("data/silver"))
     parser.add_argument("--table", default="tw_cems_ml_ready", help="output table name, e.g. ktms_ml_ready")
+    parser.add_argument("--data-source", default=None, help="data_source 값. 기본: tw_cems 또는 ktms 자동, 합성은 ktms_synth")
     args = parser.parse_args()
-    build(args.source, args.output_dir, args.table)
+    build(args.source, args.output_dir, args.table, args.data_source)
 
 
 if __name__ == "__main__":

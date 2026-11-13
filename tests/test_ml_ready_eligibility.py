@@ -43,6 +43,11 @@ class EligibilityTests(unittest.TestCase):
         self.assertEqual(QUALITY_POLICY_VERSION, "v2")
         self.assertEqual(set(to_ml_ready(silver([10.0] * 8, [100.0] * 8))["quality_policy_version"]), {"v2"})
 
+    def test_data_source_default_and_override(self):
+        s = silver([10.0] * 8, [100.0] * 8)  # 이미 정규화된 입력이라 출처를 알 수 없다 → 직접 지정해야 한다
+        self.assertEqual(set(to_ml_ready(s)["data_source"]), {None})
+        self.assertEqual(set(to_ml_ready(s, "ktms_synth")["data_source"]), {"ktms_synth"})
+
 
 if __name__ == "__main__":
     unittest.main()
