@@ -66,7 +66,8 @@ def test_data_source_matches_pandas_and_override(ours, ml_ready_silver_df, ml_re
         ml_ready.default_data_source(ml_ready_silver_pdf.columns)
     }
     synth = mrs.to_ml_ready(ml_ready_silver_df, "ktms_synth")
-    assert {r.data_source for r in synth.select("data_source").distinct().collect()} == {"ktms_synth"}
+    sources = {r.data_source for r in synth.select("data_source").distinct().collect()}
+    assert sources == {"ktms_synth"}
 
 
 def test_column_names_order_and_types(ours):
