@@ -42,4 +42,9 @@ jobs:
 
       # C의 규칙 코드(src/smokestack_guard/silver)가 바뀌어도 진입 스크립트 테스트가 돈다.
       - name: Test
-        run: pytest -q
+        run: pytest -q -m "not iceberg"
+
+      # K-TMS(008) Iceberg 통합 테스트. Maven에서 Iceberg 1.7.1 jar를 받는다(Glue 5.0과 같은 버전).
+      # jar를 붙인 SparkSession을 따로 띄워야 해서 별도 프로세스로 실행한다.
+      - name: Test (Iceberg)
+        run: pytest -q -m iceberg

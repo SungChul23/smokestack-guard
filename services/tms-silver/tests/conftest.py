@@ -81,3 +81,79 @@ def silver_to_spark(spark, pdf):
 @pytest.fixture(scope="session")
 def ml_ready_silver_df(spark, ml_ready_silver_pdf):
     return silver_to_spark(spark, ml_ready_silver_pdf)
+
+
+# ---------------------------------------------------------------------------
+# K-TMS (008): 가짜 S3와 로컬 Iceberg
+# ---------------------------------------------------------------------------
+
+
+class FakeS3:
+    """메모리 dict 기반 가짜 S3. C의 read_bronze와 실행 기록 쓰기가 쓰는 메서드만 있다."""
+
+    def __init__(self):
+        self.objects: dict[tuple[str, str], bytes] = {}
+
+    def put_object(self, Bucket, Key, Body=b"", ContentType=None):  # noqa: N803 (boto3 인자 이름)
+        self.objects[(Bucket, Key)] = Body if isinstance(Body, bytes) else Body.encode("utf-8")
+        return {}
+
+    def get_object(self, Bucket, Key):  # noqa: N803
+        import io
+
+        return {"Body": io.BytesIO(self.objects[(Bucket, Key)])}
+
+    def get_paginator(self, name):
+        assert name == "list_objects_v2"
+        return self
+
+    def paginate(self, Bucket, Prefix=""):  # noqa: N803
+        keys = sorted(k for b, k in self.objects if b == Bucket and k.startswith(Prefix))
+        yield {"Contents": [{"Key": k} for k in keys]} if keys else {}
+
+    def keys(self, prefix: str = "") -> list[str]:
+        return sorted(k for _, k in self.objects if k.startswith(prefix))
+
+
+@pytest.fixture
+def fake_s3():
+    return FakeS3()
+
+
+@pytest.fixture(scope="session")
+def iceberg_spark(tmp_path_factory):
+    """Iceberg 1.7.1(Glue 5.0과 같은 버전) + Hadoop 카탈로그 `glue_catalog`인 로컬 SparkSession.
+
+    같은 프로세스에서 `spark` fixture와 함께 쓰지 않는다(먼저 만든 세션에는 jar가 붙지 않는다).
+    iceberg 표시 테스트만 쓰고, `pytest -m iceberg`로 따로 실행한다.
+    """
+    import os
+    import sys
+    import time
+
+    from pyspark.sql import SparkSession
+
+    os.environ.setdefault("PYSPARK_PYTHON", sys.executable)
+    os.environ["TZ"] = "UTC"
+    time.tzset()
+
+    warehouse = tmp_path_factory.mktemp("iceberg-warehouse")
+    session = (
+        SparkSession.builder.master("local[2]")
+        .appName("tms-silver-iceberg-tests")
+        .config("spark.ui.enabled", "false")
+        .config("spark.sql.shuffle.partitions", "2")
+        .config("spark.sql.session.timeZone", "UTC")
+        .config("spark.driver.extraJavaOptions", "-Duser.timezone=UTC")
+        .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.7.1")
+        .config(
+            "spark.sql.extensions",
+            "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
+        )
+        .config("spark.sql.catalog.glue_catalog", "org.apache.iceberg.spark.SparkCatalog")
+        .config("spark.sql.catalog.glue_catalog.type", "hadoop")
+        .config("spark.sql.catalog.glue_catalog.warehouse", str(warehouse))
+        .getOrCreate()
+    )
+    yield session
+    session.stop()

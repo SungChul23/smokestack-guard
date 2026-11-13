@@ -1,7 +1,7 @@
 [project]
 name = "tms-silver"
 version = "0.1.0"
-description = "TW CEMS Silver를 Glue 5.0에서 월 단위로 실행하는 진입 스크립트와 일괄 실행 명령"
+description = "TW CEMS Silver(월 단위)와 K-TMS Silver·ML-ready(Iceberg, 매일)를 Glue 5.0에서 실행하는 진입 스크립트와 실행 명령"
 requires-python = ">=3.11,<3.12"
 # Glue 5.0 런타임이 pyspark, boto3, pandas를 제공하므로 런타임 의존성은 없다.
 # 규칙 코드(smokestack_guard)는 저장소 src/에서 zip으로 배포한다.
@@ -23,12 +23,18 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["glue_tw_cems_silver", "run_silver", "ml_ready_spark", "glue_tw_cems_ml_ready", "run_ml_ready"]
+py-modules = [
+    "glue_tw_cems_silver", "run_silver", "ml_ready_spark", "glue_tw_cems_ml_ready", "run_ml_ready",
+    "ktms_pipeline", "glue_ktms_silver", "glue_ktms_ml_ready", "run_ktms",
+]
 
 [tool.pytest.ini_options]
 # ../../src: C의 smokestack_guard 패키지를 import하기 위해
 pythonpath = [".", "../../src"]
 testpaths = ["tests"]
+markers = [
+    "iceberg: 로컬 Iceberg jar가 필요한 통합 테스트 (pytest -m iceberg로 따로 실행)",
+]
 
 [tool.ruff]
 line-length = 100
