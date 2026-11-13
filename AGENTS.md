@@ -60,7 +60,7 @@ infra/
 ├── stacks/
 │   ├── tms-collection/   # TMS 수집: 원본 버킷 + 수집 Lambda + 누락률 리포트 Lambda + 스케줄 + 알림
 │   ├── tms-eda/          # TW CEMS Athena EDA: EDA 버킷 + Glue Job·크롤러 + Athena 워크그룹
-│   └── tms-silver/       # TW CEMS Silver: Glue Job + 역할 + 카탈로그 (데이터는 원본 버킷 silver/)
+│   └── tms-silver/       # TW CEMS Silver + K-TMS Silver·ML-ready(Iceberg, 매일): Glue Job + 역할 + 카탈로그 + 상태 머신·스케줄
 └── modules/
     ├── raw-archive/          # 원본 보존 버킷
     └── scheduled-collector/  # 주기 실행 함수 (Lambda + 역할 + 스케줄 + 로그 + 알람), 수집기·누락률 리포트가 함께 사용
@@ -68,7 +68,7 @@ services/
 ├── tms-collector/        # 수집 Lambda 코드 (Python, 외부 패키지 없음)
 ├── tms-missing-rate/     # 전날 슬롯 누락률 리포트 Lambda 코드
 ├── tms-eda/              # JSONL → Parquet 변환 Glue 스크립트 + 백필 명령
-└── tms-silver/           # Silver Glue 진입 스크립트 + 일괄 실행 명령
+└── tms-silver/           # Silver Glue 진입 스크립트 + 일괄 실행 명령 (TW CEMS, K-TMS)
 ```
 
 - **폴더 이름은 기술명이 아니라 하는 일 기준으로 짓는다.** (`lambda/`, `s3/` 금지 → `tms-collection/`, `raw-archive/`)
@@ -102,7 +102,12 @@ smokestack-tms-raw-952900391026/
 - 파티션은 기본 `year=YYYY/month=MM`(출처의 현지 시각)이다. 다르게 하려면 그 테이블 계약에 적는다.
 - `_`로 시작하는 폴더는 테이블이 아니다(실행 기록 등).
 - 실행 역할마다 쓰기·삭제 권한을 자기 테이블 경로(`silver/<테이블>/*`, `silver/_runs/<테이블>/*`)에만 준다.
-- Spark는 Silver를 카탈로그가 아니라 S3 경로로 읽는다. 카탈로그는 파티션 프로젝션을 쓰는 Athena용이다.
+- Spark는 Silver를 카탈로그가 아니라 S3 경로로 읽는다. 카탈로그는 파티션 프로젝션을 쓰는 Athena용이다. (Iceberg 테이블 제외, 아래)
+- **Iceberg 테이블은 예외다:** `tms_silver2.ktms`, `tms_silver2.ktms_ml_ready`(K-TMS, 매일 갱신).
+  - 파티션은 테이블 형식의 숨은 날짜 파티션(KST 측정일)이고 `year=/month=` 폴더로 나타나지 않는다.
+  - Spark·pandas·Athena 모두 S3 경로가 아니라 카탈로그로 읽는다. `data/`에는 지난 버전 파일도 남아 있어 직접 읽으면 행이 중복된다.
+  - 테이블은 Terraform이 아니라 잡의 DDL이 만든다(Iceberg가 커밋마다 카탈로그 값을 바꾸기 때문).
+  - 읽는 법과 버전 고정: `specs/a-platform/008-ktms-silver-pipeline/contracts/ktms-tables.md`
 
 ## Terraform 규칙
 
