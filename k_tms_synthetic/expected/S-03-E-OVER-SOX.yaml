@@ -14,13 +14,7 @@ silver_expect:
     rows: 96
     status: ok
     trajectory_ratio_tol: 0.005
-    ratio_max_exclusive: 0.90
-
-label-expect:
-  sox:
-    positive: 4
-    negative: 87
-    excluded: 5
+    ratio_max_exclusive_outside: 0.90
 
 label_expect:
   sox:

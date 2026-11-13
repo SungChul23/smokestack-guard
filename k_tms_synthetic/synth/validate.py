@@ -7,6 +7,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
+from synth import compare
 
 ITEM_NAMES = ["nox", "sox", "tsp", "hcl", "co", "nh3", "hf"]    # 실측과 같은 성분 7종
 # 실측 항목의 18개 필드
@@ -14,7 +15,7 @@ REAL_FIELDS = {"area_nm", "fact_manage_nm", "stack_code", "mesure_dt"} | {f"{nam
 # 값 칸에 허용하는 상태 문구 5종
 STATUS_TEXTS = {"측정자료확인중(가동중지)", "측정자료확인중", "미수신", "보수중", "기기점검"}
 VALUE_RE = re.compile(r"^\d+\.\d{2}$")                      # 측정값: 소수 둘째 자리
-COMMA_RE = re.compile(r"^\d{1, 3}(,\d{3})+\.\d$")           # 콤마가 포함된 숫자
+COMMA_RE = re.compile(r"^\d{1,3}(,\d{3})+\.\d$")           # 콤마가 포함된 숫자
 LIMIT_RE = re.compile(r"^\d+(\.\d+)?$")                     # 허용 기준: 숫자 문자열
 DATE_RE = re.compile(r"^ingest_date=(\d{4}-\d{2}-\d{2})$")  # 경로의 폴더 이름 형식
 HOUR_RE = re.compile(r"^hour=(\d{2})$")
@@ -144,7 +145,7 @@ def _validate_episode(out, episode_id, row, issues):
         _add(issues, episode_id, "count", f"측정 시각 범위가 manifest와 다름: {min(all_dts)}~{max(all_dts)}")
 
 # 결과 폴더 전체를 검사. 문제 목록을 돌려줌(빈 목록 = 통과)
-def validate_out(out_dir) -> list:
+def validate_out(out_dir, expected_dir = None) -> list:
     out, issues = Path(out_dir), []
     manifest = _load_manifest(out, issues)
     for child in out.iterdir():
@@ -156,7 +157,9 @@ def validate_out(out_dir) -> list:
     if root.exists():
         for d in root.iterdir():
             if d.name.removeprefix("episode=") not in manifest:
-                _add(issues, "-", "count", f"manifest에 없는 에피소드 폴더: {d.name}")
+                _add(issues, "-", "count", f"manifest에 없는 에피소드 폴더: {d.name}") 
+    if expected_dir is not None:
+        issues += compare.compare_all(out, expected_dir)
     return issues
 
 # 점검 결과를 사람이 읽기 쉽게 출력

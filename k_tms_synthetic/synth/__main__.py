@@ -16,14 +16,15 @@ def main(argv = None) -> int:
     g.add_argument("--out", default = "out")
 
     v = sub.add_parser("validate", help="생성 결과 점검")
-    v.add_argument("--out", default="out")       
+    v.add_argument("--out", default="out") 
+    v.add_argument("--expected", default = "expected")      
 
     args = parser.parse_args(argv)                  
 
     if args.command == "generate":
         generate.generate(plan.load_config(args.config), args.stats, args.out)
         return 0
-    issues = validate.validate_out(args.out)                       # validate: 문제 목록
+    issues = validate.validate_out(args.out, args.expected)                       # validate: 문제 목록
     validate.print_report(issues, args.out)
     return 1 if issues else 0                                            # 문제가 있으면 종료 코드 1
 
