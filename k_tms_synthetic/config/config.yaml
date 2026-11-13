@@ -8,6 +8,7 @@ run:
   episode_steps: 96             # 에피소드 길이(한 상황을 몇 번의 측정 칸으로 만들 것인가? -> 96 x 30(분) = 2일치 데이터). 
   warmup_stage: 12              # 워밍 업: 시나리오가 시작되기 전, 평범하게 지나가는 '준비 구간' (12칸 x 30분 = 6시간)
   start_kst: "2026-11-20 09:00"          # 첫 번째 측정값의 시각
+  trajectory_start_step: 48     # 궤적의 첫 값이 들어가는 칸
 
 # 참조 배출구 선택 조건
 ref_selection:
@@ -16,8 +17,8 @@ ref_selection:
   normal: {mean: [10, 50], phi: [0.5, 0.95], p99_max: 70}   
   # 정해진 시나리오 조건
   trajectory: 
-    default: {p99_max: 70, first_value_within_sigma: 2.0}  # 첫 값이 정상 단계
-    S-03: {p99_max: 100, first_value_within_sigma: 2.0}     # 첫 값이 주의, 경고 단계
+    default: {p99_max: 70, background_max: 70, first_value_within_sigma: 2.0}  # 첫 값이 정상 단계
+    S-03: {p99_max: 100, background_max: 90, first_value_within_sigma: 2.0}     # 첫 값이 주의, 경고 단계
 
 # 시나리오 개수 설정
 episodes:
@@ -34,3 +35,12 @@ episodes:
   S-06-E: {items: [nox]}                                            # 깨진 데이터 | 필드 누락, 잘린 JSON
   S-07-E: {variants: [SAME, CONFLICT], items: [nox]}                # 중복, 충돌  | 같은 값 반복, 같은 측정 다른 값
   S-08-E: {items: [nox]}                                            # 지연, 누락 
+
+# 시나리오별 고정 궤적
+trajectories:
+  S-02: [62, 69, 76, 82, 87, 92]                      # 서서히 상승
+  S-03-OVER: [87, 91, 88, 92, 89, 91]                 # 90% 경계를 넘나듦
+  S-03-UNDER: [76, 84, 79, 88, 81, 87, 78]            # 90% 미만에서 맴돎
+  S-04-EXCEED: [56, 58, 113, 109, 104, 71, 60]        # 초과 단계 3칸 유지
+  S-04-SPIKE: [59, 61, 94, 63, 60]                    # 위험 단계 한 칸
+  S-04-PLATEAU: [59, 61, 92, 95, 93, 96, 94, 70, 62]  # 위험 단계 5칸 유지

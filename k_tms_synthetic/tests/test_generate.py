@@ -47,9 +47,9 @@ def test_manifest(tmp_path):
 # 아직 구현 전이 시나리오는 에러 없이 건너뜀
 def test_unimplemented_scenarios_are_skipped(tmp_path):
     cfg = sample_config()
-    cfg["episodes"]["S-03-E"] = {"variants": ["OVER"], "items": ["nox"]}       # 에피소드 ID: S-03-E-OVER
+    cfg["episodes"]["S-05-E"] = {"items": ["nox"]}
     generate.generate(cfg, FIXTURE, tmp_path)
-    assert not (tmp_path / "tms_synthetic" / "episode=S-03-E-OVER").exists()
+    assert not (tmp_path / "tms_synthetic" / "episode=S-05-E").exists()
 
 # 같은 설정으로 두 번 만들면 모든 파일의 바이트가 같음
 def test_same_config_same_bytes(tmp_path):
