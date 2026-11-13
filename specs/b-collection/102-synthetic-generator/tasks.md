@@ -87,7 +87,7 @@ description: "102 K-TMS 합성 데이터 생성기 (평가·시연용) 작업 �
 
 - [ ] T025 [US1] `synth/scenarios/trajectory.py`: S-02~S-04 주입 함수 `inject(r, rng, params) -> (r', meta)`. params에 오르는 성분 `rising`을 받는다. 참조 조건에 `|첫 값 − 평균| ≤ 2σ` 반영(조건에 맞는 후보가 적으면 배수 조정, 근거를 research 메모로 남김). 시나리오별 참조 조건(`p99_max`)과 배경 상한(`background_max`, 궤적 뒤 복귀 구간은 90%)은 설정에서 받는다. (T023)
 - [ ] T026 [US1] S-01 정상 기준선 에피소드(NOX, SOX) 계획과 생성(`plan.py`, `episode.py` 연결, `hi` 70). (T019)
-- [ ] T027 [US1] `synth/validate.py`에 **expected 대조**를 추가한다: `trajectory_pct`와 `silver_expect`를 읽어 비교, 불일치 목록 출력. 합격 기준 8·9(S-01 통계 ±10%/±0.1)도 구현. (T024)
+- [x] T027 [US1] `synth/compare.py`에 **expected 대조**를 만들고 `validate_out(out, expected_dir)`로 연결한다: `trajectory_pct`와 `silver_expect`(행 수, 궤적 값, 궤적 밖·앞 구간 상한)를 읽어 비교, 불일치 목록 출력. 합격 기준 9(S-01 통계 ±10%/±0.1)는 96칸 표본이 작아 추정값이 흔들리므로(φ 표준오차 약 0.1) 실제 출력이 아니라 `tests/test_series_statistics.py`에서 **2만 칸 곡선**으로 검사한다. (T024)
 - [ ] T028 [US1] 에피소드 16개를 `generate`로 만들고 `validate`를 통과시킨다. (SC-001, SC-002)
 
 **Checkpoint**: S-01~S-04가 기대 결과와 일치하고 현재 Silver가 읽는다. 여기서 한 번 멈추고 검토한다.
