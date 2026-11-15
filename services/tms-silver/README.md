@@ -46,7 +46,7 @@ python run_silver.py --only-missing                          # 실행 기록이 
 
 ## ML-ready (005)
 
-Silver(`silver/tw_cems/`) 36개월 전체를 읽어 학습용 35컬럼 ML-ready(`silver/tw_cems_ml_ready/`)를 만든다.
+Silver(`silver/tw_cems/`) 36개월 전체를 읽어 학습용 36컬럼 ML-ready(`silver/tw_cems_ml_ready/`)를 만든다.
 - 규칙의 기준은 C의 `src/smokestack_guard/silver/ml_ready.py`(pandas)다. Spark 구현은 `ml_ready_spark.py`이고, 상수는 그 모듈에서 가져온다.
 - 빈 슬롯을 건너뛰지 않도록 `lag()` 대신 30분 슬롯 번호 위의 범위 윈도우(`rangeBetween`)로 계산한다.
 - spec·plan: [`specs/a-platform/005-tw-cems-ml-ready-spark/`](../../specs/a-platform/005-tw-cems-ml-ready-spark/)
@@ -54,10 +54,10 @@ Silver(`silver/tw_cems/`) 36개월 전체를 읽어 학습용 35컬럼 ML-ready(
 | 파일 | 하는 일 |
 |---|---|
 | `ml_ready_spark.py` | 규칙(정규화, 피처, 라벨), 정답지 읽기, 결과 비교 |
-| `glue_tw_cems_ml_ready.py` | Glue 진입 스크립트. `--mode build`(생성) / `--mode compare`(정답지와 35컬럼 비교) |
+| `glue_tw_cems_ml_ready.py` | Glue 진입 스크립트. `--mode build`(생성) / `--mode compare`(정답지와 비교. 키와 `data_source`를 뺀 32컬럼) |
 | `run_ml_ready.py` | 사람이 실행하는 명령. 1회 실행 후 실행 기록·비용 출력. 자동 재시도 없음 |
 
-테스트(`tests/test_ml_ready_spark.py`)는 같은 가짜 Silver에 pandas `to_ml_ready`를 돌린 결과와 35컬럼을 비교한다. C의 `ml_ready.py`가 바뀌면 CI에서 차이를 잡는다.
+테스트(`tests/test_ml_ready_spark.py`)는 같은 가짜 Silver에 pandas `to_ml_ready`를 돌린 결과와 36컬럼을 비교한다(`data_source`는 비교에서 뺀다). C의 `ml_ready.py`가 바뀌면 CI에서 차이를 잡는다.
 
 ```bash
 python run_ml_ready.py --mode build      # 생성 (기본 파일 6개)
@@ -97,7 +97,7 @@ K-TMS 수집 원본(`tms_cleansys/`, `_SUCCESS` 있는 폴더)을 매일 03:00 K
 ```
 EventBridge Scheduler(03:00 KST) → Step Functions tms-silver2-ktms
    ├─ Glue tms-silver2-ktms           tms_cleansys/ → tms_silver2.ktms           (9컬럼, KST 측정일 파티션)
-   └─ Glue tms-silver2-ktms-ml-ready  tms_silver2.ktms → tms_silver2.ktms_ml_ready (35컬럼 = tw_cems_ml_ready)
+   └─ Glue tms-silver2-ktms-ml-ready  tms_silver2.ktms → tms_silver2.ktms_ml_ready (36컬럼 = tw_cems_ml_ready)
    실패: 단계마다 재시도 1회 → SNS tms-collector-alerts
 ```
 
