@@ -44,7 +44,7 @@ locals {
       "day_of_week", "label_entry_60m", "label_ratio_60m",
     ] : [c, "double"]],
     [for c in ["feature_valid", "classification_eligible", "regression_eligible"] : [c, "boolean"]],
-    [for c in ["feature_version", "label_version", "quality_policy_version"] : [c, "string"]],
+    [for c in ["feature_version", "label_version", "quality_policy_version", "data_source"] : [c, "string"]],
   )
 }
 
