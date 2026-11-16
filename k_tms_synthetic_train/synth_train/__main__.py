@@ -5,7 +5,7 @@
 import argparse
 from datetime import date
 
-from synth_train import generate, plan, stats
+from synth_train import generate, plan, stats, validate
 
 def main():
     common = argparse.ArgumentParser(add_help=False)
@@ -19,8 +19,14 @@ def main():
     many = sub.add_parser("backfill", parents=[common])
     many.add_argument("--from", dest="start", required=True, type=date.fromisoformat)
     many.add_argument("--to", dest="end", required=True, type=date.fromisoformat)
+    check = sub.add_parser("validate")
+    check.add_argument("--out", required = True)
     args = parser.parse_args()
 
+    if args.cmd == "validate":
+        issues = validate.validtae_out(args.out)
+        validate.print_report(issues)
+        raise SystemExit(1 if issues else 0)
     config = plan.load_config(args.config)
     out = args.out or config["paths"]["out"]
     ref_df = stats.load_ref_stats(config["paths"]["stats"])
