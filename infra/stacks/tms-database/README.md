@@ -44,6 +44,7 @@ DB가 켜져 있을 때만 된다. AWS CLI 없이 DBeaver와 공용 키 파일(`
 
 - **다시 켜도 설정은 그대로**: 배스천은 켤 때마다 새로 만들어져 IP가 바뀌지만 `bastion.smokestack-guard.store`가 새 IP를 가리킨다. DB 주소도 같다.
 - **비밀번호만 바뀐다**: 30일마다 자동으로 바뀌고, DB를 끄고 새로 켜면 새 비밀번호가 생긴다. 접속이 "password authentication failed"로 거부되면 비밀번호를 다시 확인해 넣는다.
+- **처음 접속 때 "Permanently added … to the list of known hosts" 창**: 배스천의 지문(서버 신분증)을 기억한다는 뜻이라 확인을 누르면 된다. DB를 껐다 켜면 배스천이 새 서버라 지문이 바뀌어 "호스트 키가 바뀌었다"며 막힐 수 있다. 그때는 `ssh-keygen -R bastion.smokestack-guard.store`(또는 DBeaver known_hosts에서 그 줄 삭제) 후 다시 접속한다.
 - **키로는 터널만 된다**: `ssh -i tms-bastion.pem ec2-user@bastion...`으로 셸에 들어가려 하면 바로 끊긴다(정상). DB 포트로의 터널만 허용한다.
 - 처음 쓸 때 pgvector: `CREATE EXTENSION IF NOT EXISTS vector;`
 
