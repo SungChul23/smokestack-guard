@@ -64,3 +64,5 @@ k_tms_synthetic_train/data/
 k_tms_synthetic_train/out/
 
 k_tms_synthetic_train/out_check/
+k_tms_synthetic_train/out_kafka/
+k_tms_synthetic_train/ckpt_kafka/

@@ -9,6 +9,9 @@ snapshot:
   run_ts_offset_min: 70
   max_message_bytes: 1000000
 
+release:
+  lookback_min: 180
+
 episode:
   warmup_steps: 12
   return_steps: 6
