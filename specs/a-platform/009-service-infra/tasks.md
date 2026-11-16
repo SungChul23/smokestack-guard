@@ -40,7 +40,7 @@ description: "Task list for 009 service infra skeleton"
 - [x] T008 `infra/stacks/tms-foundation/main.tf`에 `aws_iam_openid_connect_provider` `token.actions.githubusercontent.com`(client_id `sts.amazonaws.com`), output `github_oidc_provider_arn`
 - [x] T009 `infra/stacks/tms-foundation/variables.tf`에 `alert_email`(sensitive, 기존 `tms-collection`과 같은 설명 형식), `monthly_budget_usd`(기본 200); `main.tf`에 `aws_budgets_budget`(COST, MONTHLY, `cost_types { include_credit = false }`, 알림: ACTUAL 25%·50%·75%, FORECASTED 100%, 이메일 `var.alert_email`)
 - [x] T010 `terraform fmt -recursive`·`validate` (`infra/stacks/tms-foundation/`)
-- [ ] T011 [A] `tms-foundation` plan·apply → 출력 NS 4개를 카페24 "다른 네임서버 사용"에 입력 → `nslookup -type=NS smokestack-guard.store 8.8.8.8`에 `awsdns` 4개가 보일 때까지 대기 (quickstart §1)
+- [x] T011 [A] `tms-foundation` plan·apply → 출력 NS 4개를 카페24 "다른 네임서버 사용"에 입력 → `nslookup -type=NS smokestack-guard.store 8.8.8.8`에 `awsdns` 4개가 보일 때까지 대기 (quickstart §1)
 
 ### tms-network (data-model §2·§3, research R3)
 
@@ -49,7 +49,7 @@ description: "Task list for 009 service infra skeleton"
 - [x] T014 `infra/stacks/tms-network/security_groups.tf`에 보안그룹 `tms-alb`·`tms-app`·`tms-bastion`·`tms-db`와 규칙(data-model §3 표 그대로: alb 443·80 ← 0.0.0.0/0, alb → app 8000; app 8000 ← alb, app → 443 0.0.0.0/0, app → db 5432; bastion 22 ← `var.bastion_ssh_cidrs`, bastion → 443 0.0.0.0/0, bastion → db 5432; db 5432 ← app, db 5432 ← bastion). `aws_vpc_security_group_ingress_rule`/`egress_rule`로 규칙마다 description. `variables.tf`에 `bastion_ssh_cidrs`(list(string), 기본 `["0.0.0.0/0"]`)
 - [x] T015 `infra/stacks/tms-network/outputs.tf`에 vpc_id, 서브넷 ID(퍼블릭·앱·DB), 보안그룹 ID 4개, `nat_gateway_count`
 - [x] T016 `fmt`·`validate` (`infra/stacks/tms-network/`)
-- [ ] T017 [A] `tms-network` plan·apply(기본값) → VPC 1, 서브넷 6, 보안그룹 4, NAT 0 확인
+- [x] T017 [A] `tms-network` plan·apply(기본값) → VPC 1, 서브넷 6, 보안그룹 4, NAT 0 확인
 
 **Checkpoint**: 도메인 위임 완료 + 네트워크 존재
 
@@ -68,7 +68,7 @@ description: "Task list for 009 service infra skeleton"
 - [x] T022 [US1] `infra/stacks/tms-serving/web.tf`: Route 53 A·AAAA 별칭 루트·www → 배포; SSM 파라미터 `/tms/app/config/web-bucket`, `/tms/app/config/web-distribution-id`(String)
 - [x] T023 [P] [US1] `services/dashboard-web/`: Vite + React 최소 앱(`package.json`, `vite.config.ts`, `index.html`, `src/main.tsx`, `src/App.tsx`에 "smokestack-guard" 제목만), 빌드 결과물 이름에 해시(Vite 기본), `README.md`에 로컬 실행·빌드 방법과 "D가 이어서 개발" 안내, `.gitignore`(node_modules, dist)
 - [x] T024 [US1] `infra/stacks/tms-serving/outputs.tf`: web_bucket, distribution_id, distribution_domain; `fmt`·`validate`
-- [ ] T025 [US1] [A] `tms-serving` plan·apply → `services/dashboard-web` 빌드 후 `aws s3 sync dist s3://smokestack-tms-web-952900391026/`(index.html은 `--cache-control no-cache`) → quickstart §2의 4번 확인
+- [x] T025 [US1] [A] `tms-serving` plan·apply → `services/dashboard-web` 빌드 후 `aws s3 sync dist s3://smokestack-tms-web-952900391026/`(index.html은 `--cache-control no-cache`) → quickstart §2의 4번 확인
 
 **Checkpoint**: 화면 주소 동작 (MVP)
 
@@ -100,9 +100,9 @@ description: "Task list for 009 service infra skeleton"
 - [x] T038 [US2] `infra/stacks/tms-app/variables.tf`: `alb_enabled`(false), `api_desired`·`agent_desired`(0, validation 0~2), `api_instance_type`·`agent_instance_type`(`t3.small`); `main.tf`: ASG `tms-api`·`tms-agent`(앱 서브넷 2개, min=max=desired=변수, `health_check_type = "EC2"`, `target_group_arns`는 ALB가 켜졌을 때만), `data "aws_nat_gateways"`(vpc, state available) + ASG `lifecycle { precondition { condition = var.<app>_desired == 0 || length(data.aws_nat_gateways.this.ids) > 0, error_message = "NAT가 없어 서버가 이미지를 받을 수 없다. tms-network에서 nat_gateway_count를 1 이상으로 먼저 적용하라." } }`
 - [x] T039 [US2] `infra/stacks/tms-app/alb.tf`(`count = var.alb_enabled ? 1 : 0`): ALB(퍼블릭 서브넷 2, `tms-alb` 보안그룹, idle_timeout 120), 대상 그룹 api·agent(포트 8000, HTTP, 상태 확인 `/health`, deregistration_delay 30), 리스너 80 → 443 리디렉션, 리스너 443(data 소스로 찾은 서울 `api.` 인증서, 기본 404 고정 응답), 규칙 `/api/*` → api, `/agent/*` → agent, Route 53 `api.` A 별칭
 - [x] T040 [US2] `infra/stacks/tms-app/outputs.tf`: ECR URL 2, ASG 이름 2, alb_dns(없으면 null); `fmt`·`validate`
-- [ ] T041 [US2] [A] `tms-database`(기본값) → `tms-app`(기본값) apply, 시간당 자원 0개 확인 (quickstart §3)
-- [ ] T042 [US2] [A] 처음 이미지 1회 수동 올리기(US4 전에 확인할 때): `services/dashboard-api`·`dashboard-agent`를 `docker build --platform linux/amd64` → ECR push(태그 `manual-1`) → `/tms/app/<앱>/image-tag`를 `manual-1`로
-- [ ] T043 [US2] [A] 개발 구성으로 켜기 → `api.`의 `/api/health`·`/agent/health`·`/api/db-check` 200 확인 → 꺼 둠으로 되돌리고 RDS 마지막 스냅샷 1개 확인 (quickstart §5·§6)
+- [x] T041 [US2] [A] `tms-database`(기본값) → `tms-app`(기본값) apply, 시간당 자원 0개 확인 (quickstart §3)
+- [x] T042 [US2] [A] 처음 이미지 1회 수동 올리기(US4 전에 확인할 때): `services/dashboard-api`·`dashboard-agent`를 `docker build --platform linux/amd64` → ECR push(태그 `manual-1`) → `/tms/app/<앱>/image-tag`를 `manual-1`로
+- [x] T043 [US2] [A] 개발 구성으로 켜기 → `api.`의 `/api/health`·`/agent/health`·`/api/db-check` 200 확인 → 꺼 둠으로 되돌리고 RDS 마지막 스냅샷 1개 확인 (quickstart §5·§6)
 
 **Checkpoint**: 켜기·끄기 확인 완료
 
@@ -119,7 +119,7 @@ description: "Task list for 009 service infra skeleton"
 - [x] T062 [US3] `services/dashboard-web/src/auth.ts`·`api.ts`·`App.tsx`·`main.tsx`: `react-oidc-context`로 로그인 강제(토큰 없으면 `signinRedirect`), localStorage 보관 + 자동 갱신, 로그아웃(Cognito `/logout`), `apiGet(토큰, 경로)` 도우미, `.env.example`
 - [x] T063 [P] [US3] `services/dashboard-api/app/auth.py`, `services/dashboard-agent/app/auth.py`: PyJWT로 Access 토큰 검증(`CurrentUser` 의존성), `/api/me`·`/agent/me`, `tests/test_auth.py`(유효, 없음, iss·token_use·client_id·만료 오류)
 - [x] T064 [US3] `.github/workflows/dashboard-web.yml`: 배포 빌드에 `/tms/app/config/cognito-*`를 `VITE_*`로 주입, `infra/stacks/tms-app/deploy_role.tf`에 `/tms/app/config/*` 읽기 권한 추가
-- [ ] T046 [US3] [A] `tms-serving` apply → `admin-create-user`로 시험 계정 → 로그인 화면 빌드·업로드(quickstart §2) → 루트 접속 시 로그인 페이지로 이동, 로그인·비밀번호 변경, 가입 버튼 없음, 로그아웃 확인
+- [x] T046 [US3] [A] `tms-serving` apply → `admin-create-user`로 시험 계정 → 로그인 화면 빌드·업로드(quickstart §2) → 루트 접속 시 로그인 페이지로 이동, 로그인·비밀번호 변경, 가입 버튼 없음, 로그아웃 확인
 
 ---
 
@@ -143,12 +143,12 @@ description: "Task list for 009 service infra skeleton"
 
 **Independent Test**: quickstart §5의 DBeaver 항목 (A가 아닌 팀원 한 명)
 
-- [ ] T052 [US5] [A] EC2 콘솔에서 키 쌍 `tms-bastion`(.pem) 생성, 로컬 보관(저장소·공개 채널 금지), 팀원에게 직접 전달
+- [x] T052 [US5] [A] EC2 콘솔에서 키 쌍 `tms-bastion`(.pem) 생성, 로컬 보관(저장소·공개 채널 금지), 팀원에게 직접 전달
 - [x] T053 [US5] `infra/stacks/tms-database/bastion-user-data.sh`(templatefile, 변수 `db_host`): `/etc/ssh/sshd_config.d/90-tms.conf`에 `PasswordAuthentication no`, `X11Forwarding no`, `Match User ec2-user` → `PermitOpen ${db_host}:5432`, `AllowTcpForwarding local`, `ForceCommand /sbin/nologin`, `PermitTTY no` 작성 후 `systemctl restart sshd`
 - [x] T054 [US5] `infra/stacks/tms-database/bastion.tf`(`count = var.rds_enabled ? 1 : 0`): 변수 `bastion_key_name`(기본 `tms-bastion`); 역할 `tms-bastion`(SSM 관리형 정책) + 프로파일; 인스턴스 t3.micro(AL2023 x86 SSM AMI, 퍼블릭 서브넷 `tms-public-a`, `tms-bastion` 보안그룹, 공인 IP, IMDSv2, user data T053); Route 53 A `bastion.smokestack-guard.store` → 공인 IP, TTL 60
 - [x] T055 [US5] `infra/stacks/tms-database/access.tf`: 변수 `db_user_names`(기본 `["de-ai-05","de-ai-08","de-ai-11","de-ai-14","de-ai-22","tms_mentor"]`), IAM 그룹 `tms-db-users`, `aws_iam_group_membership`, 그룹 정책(DB와 같은 count): 관리형 DB 비밀 1개 `GetSecretValue`·`DescribeSecret`, `rds:DescribeDBInstances`; `fmt`·`validate`
 - [x] T056 [US5] `infra/stacks/tms-database/README.md`: 팀원용 접속 안내(준비물: DBeaver, pem; 비밀번호 읽기 명령; DBeaver Main·SSH 탭 값; 셸 접속은 막혀 있음; 비밀번호 30일 교체·DB 재생성 시 비밀번호만 다시 입력; 배스천 주소·DB 주소는 고정)
-- [ ] T057 [US5] [A] 개발 구성으로 DB 켜기 → 팀원 한 명이 README대로 접속, `CREATE EXTENSION IF NOT EXISTS vector;` 성공, 키 없는 SSH 거부·키로 셸 시도 시 끊김 확인 → 끄기
+- [x] T057 [US5] [A] 개발 구성으로 DB 켜기 → 팀원 한 명이 README대로 접속, `CREATE EXTENSION IF NOT EXISTS vector;` 성공, 키 없는 SSH 거부·키로 셸 시도 시 끊김 확인 → 끄기
 
 ---
 
@@ -157,7 +157,7 @@ description: "Task list for 009 service infra skeleton"
 - [x] T058 `terraform fmt -recursive -check` 전체 + 5개 스택 `validate`, `.terraform.lock.hcl` 커밋 대상 확인
 - [x] T059 [P] `infra/stacks/README.md`(없으면 생략) 또는 각 스택 상단 주석에 역할·적용 순서(plan "적용 순서와 의존") 한 줄씩
 - [ ] T060 `AGENTS.md` 저장소 구조에 새 스택 5개와 `services/dashboard-*` 3개 추가 (#46 머지 뒤, 충돌 확인)
-- [ ] T061 `specs/a-platform/009-service-infra/spec.md` Status를 결과에 맞게 갱신, quickstart 확인 결과(날짜) 기록
+- [x] T061 `specs/a-platform/009-service-infra/spec.md` Status를 결과에 맞게 갱신, quickstart 확인 결과(날짜) 기록
 
 ---
 

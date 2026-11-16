@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-16
 
-**Status**: Draft
+**Status**: 구현·적용 완료, 개발 구성으로 끝까지 확인 (2026-11-16). CI 배포(US4 T051)는 main 머지 때 확인
 
 **Input**: User description: "합성 데이터를 기다리는 동안 대시보드·에이전트 서비스 인프라를 먼저 만든다. 월 $200 크레딧 안에서 운영하므로 시간당 요금이 붙는 자원(NAT, ALB, RDS, EC2, 관리용 인스턴스)은 변수로 꺼 둔 채 만들고 개발·시연 때만 켠다. 화면 주소는 루트 smokestack-guard.store(www는 루트로), 서버 주소는 api.smokestack-guard.store. 범위 밖: 배치 추론, 앱 코드(D), Bedrock 모델 접근 신청."
 
