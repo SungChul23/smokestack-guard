@@ -173,7 +173,7 @@ k_tms_synthetic_train/               # 신규 폴더 (102의 k_tms_synthetic/은
 │   ├── stats.py                     # 복사 (참조 굴뚝 선택)
 │   ├── plan.py                      # 복사 (설정 읽기 등 필요한 함수만)
 │   ├── scenarios/trajectory.py      # 복사 (inject)
-│   ├── label.py                     # 신규: label-v1 양성·음성·제외 건수
+│   ├── label.py                     # (후속: Silver·ML-ready 연결 후) label-v1 양성·음성·제외 건수
 │   ├── shapes.py                    # 신규: 모양별 궤적 샘플링, classify_shape
 │   ├── daily.py                     # 신규: 하루 에피소드 목록, seed, 시작 슬롯, 전날 시작분 재생성
 │   ├── pack.py                      # 신규: 슬롯별 스냅샷으로 에피소드 행을 합침

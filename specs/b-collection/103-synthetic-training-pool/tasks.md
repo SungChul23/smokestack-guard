@@ -46,19 +46,19 @@ description: "103 K-TMS 학습용 합성 데이터 (일 단위 생성 + Kafka �
 
 ## Phase 2: Foundational — 라벨과 모양 판정 (모든 스토리의 전제)
 
-**Purpose**: 생성·점검이 모두 쓰는 두 함수를 먼저 만든다.
+**Purpose**: 생성·점검이 쓰는 모양 판정(`classify_shape`)을 먼저 만든다. 라벨 계산(`label.py`)은 Silver·ML-ready 연결 후로 미룬다(ML-ready 결과와 대조해서 만드는 것이 더 확실하다).
 
 ### 테스트 먼저
 
-- [ ] T009 [P] `tests/test_label.py`: 102의 `expected/*.yaml`(`trajectory_pct`, `trajectory_start_step`, `steps`, `label_expect`)을 `tests/fixtures/expected/`로 복사해 두고(출처 커밋 기록), 정상 배경(0.5 고정)에 궤적을 끼운 시계열로 `label.count_labels`의 양성·음성·제외가 `label_expect`와 모두 일치하는지 확인한다. 현재 90% 이상, 미래 값 없음, 끝 두 행 제외 경계 케이스를 별도로 테스트한다. (102의 T055~T058을 이 작업이 대신한다.)
+- [ ] T009 [P] **(후속: Silver·ML-ready 연결 후)** `tests/test_label.py`: 102의 `expected/*.yaml`(`trajectory_pct`, `trajectory_start_step`, `steps`, `label_expect`)을 `tests/fixtures/expected/`로 복사해 두고(출처 커밋 기록), 정상 배경(0.5 고정)에 궤적을 끼운 시계열로 `label.count_labels`의 양성·음성·제외가 `label_expect`와 모두 일치하는지 확인한다. 현재 90% 이상, 미래 값 없음, 끝 두 행 제외 경계 케이스를 별도로 테스트한다. (102의 T055~T058을 이 작업이 대신한다.)
 - [ ] T010 [P] `tests/test_classify_shape.py`: 102의 고정 궤적 6개가 기대 모양으로 판정되는지 확인한다 — `[56,58,113,109,104,71,60]`→EXCEED, `[59,61,92,95,93,96,94,70,62]`→PLATEAU, `[87,91,88,92,89,91]`→OVER, `[59,61,94,63,60]`→SPIKE, `[62,69,76,82,87,92]`→GRADUAL, 해당 없음→OTHER. 판정 우선순위(EXCEED가 OVER보다 먼저)와 GRADUAL의 "직전 4값 모두 유효" 조건도 테스트한다.
 
 ### 구현
 
-- [ ] T011 `synth_train/label.py`: `label-v1` 규칙(현재 90% 미만, 30분 뒤 또는 60분 뒤가 90% 이상이면 양성, 둘 다 있고 90% 미만이면 음성, 현재 90% 이상이거나 미래 값을 모르면 제외, 반올림 없음)으로 건수를 센다. T009가 통과해야 한다.
+- [ ] T011 **(후속: Silver·ML-ready 연결 후)** `synth_train/label.py`: `label-v1` 규칙(현재 90% 미만, 30분 뒤 또는 60분 뒤가 90% 이상이면 양성, 둘 다 있고 90% 미만이면 음성, 현재 90% 이상이거나 미래 값을 모르면 제외, 반올림 없음)으로 건수를 센다. T009가 통과해야 한다.
 - [ ] T012 `synth_train/shapes.py`에 `classify_shape`를 구현한다(사건 = 90% 이상 행을 60분 재진입으로 묶음, EXCEED → PLATEAU → OVER → SPIKE → GRADUAL → OTHER 순서). T010이 통과해야 한다.
 
-**Checkpoint**: 102의 16개 expected로 라벨 건수가 일치하고, 고정 궤적이 올바른 모양으로 판정된다.
+**Checkpoint**: 고정 궤적이 올바른 모양으로 판정된다(라벨 건수 대조는 후속).
 
 ---
 
@@ -73,7 +73,7 @@ description: "103 K-TMS 학습용 합성 데이터 (일 단위 생성 + Kafka �
 - [ ] T013 [P] [US5] `tests/test_shapes.py::test_samples_match_shape`: 모양마다 궤적 500개를 뽑아 모두 의도한 모양으로 판정된다(SC-009).
 - [ ] T014 [P] [US5] `test_samples_in_range`: 값이 설정한 범위 안이고, 같은 모양에서 궤적이 서로 달라진다(고정 숫자가 아님).
 - [ ] T015 [P] [US5] `test_reproducible_seed`: 같은 seed면 같은 궤적이 나온다.
-- [ ] T016 [P] [US5] `tests/test_episode_assemble.py`: 에피소드(warmup + 모양 + 복귀)를 조립했을 때 길이가 설정과 같고, 모양 구간 밖의 값이 모두 90% 미만이며, 에피소드의 라벨 양성 수가 1 이상이다.
+- [ ] T016 [P] [US5] `tests/test_episode_assemble.py`: 에피소드(warmup + 모양 + 복귀)를 조립했을 때 길이가 설정과 같고, 모양 구간 밖의 값이 모두 90% 미만이며, 에피소드를 `classify_shape`로 판정하면 의도한 모양이다(90%를 넘는 사건이 하나 있다).
 
 ### 구현
 
@@ -106,9 +106,9 @@ description: "103 K-TMS 학습용 합성 데이터 (일 단위 생성 + Kafka �
 
 - [ ] T028 [US1] `synth_train/daily.py`: 하루 에피소드 목록, 에피소드 seed(`f(설정 seed, 시작 날짜, 성분, 모양, 번호)`), 시작 슬롯, 합성 굴뚝 코드(`SYN-T-<날짜>-<성분>-<모양>-<번호>`), 전날 시작분 재생성. T021~T023이 통과해야 한다.
 - [ ] T029 [US1] `synth_train/pack.py`: 에피소드 시계열을 슬롯별 항목 목록으로 바꿔 합치고 `snapshot.make_snapshot`으로 스냅샷을 만든다. `run_ts`는 측정 시각(UTC) + 70분. T024~T026이 통과해야 한다.
-- [ ] T030 [US1] `synth_train/generate.py`: `generate_day(date)`와 `backfill(start, end)`를 구현한다. 복사한 `writer.write_files`와 `check_prefix`를 재사용하고 `tms_cleansys/` 쓰기를 거부한다. `manifest.jsonl`(하루 단위 파일, 시작 날짜가 그날인 에피소드만)에 날짜, 성분, 모양, 참조 굴뚝, 합성 굴뚝 코드, seed, 첫·마지막 측정 시각, 스냅샷 수, 라벨 건수, 합성 음성 수, 통계 버전, 생성기 버전을 기록한다. T027이 통과해야 한다.
+- [ ] T030 [US1] `synth_train/generate.py`: `generate_day(date)`와 `backfill(start, end)`를 구현한다. 복사한 `writer.write_files`와 `check_prefix`를 재사용하고 `tms_cleansys/` 쓰기를 거부한다. `manifest.jsonl`(하루 단위 파일, 시작 날짜가 그날인 에피소드만)에 날짜, 성분, 모양, 참조 굴뚝, 합성 굴뚝 코드, seed, 첫·마지막 측정 시각, 스냅샷 수, 행 수, 통계 버전, 생성기 버전을 기록한다(라벨 건수·합성 음성 수는 `label.py`가 생긴 뒤에 추가). T027이 통과해야 한다.
 - [ ] T031 [US1] `python -m synth_train generate-day --date YYYY-MM-DD --config config/daily.yaml --out out`과 `backfill --from YYYY-MM-DD --to YYYY-MM-DD`를 `__main__.py`에 추가한다.
-- [ ] T032 🧑 [US1] 실제 설정으로 하루를 만들어 확인한다: 스냅샷 48개, 행 수(약 6,600), 스냅샷당 크기(약 80KB), 합성 양성의 시간대 분포, 라벨 양성 수(하루 NOX 약 403, SOX 약 103과 비교). 어긋나면 `daily.yaml`의 에피소드 수만 조정한다.
+- [ ] T032 🧑 [US1] 실제 설정으로 하루를 만들어 확인한다: 스냅샷 48개, 행 수(약 6,600), 스냅샷당 크기(약 80KB), 합성 양성의 시간대 분포(양성 수는 ML-ready 이후 하루 NOX 약 403, SOX 약 103과 비교). 어긋나면 `daily.yaml`의 에피소드 수만 조정한다.
 
 **Checkpoint**: 하루 단위 생성과 backfill이 파일 모드로 되고, 같은 날짜는 같은 결과이며 날짜 순서와 무관하다.
 
@@ -124,7 +124,7 @@ description: "103 K-TMS 학습용 합성 데이터 (일 단위 생성 + Kafka �
 
 - [ ] T033 [P] [US4] `tests/test_validate.py::test_syn_code_collision`: `SYN-` 굴뚝 코드가 실측 굴뚝 코드와 같으면 불일치로 표시한다.
 - [ ] T034 [P] [US4] `test_day_slots`: 하루치 스냅샷의 측정 시각이 지정한 날짜(KST)가 아니거나 슬롯이 48개가 아니면 불일치로 표시한다.
-- [ ] T035 [P] [US4] `test_label_mismatch`: `label.py`로 다시 센 건수가 manifest와 다르면 불일치로 표시한다.
+- [ ] T035 [P] [US4] **(후속: `label.py` 이후)** `test_label_mismatch`: `label.py`로 다시 센 건수가 manifest와 다르면 불일치로 표시한다.
 - [ ] T036 [P] [US4] `test_shape_mismatch`: 곡선이 `classify_shape`로 판정했을 때 의도한 모양과 다르면 불일치로 표시한다.
 - [ ] T037 [P] [US4] `test_spill_continuity`: 자정을 걸친 에피소드의 두 날 데이터가 이어지지 않으면 불일치로 표시한다.
 - [ ] T038 [P] [US4] `test_no_defects`: 값에 숫자가 아닌 문자열·결측 구조·중복이 있으면 불일치로 표시한다(SC-010).
