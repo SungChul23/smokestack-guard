@@ -14,6 +14,12 @@ D가 `services/dashboard-api/`, `services/dashboard-agent/`에서 앱을 만들 
 | 메모리 | 서버 1대 2GB(+스왑 2GB). 모델을 서버 안에서 돌리지 않는다 (Bedrock은 API로 호출) |
 | 재시작 | 컨테이너가 죽으면 Docker가 다시 띄운다 |
 
+## 로그인 (US3)
+
+- `/health`와 `/api/health`·`/api/db-check`·`/agent/health`(운영 확인용)만 공개다. **새 라우트는 모두 로그인 필수**로 만든다: 인자에 `user: CurrentUser`(`app/auth.py`).
+- 화면은 `Authorization: Bearer <Access 토큰>`을 붙여 부른다(`services/dashboard-web/src/api.ts`의 `apiGet`).
+- 로컬 개발에서 검증을 끄려면 `AUTH_DISABLED=1`. 운영 서버에는 넣지 않는다.
+
 ## 환경 변수 (서버가 뜰 때 SSM 파라미터에서 읽어 넣는다)
 
 | 변수 | 출처 SSM 파라미터 | 내용 | 비밀 |

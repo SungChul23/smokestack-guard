@@ -116,7 +116,10 @@ description: "Task list for 009 service infra skeleton"
 
 - [x] T044 [US3] `infra/stacks/tms-serving/auth.tf`: 사용자 풀 `tms-users`(`admin_create_user_config { allow_admin_create_user_only = true }`, 사용자 이름 = 이메일, 이메일 자동 확인, MFA 끔), 도메인 접두사 `smokestack-guard`, 앱 클라이언트 `tms-web`(비밀 없음, `allowed_oauth_flows = ["code"]`, scopes `openid email profile`, 콜백·로그아웃 `https://smokestack-guard.store/`, `http://localhost:5173/`, `supported_identity_providers = ["COGNITO"]`)
 - [x] T045 [US3] `infra/stacks/tms-serving/auth.tf`: SSM 파라미터 `/tms/app/config/cognito-user-pool-id`, `cognito-client-id`, `cognito-domain`; outputs 같은 값; `fmt`·`validate`
-- [ ] T046 [US3] [A] `tms-serving` apply → `admin-create-user`로 시험 계정 → 로그인·비밀번호 변경 확인, 가입 거부 확인
+- [x] T062 [US3] `services/dashboard-web/src/auth.ts`·`api.ts`·`App.tsx`·`main.tsx`: `react-oidc-context`로 로그인 강제(토큰 없으면 `signinRedirect`), localStorage 보관 + 자동 갱신, 로그아웃(Cognito `/logout`), `apiGet(토큰, 경로)` 도우미, `.env.example`
+- [x] T063 [P] [US3] `services/dashboard-api/app/auth.py`, `services/dashboard-agent/app/auth.py`: PyJWT로 Access 토큰 검증(`CurrentUser` 의존성), `/api/me`·`/agent/me`, `tests/test_auth.py`(유효, 없음, iss·token_use·client_id·만료 오류)
+- [x] T064 [US3] `.github/workflows/dashboard-web.yml`: 배포 빌드에 `/tms/app/config/cognito-*`를 `VITE_*`로 주입, `infra/stacks/tms-app/deploy_role.tf`에 `/tms/app/config/*` 읽기 권한 추가
+- [ ] T046 [US3] [A] `tms-serving` apply → `admin-create-user`로 시험 계정 → 로그인 화면 빌드·업로드(quickstart §2) → 루트 접속 시 로그인 페이지로 이동, 로그인·비밀번호 변경, 가입 버튼 없음, 로그아웃 확인
 
 ---
 
