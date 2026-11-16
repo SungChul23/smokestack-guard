@@ -3,6 +3,8 @@
 계약: specs/a-platform/009-service-infra/contracts/app-runtime.md
 - 포트 8000, 상태 확인 GET /health
 - 모든 API 경로는 /api/ 아래 (ALB가 접두사를 떼지 않는다)
+- 로그인 필수: 운영 확인용(/health, /api/health, /api/db-check)만 공개.
+  새 라우트는 인자에 `user: CurrentUser`를 붙인다 (app/auth.py)
 """
 
 import json
@@ -11,13 +13,15 @@ import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.auth import CurrentUser
+
 app = FastAPI(title="tms dashboard api")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[os.environ.get("APP_ORIGIN", "http://localhost:5173")],
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
@@ -61,3 +65,9 @@ def db_check() -> dict:
     ) as conn:
         value = conn.execute("SELECT 1").fetchone()[0]
     return {"status": "ok", "select_1": value}
+
+
+@app.get("/api/me")
+def me(user: CurrentUser) -> dict:
+    """로그인 확인용. 화면이 처음 서버 인증을 확인할 때 부른다."""
+    return {"sub": user.get("sub"), "username": user.get("username")}

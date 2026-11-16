@@ -72,6 +72,13 @@ data "aws_iam_policy_document" "deploy" {
     resources = [for p in aws_ssm_parameter.image_tag : p.arn]
   }
 
+  # 화면 빌드에 넣을 Cognito 값, 캐시 무효화할 배포 ID (비밀 아님)
+  statement {
+    sid       = "ReadAppConfig"
+    actions   = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath"]
+    resources = ["arn:aws:ssm:ap-northeast-2:${local.account_id}:parameter/tms/app/config/*"]
+  }
+
   statement {
     sid       = "FindServers"
     actions   = ["ec2:DescribeInstances"]
