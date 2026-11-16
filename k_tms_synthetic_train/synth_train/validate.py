@@ -164,7 +164,12 @@ def validate_out(out_dir, real_codes = frozenset(), offset_min: int = 70) -> lis
         ratios = [_ratio(got[t], row["item"]) for t in want]
         if None in ratios:
             continue
-        if shapes.classify_shape([r / 100 for r in ratios]) != row["shape"]:
+        try:
+            got_shape = shapes.classify_shape([r / 100 for r in ratios])
+        except ValueError:                                
+            _add(issues, "shape", f"{row['stack_code']}: 사건이 둘 이상이라 모양을 정할 수 없음")
+            continue
+        if got_shape != row["shape"]:
             _add(issues, "shape", f"{row['stack_code']}: 모양이 manifest({row['shape']})와 다름")
     return issues
 

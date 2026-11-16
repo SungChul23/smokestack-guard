@@ -3,7 +3,7 @@
 '''
 from collections import Counter
 from datetime import date
-from synth_train import daily
+from synth_train import daily, snapshot
 import numpy as np
 
 D = date(2026, 11, 16)
@@ -54,3 +54,11 @@ def test_midnight_spill(config, ref_df):
         assert [s for s, _ in second][0] == 0
         joined = [v for _, v in first] + [v for _, v in second]
         assert joined == [float(v) for v in e["curve"]]
+
+# 곡선 값이 파일에 쓰일 문자열에서 되돌린 비율과 정확히 같음
+def test_curve_matches_emitted_strings(config, ref_df):
+    for e in daily.episodes_started_on(config, ref_df, D):
+        p = e["ref"]["perm_std"]
+        for v in e["curve"]:
+            s, lim = snapshot.ratio_to_measure(v, p)
+            assert float(s) / float(lim) * 100 == v

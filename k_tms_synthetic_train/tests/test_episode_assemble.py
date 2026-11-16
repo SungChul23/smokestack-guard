@@ -7,6 +7,7 @@ from synth_train.assemble import assemble_episode
 import numpy as np
 import pytest
 import yaml
+import itertools
 
 CONFIG = Path(__file__).resolve().parent.parent / "config" / "daily.yaml"
 SHAPES = ["OTHER", "SPIKE", "EXCEED", "PLATEAU", "OVER", "GRADUAL"]
@@ -45,3 +46,13 @@ def test_assemble_reproducible(shape):
     a = assemble_episode(shape, np.random.default_rng(5), ranges, REF, ep, bg)
     b = assemble_episode(shape, np.random.default_rng(5), ranges, REF, ep, bg)
     assert np.array_equal(a[0], b[0]) and a[1:] == b[1:]
+
+# 복귀를 못 만드는 참조 굴뚝이 걸려도 다른 굴뚝으로 다시 뽑아 성공
+def test_bad_reference_is_retired():
+    cfg = load()
+    ranges, ep, bg = args_for(cfg, "GRADUAL")
+    hard = {"mean": 10.0, "std": 0.7, "phi": 0.98}
+    refs = itertools.cycle([hard, REF])
+    curve, start, end = assemble_episode(
+         "GRADUAL", np.random.default_rng(1), ranges, lambda traj: next(refs), ep, bg)
+    assert shapes.classify_shape((curve / 100).tolist()) == "GRADUAL"
