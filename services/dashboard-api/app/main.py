@@ -36,34 +36,46 @@ def api_health() -> dict:
     return {"status": "ok", "app": "api", "version": os.environ.get("APP_VERSION", "local")}
 
 
+REGION = os.environ.get("AWS_REGION", "ap-northeast-2")
+
+
 def _db_password(secret_arn: str) -> str:
     import boto3
 
-    client = boto3.client("secretsmanager")
+    # boto3는 AWS_REGION을 읽지 않으므로 리전을 직접 준다
+    client = boto3.client("secretsmanager", region_name=REGION)
     secret = client.get_secret_value(SecretId=secret_arn)
     return json.loads(secret["SecretString"])["password"]
 
 
 @app.get("/api/db-check")
 def db_check() -> dict:
-    """서버 → RDS 연결 확인 (SELECT 1). DB가 꺼져 있으면 503."""
+    """서버 → RDS 연결 확인 (SELECT 1). DB가 꺼져 있거나 연결에 실패하면 503 + 실패 단계."""
     host = os.environ.get("DB_HOST")
     secret_arn = os.environ.get("DB_SECRET_ARN")
     if not host or not secret_arn:
         raise HTTPException(status_code=503, detail="DB가 꺼져 있다 (DB_HOST 없음)")
 
+    try:
+        password = _db_password(secret_arn)
+    except Exception as e:  # 비밀 읽기 실패 (권한·리전·네트워크)
+        raise HTTPException(status_code=503, detail=f"비밀 읽기 실패: {type(e).__name__}") from e
+
     import psycopg
 
-    with psycopg.connect(
-        host=host,
-        port=int(os.environ.get("DB_PORT", "5432")),
-        dbname=os.environ.get("DB_NAME", "tms"),
-        user="tms_admin",
-        password=_db_password(secret_arn),
-        connect_timeout=5,
-        sslmode="require",
-    ) as conn:
-        value = conn.execute("SELECT 1").fetchone()[0]
+    try:
+        with psycopg.connect(
+            host=host,
+            port=int(os.environ.get("DB_PORT", "5432")),
+            dbname=os.environ.get("DB_NAME", "tms"),
+            user="tms_admin",
+            password=password,
+            connect_timeout=5,
+            sslmode="require",
+        ) as conn:
+            value = conn.execute("SELECT 1").fetchone()[0]
+    except psycopg.Error as e:  # 연결·인증 실패
+        raise HTTPException(status_code=503, detail=f"DB 연결 실패: {type(e).__name__}") from e
     return {"status": "ok", "select_1": value}
 
 

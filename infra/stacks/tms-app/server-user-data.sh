@@ -36,6 +36,7 @@ aws ssm get-parameters-by-path --path /tms/app/config --query 'Parameters[].[Nam
     done > /opt/tms/app.env
 cat >> /opt/tms/app.env <<ENV
 AWS_REGION=ap-northeast-2
+AWS_DEFAULT_REGION=ap-northeast-2
 DB_PORT=5432
 DB_NAME=tms
 APP_ORIGIN=${origin}
