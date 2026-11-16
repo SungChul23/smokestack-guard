@@ -8,7 +8,7 @@ description: "103 K-TMS 학습용 합성 데이터 (일 단위 생성 + Kafka �
 
 **Tests**: `pytest`를 쓴다(plan). 각 단계의 구현 작업 앞에 그 단계의 테스트를 먼저 쓰고, 실패(빨간불)를 확인한 뒤 구현한다. Kafka·Spark 종단 검증은 Docker가 필요한 통합 검증으로 분리한다.
 
-**Organization**: 사용자 스토리별 단계. **하루 단위 생성을 파일 모드로 만드는 데까지(Phase 1~5)**가 MVP이고, Kafka → Spark → Bronze 적재(Phase 6)는 102의 평가용 16개 에피소드로 먼저 검증할 수 있어 **Phase 2~5와 병렬로** 진행할 수 있다.
+**Organization**: 사용자 스토리별 단계. **하루 단위 생성을 파일 모드로 만드는 데까지(Phase 1~5)**가 MVP이고, Kafka → Spark → Bronze 적재(Phase 6)는 102의 평가용 16개 에피소드로 먼저 검증할 수 있어 **Phase 2~5와 병렬로** 진행할 수 있다. **이 spec의 완료 범위는 Phase 1~6과 Phase 8의 최소 문서·PR(T056, T057, T060)이다.** Phase 7(Silver 연결·E 합의)은 후속으로 두며 PR 본문에 후속 과제로 적는다.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -171,7 +171,7 @@ description: "103 K-TMS 학습용 합성 데이터 (일 단위 생성 + Kafka �
 
 ---
 
-## Phase 7: User Story 3 — ML 담당자의 선택과 Silver 연결 (P1)
+## Phase 7: User Story 3 — ML 담당자의 선택과 Silver 연결 (P1) — **후속, 이 spec의 완료 조건 밖**
 
 **Goal**: 합성 데이터가 Silver → ML-ready로 흘러 ML 담당자가 골라 쓸 수 있게 한다.
 

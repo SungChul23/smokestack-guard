@@ -197,7 +197,7 @@
 - **FR-018**: Spark(Structured Streaming 또는 일괄 처리)가 토픽을 읽어 Bronze의 학습용 합성 전용 폴더(임시 이름 `tms_synthetic_train/`, 계약 문서에서 확정)에 원문 스냅샷 파일 구조로 저장한다: `<학습용 합성 폴더>/ingest_date=/hour=/run_ts=/`에 `snapshot.json.gz`, `snapshot.meta.json`, `manifest.json`, `_SUCCESS`. `snapshot.meta.json`과 `manifest.json`은 Spark 쪽에서 원문과 `run_ts`로부터 **결정적으로** 계산한다(저장 시각 등 시각 필드도 처리 시각이 아니라 `run_ts`에서 유도).
 - **FR-019**: 저장 경로는 메시지의 `run_ts`로만 정해 중복 전달에도 같은 경로에 같은 내용이 덮어써지게 한다(멱등). `run_ts`는 Spark가 처리하는 시각이 아니라 메시지에 든 시뮬레이션 시각이다.
 - **FR-020**: `_SUCCESS`는 데이터 파일 저장과 해시 검증이 끝난 뒤에만 쓴다. 저장되는 파일 이름은 실측과 같다. 저장 방법은 plan에서 정한다.
-- **FR-021**: 실측 수집기와 실측 경로(`tms_cleansys/`)는 건드리지 않는다. 학습용 합성 폴더를 Silver·ML-ready가 읽도록 하는 변경은 C의 영역이며, 합성이 ML에 쓰이려면 필요하므로 **이 spec의 선행·동시 협의 과제**로 둔다(열린 질문 참조).
+- **FR-021**: 실측 수집기와 실측 경로(`tms_cleansys/`)는 건드리지 않는다. 학습용 합성 폴더를 Silver·ML-ready가 읽도록 하는 변경은 C의 영역이며, 합성이 ML에 쓰이려면 필요하지만 이 spec의 완료 조건에는 넣지 않고 **후속 협의 과제**로 둔다(열린 질문 참조).
 - **FR-022**: 비밀값(저장소 계정 등)은 환경 변수로만 받고 코드·설정·커밋에 쓰지 않는다.
 - **FR-023**: 전체 경로(발행, Kafka, Spark, 저장소)는 외부 계정 없이 로컬에서 재현할 수 있어야 한다. AWS 리소스(MSK, Glue 실행)는 이 spec에서 만들지 않는다. 실행 환경과 도구 버전은 plan에서 정한다.
 
