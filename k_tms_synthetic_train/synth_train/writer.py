@@ -6,21 +6,22 @@ import gzip
 import hashlib
 import json
 from pathlib import Path
-from synth_train.snapshot import SYNTHETIC_ROOT
+from synth_train.snapshot import SYNTHETIC_ROOT, TRAIN_ROOT
 
 DATA_NAMES = ["snapshot.json.gz", "snapshot.meta.json"]  # 데이터 파일
 COMMIT_NAMES = ["manifest.json", "_SUCCESS"]            # 검증 (확정 표지) 파일
+ALLOWED_ROOTS = {SYNTHETIC_ROOT, TRAIN_ROOT}
 
 # 쓰기 경로가 합성 경로인지 확인
 def check_prefix(prefix: str) -> None:
     parts = prefix.split("/")       # "/"기준으로 조각내 검사
     ok = (
-        parts[0] == SYNTHETIC_ROOT             # 첫 조각이 tms_synthetic이여아 함
+        parts[0] in ALLOWED_ROOTS              # 첫 조각이 tms_synthetic이여아 함
         and ".." not in parts                  # 위 폴더로 빠져나가는 경로 금지
         and "" not in parts                    # 빈 조각 금지
     )
     if not ok:
-        raise ValueError(f"합성 경로(tms_synthetic/)가 아니여서 쓰지 않음: {prefix}")
+        raise ValueError(f"합성 경로({'/'.join(sorted(ALLOWED_ROOTS))})가 아니라서 쓰지 않음: {prefix}")
 
 # 디스크에 쓴 원문을 다시 읽어 meta의 해시와 같은지 확인
 def _verify_data(base: Path) -> None:

@@ -16,6 +16,8 @@ ITEMS = ["nox", "sox", "tsp", "hcl", "co", "nh3", "hf"]
 
 # 합성 데이터를 저장하는 맨 위 폴더
 SYNTHETIC_ROOT = "tms_synthetic"
+TRAIN_ROOT = "tms_synthetic_train"
+
 
 # 측정값 문자열: 소수점 둘쨰 자리.
 def format_value(value: float) -> str:
@@ -58,14 +60,12 @@ def make_snapshot(items: list) -> dict:
     }
 
 # 저장 폴더 경로 (UTC 기준)
-def build_prefix(episode_id: str, run_ts) -> str:
-    if run_ts.tzinfo is None:                                                   # 시간대 정보가 없는 시각이면 거부.
+def build_prefix(episode_id: str, run_ts, root: str = SYNTHETIC_ROOT) -> str:
+    if run_ts.tzinfo is None:                                                        # 시간대 정보가 없는 시각이면 거부.
         raise ValueError("run_ts에는 시간대가 있어야 함")
-    t = run_ts.astimezone(timezone.utc)                                    # 어떤 시간대로 들어와도 UTC 시간대로 변경
-    return (                                                                    # 경로를 이어 붙임
-        f"{SYNTHETIC_ROOT}/episode={episode_id}"                                # 합성 전용 루트 + 에피소드 폴더
-        f"/ingest_date={t:%Y-%m-%d}/hour={t:%H}/run_ts={t:%Y%m%dT%H%M%SZ}"      # 날짜/시/실행시각 폴더
-    )
+    t = run_ts.astimezone(timezone.utc)                                         # 어떤 시간대로 들어와도 UTC 시간대로 변경
+    head = f"{root}/episode={episode_id}" if episode_id else root               # 시험 모드는 에피소드 폴더 포함, pool 모드는 루트만
+    return f"{head}/ingest_date={t:%Y-%m-%d}/hour={t:%H}/run_ts={t:%Y%m%dT%H%M%SZ}"  
 
 # 실제 수집기의 응답 점검과 같은 규칙 (응답 코드가 0이고 전체 건수 = 실제 항목 수)
 def inspect_snapshot(snapshot: dict) -> dict:
@@ -88,10 +88,10 @@ def _json_bytes(obj, **kwargs) -> bytes:
     return json.dumps(obj, ensure_ascii=False, **kwargs).encode("utf-8")              # 객체를 JSON 글자로 바꿈. 완성된 JSON 글자를 UTF-8 바이트로 바꿔 반환
 
 # 먼저 저장할 파일 2개(원문, meta)
-def make_data_files(snapshot: dict, episode_id: str, run_ts, info: dict) -> dict:
+def make_data_files(snapshot: dict, episode_id: str, run_ts, info: dict, root: str = SYNTHETIC_ROOT) -> dict:
     raw = _json_bytes(snapshot, separators = (",", ":"))                                # snapshot을 JSON 바이트로 압축 (",", ":")는 공백 제거로 크기를 줄이고, 모양 고정
     gz = gzip.compress(raw, mtime = 0)                                                  # 원문을 gzip으로 압축. header 시각 0 고정
-    prefix = build_prefix(episode_id, run_ts)                                             # 저장될 경로 생성
+    prefix = build_prefix(episode_id, run_ts, root)                                       # 저장될 경로 생성
     ts = run_ts.astimezone(timezone.utc).isoformat(timespec = "seconds")                  # run_ts를 UTC로 변환 후 초 단위까지 ISO 문자열로 생성
     meta = {                                                                   # meta 생성
         "source": "synthetic",                                                                 # 합성 데이터 표기
@@ -106,7 +106,7 @@ def make_data_files(snapshot: dict, episode_id: str, run_ts, info: dict) -> dict
         "sha256_raw": _sha256(raw),                                                            # 원문의 지문
         "raw_key": f"{prefix}/snapshot.json.gz",                                               # 원문 파일이 놓일 경로
         "inspect": inspect_snapshot(snapshot),                                                 # 결과 코드 / 건수 점검 결과
-        "synthetic": {"episode_id": episode_id, **info},                                       # 합성 생성 위치, 시나리오/비전 등
+        "synthetic": ({"episode_id": episode_id, **info} if episode_id else dict(info)),       # 합성 생성 위치, 시나리오/비전 등
     }
     return {"snapshot.json.gz": gz, "snapshot.meta.json": _json_bytes(meta, indent = 2)}       # 파일 이름, 내용 반환
 
@@ -128,6 +128,6 @@ def make_commit_files(data_files: dict, run_ts) -> dict:
     return {"manifest.json": _json_bytes(manifest, indent = 2), "_SUCCESS": b""}               # manifest는 들여쓰기 포함, _SUCCESS 반환
 
 # 총 4개 파일을 한 번에. 테스트와 간단한 편의 함수
-def make_files(snapshot: dict, episode_id: str, run_ts, info: dict) -> dict:
-    data = make_data_files(snapshot, episode_id, run_ts, info)                           # 데이터 파일 2개 (원문, meta 생성)
+def make_files(snapshot: dict, episode_id: str, run_ts, info: dict, root: str = SYNTHETIC_ROOT) -> dict:
+    data = make_data_files(snapshot, episode_id, run_ts, info, root)                           # 데이터 파일 2개 (원문, meta 생성)
     return {**data, **make_commit_files(data, run_ts)}                                         # 위 데이터를 확인해 확정 표지 생성 후 모두 반환

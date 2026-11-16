@@ -124,3 +124,37 @@ def test_commit_refused_when_inspect_fails():
     data = snapshot.make_data_files(snap, "S-07-E", RUN_TS, INFO)
     with pytest.raises(ValueError):
         snapshot.make_commit_files(data, RUN_TS)
+
+# meta-manifest의 시각 필드는 모두 run_ts에서 유도
+def test_time_fields_follow_run_ts():
+    files = snapshot.make_files(snapshot.make_snapshot([sample_item()]), "S-01-E", RUN_TS, INFO)
+    iso = "2026-11-20T00:10:00+00:00"
+    meta = json.loads(files["snapshot.meta.json"])
+    assert meta["run_ts"] == meta["requested_at"] == meta["saved_at"] == iso
+    assert json.loads(files["manifest.json"])["committed_at"] == iso
+
+# pool 모드: 에피소드 폴더 없이 학습용 루트 아래의 ingest_data부터 시작
+def test_prefix_pool_mode_has_no_episode_folder():
+    got = snapshot.build_prefix(None, RUN_TS, root = snapshot.TRAIN_ROOT)
+    assert got == "tms_synthetic_train/ingest_date=2026-11-20/hour=00/run_ts=20261120T001000Z"
+
+# 시험 모드: 기존처럼 에피소드 폴더가 있음
+def test_prefix_test_mode_keeps_episode_folder():
+    got = snapshot.build_prefix("S-01-E", RUN_TS)
+    assert got.startswith("tms_synthetic/episode=S-01-E/ingest_date=")
+
+# pool 모드: meta의 raw_key는 학습용 경로이고 synthetic 항목에 episode_id가 없음
+def test_make_files_poll_moded_meta():
+    snap = snapshot.make_snapshot([sample_item()])
+    files = snapshot.make_files(snap, None, RUN_TS, {"pool_id": "pool-1"}, root = snapshot.TRAIN_ROOT)
+    meta = json.loads(files["snapshot.meta.json"])
+    assert meta["raw_key"] == "tms_synthetic_train/ingest_date=2026-11-20/hour=00/run_ts=20261120T001000Z/snapshot.json.gz"
+    assert "episode_id" not in meta["synthetic"]
+    assert meta["synthetic"]["pool_id"] == "pool-1"
+
+# pool 모드도 같은 입력이면 바이트까지 같음
+def test_pool_mode_files_are_deterministic():
+    snap = snapshot.make_snapshot([sample_item()])
+    a = snapshot.make_files(snap, None, RUN_TS, INFO, root = snapshot.TRAIN_ROOT)
+    b = snapshot.make_files(snap, None, RUN_TS, INFO, root = snapshot.TRAIN_ROOT)
+    assert a == b

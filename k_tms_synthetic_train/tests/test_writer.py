@@ -70,3 +70,18 @@ def test_same_input_same_bytes(tmp_path):
     writer.write_files(b, prefix_of(), make_sample_files())
     for name in ["snapshot.json.gz", "snapshot.meta.json", "manifest.json", "_SUCCESS"]:
         assert (a / prefix_of() / name).read_bytes() == (b / prefix_of() / name).read_bytes()
+
+# 학습용 pool 경로는 허용하고 실측 경로느 계속 거부
+def test_check_prefix_allows_train_root_and_rejects_real():
+    writer.check_prefix("tms_synthetic_train/ingest_date=2026-11-20/hour=00/run_ts=X")
+    with pytest.raises(ValueError):
+        writer.check_prefix("tms_cleansys/ingest_date=2026-11-20/hour=00/run_ts=X")
+
+# 풀 모드 경로에 실제로 4개 파일이 써짐
+def test_writes_pool_mode_files(tmp_path):
+    snap = snapshot.make_snapshot([sample_item()])
+    files = snapshot.make_files(snap, None, RUN_TS, {"pool_id": "pool-1"}, root = snapshot.TRAIN_ROOT)
+    prefix = snapshot.build_prefix(None, RUN_TS, root = snapshot.TRAIN_ROOT)
+    writer.write_files(tmp_path, prefix, files)
+    names = sorted(p.name for p in (tmp_path / prefix).iterdir())
+    assert names == ["_SUCCESS", "manifest.json", "snapshot.json.gz", "snapshot.meta.json"]
