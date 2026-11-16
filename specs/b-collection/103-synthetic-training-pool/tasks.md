@@ -18,11 +18,12 @@ description: "103 K-TMS 학습용 합성 데이터 풀 (생성 + Kafka → Spark
 
 ## 경로
 
-- 코드: `k_tms_synthetic/synth/`, `k_tms_synthetic/ingest/`, `k_tms_synthetic/kafka/`
-- 테스트: `k_tms_synthetic/tests/`, 통합 검증: `k_tms_synthetic/tests/integration/`
-- 설정: `k_tms_synthetic/config/pool.yaml`
-- 입력(커밋 안 함): `k_tms_synthetic/data/ref_stats.csv`, `daily_targets.csv`, `shape_events.csv`
-- 출력(커밋 안 함): `k_tms_synthetic/out/`
+- 새 폴더 `k_tms_synthetic_train/`(102의 `k_tms_synthetic/`은 바꾸지 않는다). 이 문서의 상대 경로는 모두 이 폴더 기준이다.
+- 코드: `synth_train/`(102에서 복사한 모듈 + 신규 모듈), `ingest/`, `kafka/`
+- 테스트: `tests/`, 통합 검증: `tests/integration/`
+- 설정: `config/pool.yaml`
+- 입력(커밋 안 함): `data/ref_stats.csv`, `data/daily_targets.csv`, `data/shape_events.csv`
+- 출력(커밋 안 함): `out/`
 
 ---
 
@@ -30,14 +31,15 @@ description: "103 K-TMS 학습용 합성 데이터 풀 (생성 + Kafka → Spark
 
 **Purpose**: plan의 가정을 확인하고 입력을 준비한다. 가정이 틀리면 plan을 먼저 고친다.
 
-- [ ] T001 🧑 Athena에서 `n_snap` 분포 쿼리를 실행해 **같은 (굴뚝, 측정 시각)이 한 번만 나타나는지** 확인한다. 결과로 plan D1(슬롯마다 스냅샷 1개)을 확정한다. 다르면 plan을 수정한다.
-- [ ] T002 🧑 실측 `run_ts`와 `mesure_dt`의 차이(수집 시각이 측정 시각보다 얼마나 늦는지)를 쿼리로 확인해 합성 `run_ts` 규칙(plan 미결 항목)을 정한다.
+- [x] T001 🧑 (결과: 2026-11-05의 154,842건 모두 `n_snap = 1`, D1 확정) Athena에서 `n_snap` 분포 쿼리를 실행해 **같은 (굴뚝, 측정 시각)이 한 번만 나타나는지** 확인한다. 결과로 plan D1(슬롯마다 스냅샷 1개)을 확정한다. 다르면 plan을 수정한다.
+- [x] T002 🧑 (결과: 94.9%가 70~79분 뒤, 나머지 30분 단위 100·130·160분 뒤 → 합성 `run_ts` = 측정 시각 UTC + 70분, plan D14) 실측 `run_ts`와 `mesure_dt`의 차이(수집 시각이 측정 시각보다 얼마나 늦는지)를 쿼리로 확인해 합성 `run_ts` 규칙(plan 미결 항목)을 정한다.
 - [ ] T003 🧑 재료 구간(2026-10-30 ~ 11-10)으로 참조 통계를 다시 뽑아 `data/ref_stats.csv`에 둔다. `stats_version`은 구간이 드러나는 이름(예: `ref-1030-1110`)으로 한다.
 - [ ] T004 🧑 재료 구간의 **일별 × 성분 실측 양성 수**를 뽑아 `data/daily_targets.csv`(`day, item, pos`)로 둔다. (일별 양성 쿼리 결과를 재사용한다.)
 - [ ] T005 🧑 재료 구간의 **성분 × 모양별 직전 단서 사건 수**를 뽑아 `data/shape_events.csv`(`item, shape, events, events_with_lead`)로 둔다. (모양 분류 쿼리를 재료 구간으로 다시 실행한다.)
-- [ ] T006 `synth.snapshot.make_files`가 **같은 입력으로 두 번 호출하면 바이트가 같은지**, meta의 시각 필드가 `run_ts`에서 결정적으로 유도되는지 확인하는 테스트를 `tests/test_snapshot.py`에 추가한다. 실패하면 `make_files`를 고친다(plan D10).
+- [ ] T006a 102의 모듈을 새 폴더로 **복사**한다(plan D15): `snapshot.py`, `schedule.py`, `writer.py`, `episode.py`, `stats.py`, `plan.py`(필요한 함수), `scenarios/trajectory.py`와 각각의 테스트와 `tests/fixtures/ref_stats_sample.csv`. **`validate.py`는 지금 복사하지 않는다**(평가용 `compare.py`를 import하고 테스트가 평가용 생성기에 의존하므로 T046에서 `compare` 의존을 빼고 복사한다). 패키지 이름을 `synth_train`으로 바꾸고 import를 정리한다. `.gitignore`에 `k_tms_synthetic_train/data/`, `k_tms_synthetic_train/out/`을 추가한다. `README.md`에 복사 출처 커밋(`6a6acaf`)을 적고, 복사한 테스트가 모두 통과하는지 확인한다. 평가용 전용(`compare.py`, 8개 시나리오 설정, `expected/`)은 복사하지 않는다.
+- [ ] T006 복사한 `synth_train.snapshot.make_files`가 **같은 입력으로 두 번 호출하면 바이트가 같은지**, meta의 시각 필드가 `run_ts`에서 결정적으로 유도되는지 확인하는 테스트를 `tests/test_snapshot.py`에 추가한다. 실패하면 `make_files`를 고친다(plan D10). T006a 선행.
 - [ ] T007 [P] `config/pool.yaml` 초안을 plan 스키마로 만든다: `period`(재료 구간), `base_ratio`, `allocation`, `min_events`, `per_shape_cap`, `max_synthetic_share`, `episode`(warmup, 복귀 길이), `shape_ranges`, `seed`, 경로.
-- [x] T008 🧑 GitHub 이슈(#50)를 만들고 "Create a branch"로 브랜치를 만든다(바탕은 `29-k-tms-synthetic`). 이 spec 폴더(103)를 그 브랜치로 옮긴다. `.github/CODEOWNERS`에 `/k_tms_synthetic/`이 있는지 확인한다.
+- [x] T008 🧑 GitHub 이슈(#50)를 만들고 "Create a branch"로 브랜치를 만든다(바탕은 `29-k-tms-synthetic`). 이 spec 폴더(103)를 그 브랜치로 옮긴다. `.github/CODEOWNERS`에 `/k_tms_synthetic_train/`을 추가한다(없으면 담당자가 한 줄 추가).
 
 **Checkpoint**: 입력 3개와 설정이 있고, plan의 가정(스냅샷 구조, `run_ts` 규칙, `make_files` 결정성)이 확인됐다.
 
@@ -49,13 +51,13 @@ description: "103 K-TMS 학습용 합성 데이터 풀 (생성 + Kafka → Spark
 
 ### 테스트 먼저
 
-- [ ] T009 [P] `tests/test_label.py`: 102의 평가용 16개 에피소드를 생성해 `compare.read_ratios`로 읽고, `label.count_labels`의 양성·음성·제외가 `expected/*.yaml`의 `label_expect`와 모두 일치하는지 확인한다. 현재 90% 이상, 미래 값 없음, 마지막 2행 제외 경계 케이스를 별도로 테스트한다. (102의 T055~T058을 이 작업이 대신한다.)
+- [ ] T009 [P] `tests/test_label.py`: 102의 `expected/*.yaml`(`trajectory_pct`, `trajectory_start_step`, `steps`, `label_expect`)을 `tests/fixtures/`로 복사해 두고(출처 커밋 기록), 정상 배경(0.5 고정)에 궤적을 끼운 시계열로 `label.count_labels`의 양성·음성·제외가 `label_expect`와 모두 일치하는지 확인한다. 현재 90% 이상, 미래 값 없음, 마지막 2행 제외 경계 케이스를 별도로 테스트한다. (102의 T055~T058을 이 작업이 대신한다.)
 - [ ] T010 [P] `tests/test_classify_shape.py`: 102의 고정 궤적 6개가 기대 모양으로 판정되는지 확인한다 — `[56,58,113,109,104,71,60]`→EXCEED, `[59,61,92,95,93,96,94,70,62]`→PLATEAU, `[87,91,88,92,89,91]`→OVER, `[59,61,94,63,60]`→SPIKE, `[62,69,76,82,87,92]`→GRADUAL, 해당 없음→OTHER. 판정 우선순위(EXCEED가 OVER보다 먼저)와 GRADUAL의 "직전 4값 모두 유효" 조건도 테스트한다.
 
 ### 구현
 
-- [ ] T011 `synth/label.py`: `label-v1` 규칙(현재 90% 미만, t+30 또는 t+60이 90% 이상이면 양성, 둘 다 유효하고 90% 미만이면 음성, 현재 90% 이상이거나 미래 값이 없으면 제외, 에피소드 마지막 2행 제외, 반올림 없음)으로 건수를 센다. T009가 통과해야 한다.
-- [ ] T012 `synth/shapes.py`에 `classify_shape`를 구현한다(사건 = 90% 이상 행을 60분 재진입으로 묶음, EXCEED → PLATEAU → OVER → SPIKE → GRADUAL → OTHER 순서). T010이 통과해야 한다.
+- [ ] T011 `synth_train/label.py`: `label-v1` 규칙(현재 90% 미만, t+30 또는 t+60이 90% 이상이면 양성, 둘 다 유효하고 90% 미만이면 음성, 현재 90% 이상이거나 미래 값이 없으면 제외, 에피소드 마지막 2행 제외, 반올림 없음)으로 건수를 센다. T009가 통과해야 한다.
+- [ ] T012 `synth_train/shapes.py`에 `classify_shape`를 구현한다(사건 = 90% 이상 행을 60분 재진입으로 묶음, EXCEED → PLATEAU → OVER → SPIKE → GRADUAL → OTHER 순서). T010이 통과해야 한다.
 
 **Checkpoint**: 102의 16개 에피소드로 라벨 건수가 expected와 일치하고, 고정 궤적이 올바른 모양으로 판정된다.
 
@@ -78,9 +80,9 @@ description: "103 K-TMS 학습용 합성 데이터 풀 (생성 + Kafka → Spark
 
 ### 구현
 
-- [ ] T019 [US2] `synth/pool.py`: 예산, 하한, 상한, 모양 배분(`floor_then_real_mix`, `sqrt_balance`), 날짜 배치, 에피소드 목록(합성 굴뚝 코드 `SYN-T-…`, seed, 참조 굴뚝 자리) 구현. T013~T018이 통과해야 한다.
-- [ ] T020 [US2] `config/pool.yaml` 로더와 검증(필수 키, 값 범위, 구간이 외부 검증 구간(11/11 이후)을 넘지 않는지)을 만든다. 기존 `synth/plan.py`의 `load_config`를 재사용한다.
-- [ ] T021 [US2] `python -m synth pool-plan`: `pool_plan.jsonl`과 요약 표(성분 × 모양 × 하한/상한/배정/미달)를 출력한다. `__main__.py`에 명령을 추가한다.
+- [ ] T019 [US2] `synth_train/pool.py`: 예산, 하한, 상한, 모양 배분(`floor_then_real_mix`, `sqrt_balance`), 날짜 배치, 에피소드 목록(합성 굴뚝 코드 `SYN-T-…`, seed, 참조 굴뚝 자리) 구현. T013~T018이 통과해야 한다.
+- [ ] T020 [US2] `config/pool.yaml` 로더와 검증(필수 키, 값 범위, 구간이 외부 검증 구간(11/11 이후)을 넘지 않는지)을 만든다. 복사한 `synth_train/plan.py`의 `load_config`를 재사용한다.
+- [ ] T021 [US2] `python -m synth_train pool-plan`: `pool_plan.jsonl`과 요약 표(성분 × 모양 × 하한/상한/배정/미달)를 출력한다. `__main__.py`에 명령을 추가한다.
 - [ ] T022 🧑 [US2] 실제 입력으로 요약 표를 확인한다: 하한 합계가 예산의 20% 이하인가, 상한 때문에 못 채운 모양은 무엇인가(SOX GRADUAL·OVER 예상), 사건당 양성 수(기본 1.85) 가정이 합리적인가.
 
 **Checkpoint**: 데이터 없이 계획 요약 표가 나오고 규칙이 테스트로 보장된다.
@@ -102,7 +104,7 @@ description: "103 K-TMS 학습용 합성 데이터 풀 (생성 + Kafka → Spark
 
 ### 구현
 
-- [ ] T027 [US5] `synth/shapes.py`에 `sample_trajectory(shape, rng, ranges)`를 구현한다. 모양 구간 생성은 함수 하나로 분리해 2단계(템플릿·파라미터 기반)가 같은 인터페이스로 교체할 수 있게 한다. T023~T025가 통과해야 한다.
+- [ ] T027 [US5] `synth_train/shapes.py`에 `sample_trajectory(shape, rng, ranges)`를 구현한다. 모양 구간 생성은 함수 하나로 분리해 2단계(템플릿·파라미터 기반)가 같은 인터페이스로 교체할 수 있게 한다. T023~T025가 통과해야 한다.
 - [ ] T028 [US5] `config/pool.yaml`의 `shape_ranges`를 plan의 범위 표대로 채운다.
 - [ ] T029 [US5] 에피소드 조립 함수: warmup(`episode.normal_series`) + 모양 구간(`trajectory.inject` 재사용) + 복귀를 만들고, 참조 굴뚝의 평균·변동·φ와 `perm_std`를 쓴다. T026이 통과해야 한다.
 - [ ] T030 🧑 [US5] 모양별 샘플 곡선을 몇 개 그려 눈으로 확인한다(너무 깨끗하거나 비현실적인지). 범위 조정이 필요하면 T028에 반영한다.
@@ -127,10 +129,10 @@ description: "103 K-TMS 학습용 합성 데이터 풀 (생성 + Kafka → Spark
 
 ### 구현
 
-- [ ] T036 [US1] `synth/pack.py`: 에피소드 시계열을 슬롯별 항목 목록으로 바꿔 합치고 `snapshot.make_snapshot`으로 스냅샷을 만든다. `run_ts`는 T002에서 정한 규칙을 쓴다. T031~T033이 통과해야 한다.
-- [ ] T037 [US1] `synth/generate.py`에 풀 모드를 추가한다(기존 평가용 흐름은 그대로). `writer.write_files`와 `check_prefix`를 재사용하고 `tms_cleansys/` 쓰기를 거부한다. `manifest.jsonl`에 성분, 모양, 참조 굴뚝, 합성 굴뚝 코드, seed, 첫·마지막 측정 시각, 스냅샷 수, 라벨 건수, 합성 음성 수, `ref_stats_period`, 통계 버전, 생성기 버전을 기록한다. T034가 통과해야 한다.
+- [ ] T036 [US1] `synth_train/pack.py`: 에피소드 시계열을 슬롯별 항목 목록으로 바꿔 합치고 `snapshot.make_snapshot`으로 스냅샷을 만든다. `run_ts`는 T002에서 정한 규칙을 쓴다. T031~T033이 통과해야 한다.
+- [ ] T037 [US1] `synth_train/generate.py`에 풀 모드 생성을 구현한다(평가용 흐름은 복사하지 않는다). 복사한 `writer.write_files`와 `check_prefix`를 재사용하고 `tms_cleansys/` 쓰기를 거부한다. `manifest.jsonl`에 성분, 모양, 참조 굴뚝, 합성 굴뚝 코드, seed, 첫·마지막 측정 시각, 스냅샷 수, 라벨 건수, 합성 음성 수, `ref_stats_period`, 통계 버전, 생성기 버전을 기록한다. T034가 통과해야 한다.
 - [ ] T038 [US1] 일별 양성 수 보정 루프(T035)를 구현한다.
-- [ ] T039 [US1] `python -m synth pool-generate --config config/pool.yaml --out out`을 `__main__.py`에 추가한다.
+- [ ] T039 [US1] `python -m synth_train pool-generate --config config/pool.yaml --out out`을 `__main__.py`에 추가한다.
 
 **Checkpoint**: 풀을 파일 모드로 생성할 수 있고 manifest만으로 (성분 × 모양)별 선택이 가능하다.
 
@@ -153,7 +155,7 @@ description: "103 K-TMS 학습용 합성 데이터 풀 (생성 + Kafka → Spark
 
 ### 구현
 
-- [ ] T046 [US4] `synth/validate.py`에 `--root`(폴더 이름)와 풀 모드 세트 점검을 추가한다. 102의 점검(구조, 필드, 해시, 경로, 격자, 형식, 응답, 쌍)은 그대로 재사용한다. T040~T045가 통과해야 한다.
+- [ ] T046 [US4] 102의 `validate.py`를 복사하되 평가용 `compare` import와 `expected_dir` 대조를 뺀 `synth_train/validate.py`에 `--root`(폴더 이름)와 풀 모드 세트 점검을 추가한다. 시험은 T034 이후의 풀 생성기로 만든 출력으로 한다. 102의 점검(구조, 필드, 해시, 경로, 격자, 형식, 응답, 쌍)은 그대로 재사용한다. T040~T045가 통과해야 한다.
 - [ ] T047 🧑 [US4] 실제 설정으로 풀을 생성하고 `validate`가 통과하는지, SC-001~004, SC-007~010을 확인한다. 요약 표를 plan 가정과 대조한다.
 
 **Checkpoint**: 풀 생성 + 세트 점검이 통과하고 문제를 일부러 만든 케이스가 모두 잡힌다.
@@ -170,7 +172,7 @@ description: "103 K-TMS 학습용 합성 데이터 풀 (생성 + Kafka → Spark
 
 - [ ] T048 🧑 [US3] Docker Desktop, `sg-spark:3.5` 이미지, MinIO(`MINIO_ENDPOINT`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` 환경 변수)를 확인한다. Kafka 이미지와 클라이언트 라이브러리 버전을 확정하고 plan에 반영한다.
 - [ ] T049 [P] [US3] `kafka/docker-compose.yml`(Kafka KRaft 단일 브로커, 토픽 `tms.synthetic.train` 파티션 1, 보존 기간 길게)과 `kafka/.env.example`을 만든다. 실제 `.env`는 커밋하지 않는다.
-- [ ] T050 [P] [US3] `k_tms_synthetic/requirements.txt`에 Kafka 클라이언트를 추가하고 plan의 Complexity Tracking에 사유를 적는다.
+- [ ] T050 [P] [US3] `requirements.txt`에 Kafka 클라이언트를 추가하고 plan의 Complexity Tracking에 사유를 적는다.
 
 ### 테스트 먼저
 
@@ -179,9 +181,9 @@ description: "103 K-TMS 학습용 합성 데이터 풀 (생성 + Kafka → Spark
 
 ### 구현
 
-- [ ] T053 [US3] `synth/publish.py`와 `python -m synth publish --src out --topic tms.synthetic.train`: `run_ts` 순서로 발행한다. T051이 통과해야 한다.
-- [ ] T054 [US3] `ingest/spark_ingest.py`: 변환 핵심 함수(T052)를 `synth.snapshot.make_files`로 만들고, Spark(`readStream` Kafka, `trigger(availableNow=True)`, `foreachBatch`)에서 `boto3`로 데이터 파일을 먼저 저장 → 해시 검증 → `_SUCCESS` 순서로 쓴다. 체크포인트 위치를 설정한다. 경로 템플릿은 풀 모드/시험 모드를 인자로 받는다. T052가 통과해야 한다.
-- [ ] T055 🧑 [US3] **시험 모드 종단 검증**: 평가용 16개(`out/`)를 발행 → 적재해 만든 폴더가 파일 모드로 만든 폴더와 바이트 단위로 같은지 비교한다(SC-005). 비교 스크립트는 `tests/integration/compare_dirs.py`에 둔다.
+- [ ] T053 [US3] `synth_train/publish.py`와 `python -m synth_train publish --src out --topic tms.synthetic.train`: `run_ts` 순서로 발행한다. T051이 통과해야 한다.
+- [ ] T054 [US3] `ingest/spark_ingest.py`: 변환 핵심 함수(T052)를 `synth_train.snapshot.make_files`로 만들고, Spark(`readStream` Kafka, `trigger(availableNow=True)`, `foreachBatch`)에서 `boto3`로 데이터 파일을 먼저 저장 → 해시 검증 → `_SUCCESS` 순서로 쓴다. 체크포인트 위치를 설정한다. 경로 템플릿은 풀 모드/시험 모드를 인자로 받는다. T052가 통과해야 한다.
+- [ ] T055 🧑 [US3] **시험 모드 종단 검증**: 평가용 16개(같은 브랜치의 `k_tms_synthetic/`에서 `python -m synth generate`로 만든 `out/`)를 발행 → 적재해 만든 폴더가 파일 모드로 만든 폴더와 바이트 단위로 같은지 비교한다(SC-005). 비교 스크립트는 `tests/integration/compare_dirs.py`에 둔다.
 - [ ] T056 🧑 [US3] **멱등·재시작 검증**: 같은 토픽을 두 번 처리해도 결과가 같은지, Spark를 중간에 중단했다가 재시작해도 빠짐·중복이 없는지 확인한다(SC-006).
 - [ ] T057 🧑 [US3] **풀 모드 적재**: Phase 5의 풀을 발행 → 학습용 폴더(`tms_synthetic_train/`)에 적재하고 `validate --root`가 통과하는지 확인한다.
 
@@ -192,7 +194,7 @@ description: "103 K-TMS 학습용 합성 데이터 풀 (생성 + Kafka → Spark
 ## Phase 8: Polish · 문서 · 협의 · PR
 
 - [ ] T058 plan Phase 1 산출물을 작성한다: `contracts/`(학습용 폴더 구조, 메시지 형식, `manifest.jsonl` 필드, `daily_targets.csv` 형식), `data-model.md`, `quickstart.md`. plan Constitution Check IV를 통과로 바꾼다(C 협의 반영 후).
-- [ ] T059 `k_tms_synthetic/README.md`에 풀 생성·발행·적재 명령을 추가한다.
+- [ ] T059 `k_tms_synthetic_train/README.md`에 풀 생성·발행·적재 명령과 복사 출처를 정리한다.
 - [ ] T060 🧑 E에게 **외부 검증 기간을 11/11 이후 데이터로 바꿀 수 있는지** 확인하고(합성 재료 구간 10/30~11/10과 겹치지 않게), 답으로 spec의 열린 질문을 해소해 재료 구간 설정값을 확정한다. 모양별 재현율, 클래스 가중치 등 E의 학습 설정은 이 작업의 범위가 아니다(참고로만 전달).
 - [ ] T061 🧑 C에게 요청한다: 학습용 합성 폴더를 Silver·ML-ready가 읽을 수 있게 할 수 있는지(현재 읽기 경로는 `tms_cleansys/` 고정). 이 spec에서는 코드를 고치지 않는다.
 - [ ] T062 🧑 **검수**: 계획 요약 표와 모양 범위를 생성자와 다른 1명이 확인한다.
@@ -224,4 +226,5 @@ description: "103 K-TMS 학습용 합성 데이터 풀 (생성 + Kafka → Spark
 - 비밀값(MinIO·AWS 자격)은 코드·설정·compose·로그에 쓰지 않는다(`.env`는 커밋하지 않는다).
 - `data/`와 `out/`은 커밋하지 않는다. 커밋은 작업 단위로 나눈다(`feat:`, `test:`, `docs:` + 한국어).
 - 이 목록은 102의 라벨 작업(T055~T058)을 T009·T011이 대신하므로, 102 쪽에서는 해당 작업을 이 spec으로 옮긴다고 표시한다.
+- 코드는 새 폴더 `k_tms_synthetic_train/`에서만 작업하고 102의 `k_tms_synthetic/`은 바꾸지 않는다(복사 출처 커밋을 README에 남긴다). PR 기준 브랜치는 #29(`29-k-tms-synthetic`)이며, #29가 `main`에 머지되면 기준을 `main`으로 바꾼다.
 - 합성 규모와 모양 범위는 시작값이다. 값 조정은 설정(`pool.yaml`)에서만 하고 코드는 바꾸지 않는다.

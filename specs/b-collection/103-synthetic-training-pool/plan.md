@@ -8,7 +8,7 @@
 
 합성 재료 구간(잠정 2026-10-30 ~ 11-10)의 실측에서 **일별 실측 양성 수**와 **모양별 사건 수**를 뽑아, 일별로 실측 양성과 1:1인 합성 양성 에피소드를 계획한다. 모양별 배분은 "하한 우선 + 나머지 실측 모양 비중"(배수 상한 3배)이고, 곡선은 1단계(규칙 기반 + 범위 무작위화)로 만든다. 에피소드는 **슬롯(30분)마다 스냅샷 하나**에 합쳐 담아 실측 구조(하루 약 50개)에 맞춘다.
 
-생성기가 스냅샷을 **Kafka 토픽으로 발행**하고, **Spark가 읽어 학습용 합성 전용 Bronze 폴더**에 원문 스냅샷 파일(`snapshot.json.gz`, meta, manifest, `_SUCCESS`)로 적재한다. 실측 수집기와 실측 경로(`tms_cleansys/`)는 건드리지 않는다. 102의 코드(`k_tms_synthetic/synth/`)를 재사용한다.
+생성기가 스냅샷을 **Kafka 토픽으로 발행**하고, **Spark가 읽어 학습용 합성 전용 Bronze 폴더**에 원문 스냅샷 파일(`snapshot.json.gz`, meta, manifest, `_SUCCESS`)로 적재한다. 실측 수집기와 실측 경로(`tms_cleansys/`)는 건드리지 않는다. 102의 코드는 **새 폴더 `k_tms_synthetic_train/`로 필요한 모듈만 복사**해서 쓴다(패키지 이름 `synth_train`, D15). 102의 `k_tms_synthetic/`은 바꾸지 않는다.
 
 이 plan은 **로컬 환경(Docker Compose)** 기준이다. AWS 리소스는 만들지 않는다.
 
@@ -18,13 +18,13 @@
 
 **Primary Dependencies**: 102의 `numpy`·`pandas`·`pyyaml`. **신규**: Kafka 클라이언트 1개(발행용, 아래 Complexity Tracking). Spark의 Kafka 커넥터 `spark-sql-kafka-0-10_2.12:3.5.4`는 실행 때 `--packages`로 받는다(저장소에 추가하지 않음). 저장 라이브러리는 기존 `boto3`.
 
-**Storage**: Kafka(로컬 컨테이너, 보존 기간 길게) → MinIO `bronze` 버킷(로컬). 입력 `data/ref_stats.csv`, `data/daily_targets.csv`는 저장소에 커밋하지 않는다(`k_tms_synthetic/data/`는 커밋 금지).
+**Storage**: Kafka(로컬 컨테이너, 보존 기간 길게) → MinIO `bronze` 버킷(로컬). 입력 `data/ref_stats.csv`, `data/daily_targets.csv`는 저장소에 커밋하지 않는다(`k_tms_synthetic_train/data/`는 커밋 금지).
 
 **Testing**: `pytest`(생성·계획·모양·라벨은 순수 파이썬 단위 테스트). Kafka·Spark 종단 검증은 Docker가 필요한 통합 테스트로 분리하고, 평소 `pytest`에는 포함하지 않는다.
 
 **Target Platform**: 개발자 로컬(Windows + Docker Desktop, Linux 컨테이너). Spark는 Windows native를 쓰지 않는다(체크리스트 §1).
 
-**Project Type**: 단일 프로젝트(102의 `k_tms_synthetic/`에 모듈 추가) + 컨테이너 실행 파일
+**Project Type**: 단일 프로젝트(새 폴더 `k_tms_synthetic_train/`, 102 모듈은 복사) + 컨테이너 실행 파일
 
 **Performance Goals**: 재료 구간 약 11일분 풀 생성이 수 분 안에 끝남. 적재 파일 수는 슬롯당 1개 × 약 530슬롯 × 4파일 ≈ 2,100개
 
@@ -65,10 +65,12 @@
 | D7 | 에피소드 길이 = warmup(기본 12칸, 최소 6) + 모양 구간 + 복귀(기본 6칸) | E 피처가 이전 값을 최대 6칸 본다(401 FR-004). 음성 수는 이 길이에서 결정된다. 설정으로 조절. |
 | D8 | Kafka: 토픽 `tms.synthetic.train`, 파티션 1, 메시지 키 `run_ts`, 값은 응답 원문 JSON(바이트), 헤더에 풀 이름·생성기 버전·통계 버전 | 처리량이 작고 순서 단순화가 더 중요하다. |
 | D9 | Spark는 `startingOffsets=earliest` + `trigger(availableNow=True)`로 일괄 처리하고, `foreachBatch` 안에서 **파일 이름을 지정해** `boto3`로 쓴다 | Spark 기본 저장은 `part-…` 이름만 만들어 `snapshot.json.gz`를 지정할 수 없다. 배치가 작아(스냅샷 약 100KB) 드라이버에서 처리해도 된다. |
-| D10 | `snapshot.meta.json`·`manifest.json`은 Spark 작업이 **`synth.snapshot.make_files`를 재사용**해 원문과 `run_ts`로 계산한다 | 파일 모드 산출물과 바이트가 같아야 한다(SC-005). 같은 함수를 쓰면 보장이 쉽다. `make_files`의 시각 필드가 `run_ts`에서 결정적으로 유도되는지 Phase 1에서 확인한다. |
+| D10 | `snapshot.meta.json`·`manifest.json`은 Spark 작업이 **복사한 `synth_train.snapshot.make_files`를 재사용**해 원문과 `run_ts`로 계산한다 | 파일 모드 산출물과 바이트가 같아야 한다(SC-005). 같은 함수를 쓰면 보장이 쉽다. `make_files`의 시각 필드가 `run_ts`에서 결정적으로 유도되는지 Phase 1에서 확인한다. |
 | D11 | 저장 경로는 **템플릿**으로 받는다: 풀 모드 `<root>/ingest_date=/hour=/run_ts=/`, 시험 모드 `<root>/episode=<id>/ingest_date=…` | 102의 평가용 16개 에피소드는 모두 같은 시각에 시작해 `run_ts`가 겹친다. 시험 모드에서 에피소드로 구분해야 한다. |
 | D12 | 멱등: 경로를 메시지의 키(`run_ts`, 시험 모드는 + 에피소드)로만 정함. `_SUCCESS`는 데이터 파일 저장·해시 검증 뒤에만 | 중복 전달·재시작에도 같은 경로에 같은 내용이 쓰인다. |
 | D13 | 파이프라인은 **평가용 16개 에피소드로 먼저 검증**하고, 그 뒤 학습용 풀로 확장 | 파이프라인은 데이터 모양과 무관하다. 학습용 생성기가 없어도 검증 가능하다. |
+| D14 | 합성 `run_ts` = **측정 시각(KST → UTC) + 70분** (슬롯마다 스냅샷 1개, 하루 48개). 지연은 넣지 않는다 | 실측의 94.9%가 70~79분 뒤에 처음 나타난다(2026-11-05). 지연(30분 단위로 +30·+60·+90분)은 실측에서 약 5%이며 학습용에는 결함이므로 제외한다(spec FR-012). `ingest_date`·`hour`는 이 UTC `run_ts`에서 정한다. |
+| D15 | 코드는 **새 폴더 `k_tms_synthetic_train/`로 102 모듈을 복사**해 쓴다. 패키지 이름은 `synth_train`, 복사 출처 커밋은 README에 기록 | 102 PR(#29)과 독립시키고 평가용·학습용 폴더를 분리한다. 복사 대상은 이미 끝나고 테스트된 안정적인 모듈(`snapshot`, `schedule`, `writer`, `episode`, `stats`, `plan`, `trajectory`)이다. 패키지 이름이 `synth`와 같으면 한 환경에서 둘을 함께 쓸 때 import가 충돌한다. |
 
 ## 풀 계획 알고리즘 (D2, D3)
 
@@ -118,39 +120,52 @@ specs/b-collection/103-synthetic-training-pool/
 ### Source Code (repository root)
 
 ```text
-k_tms_synthetic/
-├── synth/
-│   ├── pool.py              # 신규: 일별 예산, 하한·상한, 모양 배분, 에피소드 목록(pool_plan)
-│   ├── shapes.py            # 신규: 모양별 범위에서 궤적 샘플링, classify_shape
-│   ├── label.py             # 신규: label-v1 양성·음성·제외 건수(T055~T058 재사용)
-│   ├── pack.py              # 신규: 슬롯별 스냅샷으로 에피소드 행을 합침
-│   ├── publish.py           # 신규: 스냅샷을 Kafka로 발행
-│   ├── generate.py          # 수정: 풀 모드 추가(기존 평가용 흐름은 그대로)
-│   ├── validate.py          # 수정: 세트 점검, --root 인자
-│   └── (plan, stats, episode, scenarios/trajectory, snapshot, schedule, writer, compare: 102 재사용)
+k_tms_synthetic_train/               # 신규 폴더 (102의 k_tms_synthetic/은 바꾸지 않음)
+├── README.md                        # 복사 출처(102 커밋 6a6acaf)와 실행 방법
+├── requirements.txt
+├── synth_train/
+│   ├── __init__.py
+│   ├── __main__.py                  # pool-plan, pool-generate, publish, validate 명령
+│   ├── snapshot.py                  # 102에서 복사 (make_files 결정성 확인)
+│   ├── schedule.py                  # 102에서 복사 후 슬롯당 1개·run_ts = 측정 시각 UTC + 70분으로 수정
+│   ├── writer.py                    # 102에서 복사 (tms_cleansys/ 쓰기 거부 유지)
+│   ├── episode.py                   # 102에서 복사 (AR(1) 배경)
+│   ├── stats.py                     # 102에서 복사 (참조 굴뚝 선택)
+│   ├── plan.py                      # 102에서 복사 (설정 읽기 등 필요한 함수만)
+│   ├── scenarios/
+│   │   └── trajectory.py            # 102에서 복사 (inject)
+│   ├── pool.py                      # 신규: 일별 예산, 하한·상한, 모양 배분, 에피소드 목록(pool_plan)
+│   ├── shapes.py                    # 신규: 모양별 범위에서 궤적 샘플링, classify_shape
+│   ├── label.py                     # 신규: label-v1 양성·음성·제외 건수
+│   ├── pack.py                      # 신규: 슬롯별 스냅샷으로 에피소드 행을 합침
+│   ├── publish.py                   # 신규: 스냅샷을 Kafka로 발행
+│   ├── generate.py                  # 신규: 풀 모드 생성(평가용 흐름은 복사하지 않음)
+│   └── validate.py                  # Phase 6에서 102 것을 복사(평가용 compare 의존은 제외)하고 --root와 세트 점검 추가
 ├── ingest/
-│   └── spark_ingest.py      # 신규: Kafka → Bronze 파일 쓰기(Spark 작업, 컨테이너에서 실행)
+│   └── spark_ingest.py              # 신규: Kafka → Bronze 파일 쓰기(Spark 작업, 컨테이너에서 실행)
 ├── kafka/
-│   └── docker-compose.yml   # 신규: Kafka(KRaft 단일 브로커). MinIO·Spark는 기존 환경 사용
+│   └── docker-compose.yml           # 신규: Kafka(KRaft 단일 브로커). MinIO·Spark는 기존 환경 사용
 ├── config/
-│   └── pool.yaml            # 신규: base_ratio, allocation, min_events, per_shape_cap, 모양 범위, 기간, 에피소드 길이
-├── data/                    # 커밋 금지: ref_stats.csv, daily_targets.csv
+│   └── pool.yaml                    # 신규: base_ratio, allocation, min_events, per_shape_cap, 모양 범위, 기간, 에피소드 길이
+├── data/                            # 커밋 금지: ref_stats.csv, daily_targets.csv, shape_events.csv
 └── tests/
+    ├── fixtures/                    # 102 expected의 label_expect와 고정 궤적(라벨·모양 판정 시험용, 출처 기록)
+    ├── test_snapshot.py, test_schedule.py, test_writer.py, test_episode.py, test_stats.py   # 복사한 모듈의 테스트
     ├── test_pool.py
     ├── test_shapes.py
     ├── test_label.py
     ├── test_pack.py
-    ├── test_publish.py          # 메시지 만들기까지(브로커 없이)
-    └── integration/             # Docker 필요: Kafka → Spark → 파일 비교
+    ├── test_publish.py              # 메시지 만들기까지(브로커 없이)
+    └── integration/                 # Docker 필요: Kafka → Spark → 파일 비교
 ```
 
-**Structure Decision**: 102의 `k_tms_synthetic/`에 모듈을 추가한다. `ingest/spark_ingest.py`는 `synth` 패키지를 컨테이너의 `PYTHONPATH`로 읽어 재사용한다. 저장소 루트의 `src/`(C의 Silver)와 `infra/`(Terraform)는 건드리지 않는다.
+**Structure Decision**: 새 폴더 `k_tms_synthetic_train/`에 102 모듈 중 필요한 것만 복사하고(평가용 전용 `compare.py`, 8개 시나리오 설정, `expected/`는 복사하지 않음) 학습용 모듈을 추가한다. 복사한 모듈은 `synth_train` 패키지로 import를 바꾼다. `ingest/spark_ingest.py`는 컨테이너의 `PYTHONPATH`에서 `synth_train`을 읽는다. 평가용 16개 에피소드(파이프라인 시험 재료)는 같은 브랜치의 `k_tms_synthetic/`에서 만든 `out/`을 입력으로 쓴다. 저장소 루트의 `src/`(C의 Silver)와 `infra/`(Terraform)는 건드리지 않는다.
 
 ## 구현 순서 (tasks의 뼈대)
 
 | 단계 | 내용 | 완료 기준 |
 |---|---|---|
-| 0. 선행 확인 | (가) `n_snap` 쿼리로 실측 스냅샷 구조 확정 (나) 재료 구간(10/30~11/10)으로 `ref_stats.csv`, `daily_targets.csv` 재추출 (다) 실측 `run_ts`와 `mesure_dt` 차이 확인(합성 `run_ts` 규칙) (라) `make_files`의 시각 필드가 `run_ts`에서 결정적인지 확인 | 결과가 plan의 가정과 맞음. 다르면 plan 수정 |
+| 0. 선행 확인 | (가) `n_snap` 쿼리로 실측 스냅샷 구조 확정 (나) 재료 구간(10/30~11/10)으로 `ref_stats.csv`, `daily_targets.csv` 재추출 (다) 실측 `run_ts`와 `mesure_dt` 차이 확인(합성 `run_ts` 규칙) (라) 102 모듈을 새 폴더로 복사하고 import를 `synth_train`으로 정리(D15), 복사본의 `make_files`가 `run_ts`에서 결정적인지 확인 | 결과가 plan의 가정과 맞음. 다르면 plan 수정 |
 | 1. 계획 | `pool.py`: 예산, 하한, 상한, 배분 + 단위 테스트 | 합성 계획 수가 규칙과 일치, 상한 미달 보고 |
 | 2. 모양 | `shapes.py`: 샘플링 + `classify_shape` | 모든 샘플이 의도한 모양으로 판정(SC-010) |
 | 3. 라벨 | `label.py` + 102 `expected`의 `label_expect` 대조 | 102 에피소드의 라벨 건수가 expected와 일치 |
@@ -164,8 +179,8 @@ k_tms_synthetic/
 
 | 항목 | 내용 | 대응 |
 |---|---|---|
-| 실측 스냅샷 구조 | `n_snap` 결과 대기. 하루 약 50개·행 중복 없음이 사실이어야 D1이 맞다 | 단계 0(가). 다르면 D1 수정 |
-| 합성 `run_ts` 규칙 | 실측은 `run_ts`가 수집 시각이라 `mesure_dt`보다 늦다. 늦는 정도를 모른다 | 단계 0(다). 확인 전까지 슬롯 시각 + 10분 단위 첫 시각을 임시값으로 |
+| 실측 스냅샷 구조 | **확인됨**(2026-11-05): 모든 (굴뚝, 측정 시각) 154,842건이 스냅샷 한 개에만 나타남(`n_snap = 1`). D1 확정 | - |
+| 합성 `run_ts` 규칙 | **확인됨**(2026-11-05): 측정 시각(KST를 UTC로 바꾼 값)보다 94.9%가 70~79분 뒤에 처음 나타나고, 나머지는 30분 단위로 100·130·160분 뒤(4.1%·0.8%·0.3%). D14 참조 | - |
 | 사건당 양성 수 1.85 | 실측 평균이고 합성 곡선에서는 다를 수 있다 | 생성 후 `label.py`로 보정(1회 반복) |
 | 모양 범위의 임의성 | 1단계 범위는 사람이 정한 값 | `classify_shape` 통과로 최소한의 일관성 확인. 효과는 E의 비교 실험에서 판단 |
 | SOX GRADUAL·OVER(14~16건) | 배수 상한 때문에 하한 N을 못 채움 | 계획 요약 표에 미달 보고. 실측이 쌓이길 기다림 |
@@ -181,3 +196,4 @@ k_tms_synthetic/
 | 외부 패키지 추가(Kafka 클라이언트) | Kafka로 발행하려면 필요 | 표준 라이브러리에는 Kafka 클라이언트가 없다. 수집 Lambda가 아니므로 "외부 패키지 금지" 규칙(Lambda 한정)에 해당하지 않지만 이유를 적는다. |
 | 슬롯 스냅샷 합치기(`pack.py`) | 파일 수를 실측 규모로 맞추고 Kafka 메시지 수를 줄임 | 에피소드마다 스냅샷을 만들면 102처럼 파일이 수만 개가 된다(에피소드 약 3,100개 × 슬롯). |
 | 모양 판정 함수(`classify_shape`) | 생성 곡선이 의도한 모양인지 자동 확인 | 눈으로 확인하면 약 3,100개를 검증할 수 없다. |
+| 102 모듈 복사(새 폴더 `k_tms_synthetic_train/`) | #29 PR과 독립시키고 평가용·학습용을 분리 | 102를 import하면 102 코드가 `main`에 있어야 해서 #29에 계속 의존한다. 복사 대상은 끝나고 테스트된 안정적인 모듈이라 갈라질 위험이 작고, 출처 커밋을 README에 기록한다. 이후 공통 패키지로 합치는 것은 후속 정리로 남긴다. |
