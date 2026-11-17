@@ -1,0 +1,13 @@
+# docker-compose.ui.yml : Kafka 확인용 대시보드 (로컬 전용)
+services:
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: sg-kafka-ui
+    ports:
+      - "${KAFKA_UI_PORT:-8088}:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: sg-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:19092
+      DYNAMIC_CONFIG_ENABLED: "false"
+    depends_on:
+      - kafka

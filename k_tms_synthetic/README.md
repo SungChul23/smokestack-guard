@@ -1,0 +1,3 @@
+- k-tms 합성 데이터 생성기(평가, 시연용).
+- 설계 참조 'specs/b-collection/102-synthetic-generator/'
+- 실행 순서는 'quickstart.md'에서 확인
