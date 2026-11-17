@@ -25,7 +25,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 py-modules = [
     "glue_tw_cems_silver", "run_silver", "ml_ready_spark", "glue_tw_cems_ml_ready", "run_ml_ready",
-    "ktms_pipeline", "glue_ktms_silver", "glue_ktms_ml_ready", "run_ktms",
+    "ktms_pipeline", "glue_ktms_silver", "glue_ktms_ml_ready", "run_ktms", "lambda_ktms_ml_ready_check",
 ]
 
 [tool.pytest.ini_options]

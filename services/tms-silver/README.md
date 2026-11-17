@@ -139,3 +139,18 @@ SELECT * FROM tms_silver2.ktms_ml_ready FOR VERSION AS OF <snapshot_id>;        
 ```
 
 자세한 읽는 법: [`contracts/ktms-tables.md`](../../specs/a-platform/008-ktms-silver-pipeline/contracts/ktms-tables.md)
+
+## K-TMS ML-ready 계약 검사 (010) — Lambda
+
+매일 갱신의 ML-ready 다음 단계에서 `tms-ktms-ml-ready-check` Lambda(`lambda_ktms_ml_ready_check.py`)가 같은 범위·스냅샷을 Athena로 읽어 C의 `ml_ready_check` 규칙으로 판정한다. 읽기 전용이고, 결과는 `silver2/_runs/ktms_ml_ready_check/`에 남는다.
+
+```bash
+# 검사만, 알림 없음 (Glue 잡·테이블·메일 영향 없음)
+aws stepfunctions start-execution --region ap-northeast-2 \
+  --state-machine-arn arn:aws:states:ap-northeast-2:952900391026:stateMachine:tms-silver2-ktms \
+  --input '{"stage":"check","start_date":"2026-11-15","end_date":"2026-11-16","notify":false}'
+```
+
+- 모드: `ktms_check_mode` = `observe`(기본, 위반이어도 실행 성공) | `block`(위반이면 실행 실패)
+- 메일 제목: `[tms] K-TMS contract violation - …` / `… contract check: no rows …` / `… contract check failed`
+- 시험 순서와 전환: `specs/a-platform/010-ml-ready-contract-check/quickstart.md`
