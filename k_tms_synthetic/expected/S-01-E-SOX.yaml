@@ -1,0 +1,24 @@
+# 정상 기준선(SOX): 처음부터 끝까지 정상 단계(70% 미만 유지)
+# 생성 전에 작성
+episode_id: S-01-E-SOX
+scenario_id: S-01
+items: [sox]
+rising: []
+steps: 96
+trajectory_pct: null
+
+silver_expect:
+  sox:
+    rows: 96
+    status: ok
+    ratio_max_exclusive: 0.70
+
+label_expect:
+  sox:
+    positive: 0
+    negative: 94
+    excluded: 2
+
+known_mismatch: []
+
+

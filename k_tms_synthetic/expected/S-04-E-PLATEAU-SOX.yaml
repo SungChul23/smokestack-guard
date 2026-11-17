@@ -1,0 +1,26 @@
+# 예고 없는 급등 PLATEAU (sox): 정상에서 위험 단계로 올라 5칸 유지 후 돌아옴
+episode_id: S-04-E-PLATEAU-SOX
+scenario_id: S-04
+items: [sox]
+rising: [sox]
+steps: 96
+
+trajectory_start_step: 48  
+trajectory_pct: [59, 61, 92, 95, 93, 96, 94, 70, 62] 
+trajectory_stage: [normal, normal, danger, danger, danger, danger, danger, caution, normal] 
+
+silver_expect:
+  sox:
+    rows: 96
+    status: ok
+    trajectory_ratio_tol: 0.005
+    ratio_max_exclusive_outside: 0.90
+    lead_in_max_exclusive: 0.70
+
+label_expect:
+  sox:
+    positive: 2
+    negative: 87
+    excluded: 7  
+
+known_mismatch: []

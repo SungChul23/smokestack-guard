@@ -48,3 +48,26 @@ spark-warehouse/
 metastore_db/
 derby.log
 *.egg-info/
+
+# K-TMS 파이프라인 로컬 산출물 (커밋 대상 아님)
+# Airflow 실행 로그
+k_tms_pipeline/logs/
+# 수집기 호출 확인용 샘플 응답
+k_tms_pipeline/scripts/probe_out/first_call.json
+
+# K-TMS 합성 데이터 생성기 로컬 산출물 (커밋 대상 아님)
+# 참조 통계 CSV (Athena에서 추출, 공개 API 파생 통계)
+k_tms_synthetic/data/
+# 생성 결과 (합성 스냅샷, 정보 파일)
+k_tms_synthetic/out/
+k_tms_synthetic_train/data/
+k_tms_synthetic_train/out/
+
+k_tms_synthetic_train/out_check/
+k_tms_synthetic_train/out_kafka/
+k_tms_synthetic_train/ckpt_kafka/
+k_tms_synthetic_train/ckpt_s3/
+
+k_tms_synthetic_train/logs/
+k_tms_synthetic_train/run_cycle.look
+k_tms_synthetic_train/ckpt_s3/

@@ -1,0 +1,26 @@
+# 예고 없는 급등 SPIKE (nox): 정상에서 위험 단계로 한 칸만 튀었다가 바로 돌아옴
+episode_id: S-04-E-SPIKE-NOX
+scenario_id: S-04
+items: [nox]
+rising: [nox]
+steps: 96
+
+trajectory_start_step: 48  
+trajectory_pct: [59, 61, 94, 63, 60]         
+trajectory_stage: [normal, normal, danger, normal, normal]   
+
+silver_expect:
+  nox:
+    rows: 96
+    status: ok
+    trajectory_ratio_tol: 0.005
+    ratio_max_exclusive_outside: 0.90
+    lead_in_max_exclusive: 0.70
+
+label_expect:
+  nox:
+    positive: 2                               
+    negative: 91
+    excluded: 3                               
+
+known_mismatch: []
