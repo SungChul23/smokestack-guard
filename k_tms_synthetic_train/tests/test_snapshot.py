@@ -158,3 +158,14 @@ def test_pool_mode_files_are_deterministic():
     a = snapshot.make_files(snap, None, RUN_TS, INFO, root = snapshot.TRAIN_ROOT)
     b = snapshot.make_files(snap, None, RUN_TS, INFO, root = snapshot.TRAIN_ROOT)
     assert a == b
+
+# 운영체제와 Python 버전에 상관 없이 같은 바이트가 되도록 gzip 헤더의 os 표지를 고정
+def test_gzip_header_is_platform_independent():
+    from datetime import datetime, timezone
+    from synth_train import snapshot
+    snap = snapshot.make_snapshot([])
+    files = snapshot.make_data_files(snap, "", datetime(2026, 11, 16, 16, 10, tzinfo=timezone.utc), {}, snapshot.TRAIN_ROOT)
+    gz = files["snapshot.json.gz"]
+    assert gz[:4] == bytes([0x1f, 0x8b, 0x08, 0x00])      
+    assert gz[4:8] == bytes(4)                               
+    assert gz[9] == 0xff 

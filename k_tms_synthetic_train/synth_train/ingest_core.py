@@ -17,9 +17,13 @@ def message_to_files(key: bytes, value: bytes, headers) -> tuple:
     files = snapshot.make_files(json.loads(value), episode_id, run_ts, info, root)
     return prefix, files
 
-# 메시지 목록을 out_dir 아래에 파일로 쓴다. 쓴 개수를 돌려줌
-def write_messages(messages: list, out_dir) -> int:
+# 메시지 목록을 run_ts 순서로 write(prefix, files)에 넘겨 쓴다. 쓴 개수를 돌려줌
+def write_messages_to(messages: list, write) -> int:
     for m in sorted(messages, key = lambda m: m["key"]):
         prefix, files = message_to_files(m["key"], m["value"], m["headers"])
-        writer.write_files(out_dir, prefix, files)
+        write(prefix, files)
     return len(messages)
+
+# 로컬 폴더에 쓴다 (데이터 파일 -> 해시 검증 -> _SUCCESS 순서는 writer.write_files가 지킨다)
+def write_messages(messages: list, out_dir) -> int:
+    return write_messages_to(messages, lambda prefix, files: writer.write_files(out_dir, prefix, files))

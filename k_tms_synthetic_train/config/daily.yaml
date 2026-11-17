@@ -38,3 +38,18 @@ shape_ranges:
 paths:
   stats: data/ref_stats.csv
   out: out
+
+cycle:
+  config_path: config/daily.yaml
+  containers: [sg-kafka, k_tms_pipeline-minio-1]    # AWS(EC2)에서는 [sg-kafka]만, 또는 비움
+  release_bootstrap: localhost:9092                 # release(호스트)가 접속하는 Kafka
+  image: sg-spark:3.5
+  network: sg-net
+  bootstrap: kafka:19092                            # Spark 컨테이너가 접속하는 Kafka
+  endpoint: http://host.docker.internal:9000        # AWS S3에서는 비움(생략)
+  bucket: sg-synth-bronze
+  create_bucket: true                               # 로컬 MinIO 전용. AWS에서는 false
+  checkpoint: ckpt_s3
+  env_file: ../k_tms_pipeline/.env                  # AWS에서는 비움(IAM 역할 사용)
+  lock_minutes: 30
+  log_dir: logs

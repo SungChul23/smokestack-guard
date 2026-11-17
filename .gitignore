@@ -66,3 +66,8 @@ k_tms_synthetic_train/out/
 k_tms_synthetic_train/out_check/
 k_tms_synthetic_train/out_kafka/
 k_tms_synthetic_train/ckpt_kafka/
+k_tms_synthetic_train/ckpt_s3/
+
+k_tms_synthetic_train/logs/
+k_tms_synthetic_train/run_cycle.look
+k_tms_synthetic_train/ckpt_s3/

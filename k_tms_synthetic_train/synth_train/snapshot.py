@@ -90,7 +90,9 @@ def _json_bytes(obj, **kwargs) -> bytes:
 # 먼저 저장할 파일 2개(원문, meta)
 def make_data_files(snapshot: dict, episode_id: str, run_ts, info: dict, root: str = SYNTHETIC_ROOT) -> dict:
     raw = _json_bytes(snapshot, separators = (",", ":"))                                # snapshot을 JSON 바이트로 압축 (",", ":")는 공백 제거로 크기를 줄이고, 모양 고정
-    gz = gzip.compress(raw, mtime = 0)                                                  # 원문을 gzip으로 압축. header 시각 0 고정
+    gz = bytearray(gzip.compress(raw, mtime = 0))                                              # 원문을 gzip으로 압축. header 시각 0 고정
+    gz[9] = 0xff                                                                               # 헤더의 OS 표지를 고정
+    gz = bytes(gz)
     prefix = build_prefix(episode_id, run_ts, root)                                       # 저장될 경로 생성
     ts = run_ts.astimezone(timezone.utc).isoformat(timespec = "seconds")                  # run_ts를 UTC로 변환 후 초 단위까지 ISO 문자열로 생성
     meta = {                                                                   # meta 생성

@@ -1,7 +1,7 @@
 import argparse
 from datetime import date, datetime, timezone
-
-from synth_train import generate, plan, publish, release, stats, summary, validate
+from pathlib import Path
+from synth_train import generate, plan, publish, release, stats, summary, validate, cycle
 
 def main():
     common = argparse.ArgumentParser(add_help=False)
@@ -28,6 +28,8 @@ def main():
     rel.add_argument("--bootstrap", default="localhost:9092")
     rel.add_argument("--now", default=None, help="ISO 시각(시간대 포함). 없으면 현재 시각")
     rel.add_argument("--lookback-min", type=int, default=None)
+    cyc = sub.add_parser("cycle", parents=[common])
+    cyc.add_argument("--lookback-min", type=int, default=None)
     args = parser.parse_args()
 
     if args.cmd == "validate":
@@ -39,6 +41,9 @@ def main():
         raise SystemExit(0)
 
     config = plan.load_config(args.config)
+    if args.cmd == "cycle":
+        project_root = Path(args.config).resolve().parent.parent
+        raise SystemExit(cycle.run_cycle(config, project_root, lookback_min = args.lookback_min))
     out = args.out or config["paths"]["out"]
 
     if args.cmd == "publish":
