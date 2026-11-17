@@ -5,7 +5,50 @@
     "Defaults": {
       "Type": "Pass",
       "Parameters": {
-        "args.$": "States.JsonMerge(States.JsonMerge(States.StringToJson('{\"start_date\":\"auto\",\"end_date\":\"auto\",\"stage\":\"all\",\"notify\":true,\"check_table\":\"tms_silver2.ktms_ml_ready\",\"expect_source\":null,\"real_table\":null}'), $$.Execution.Input, false), States.StringToJson('{\"mode\":\"${check_mode}\"}'), false)"
+        "args.$": "States.JsonMerge(States.JsonMerge(States.StringToJson('{\"start_date\":\"auto\",\"end_date\":\"auto\",\"stage\":\"all\",\"source\":\"ktms\",\"notify\":true,\"check_table\":\"tms_silver2.ktms_ml_ready\",\"expect_source\":null,\"real_table\":null}'), $$.Execution.Input, false), States.StringToJson('{\"mode\":\"${check_mode}\"}'), false)"
+      },
+      "Next": "RouteSource"
+    },
+    "RouteSource": {
+      "Comment": "source: ktms(실측, 기본) | ktms_synth(학습용 합성, 011). 원본 경로·테이블·실행 기록·검사 입력을 정한다",
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.args.source",
+          "StringEquals": "ktms_synth",
+          "Next": "SynthSource"
+        }
+      ],
+      "Default": "RealSource"
+    },
+    "RealSource": {
+      "Type": "Pass",
+      "Parameters": {
+        "args.$": "$.args",
+        "src": {
+          "source_prefix": "tms_cleansys/",
+          "silver_table": "tms_silver2.ktms",
+          "silver_runs": "silver2/_runs/ktms",
+          "ml_ready_table": "tms_silver2.ktms_ml_ready",
+          "ml_ready_runs": "silver2/_runs/ktms_ml_ready",
+          "data_source": "ktms"
+        }
+      },
+      "Next": "RouteStart"
+    },
+    "SynthSource": {
+      "Comment": "합성은 원본 tms_synthetic_train/, 테이블 *_synth*, 검사는 출처 ktms_synth + 실측 굴뚝 키 비겹침 (011 research R9)",
+      "Type": "Pass",
+      "Parameters": {
+        "args.$": "States.JsonMerge($.args, States.StringToJson('{\"check_table\":\"tms_silver2.ktms_synth_ml_ready\",\"expect_source\":\"ktms_synth\",\"real_table\":\"tms_silver2.ktms_ml_ready\"}'), false)",
+        "src": {
+          "source_prefix": "tms_synthetic_train/",
+          "silver_table": "tms_silver2.ktms_synth",
+          "silver_runs": "silver2/_runs/ktms_synth",
+          "ml_ready_table": "tms_silver2.ktms_synth_ml_ready",
+          "ml_ready_runs": "silver2/_runs/ktms_synth_ml_ready",
+          "data_source": "ktms_synth"
+        }
       },
       "Next": "RouteStart"
     },
@@ -33,7 +76,10 @@
         "Arguments": {
           "--start_date.$": "$.args.start_date",
           "--end_date.$": "$.args.end_date",
-          "--sfn_execution.$": "$$.Execution.Name"
+          "--sfn_execution.$": "$$.Execution.Name",
+          "--source_prefix.$": "$.src.source_prefix",
+          "--silver_table.$": "$.src.silver_table",
+          "--runs_prefix.$": "$.src.silver_runs"
         }
       },
       "ResultPath": "$.silver",
@@ -83,7 +129,11 @@
         "Arguments": {
           "--start_date.$": "$.args.start_date",
           "--end_date.$": "$.args.end_date",
-          "--sfn_execution.$": "$$.Execution.Name"
+          "--sfn_execution.$": "$$.Execution.Name",
+          "--silver_table.$": "$.src.silver_table",
+          "--ml_ready_table.$": "$.src.ml_ready_table",
+          "--runs_prefix.$": "$.src.ml_ready_runs",
+          "--data_source.$": "$.src.data_source"
         }
       },
       "ResultPath": "$.ml_ready",

@@ -98,13 +98,18 @@ def latest_snapshot(query, table: str) -> int | None:
     return int(df.iloc[0, 0]) if len(df) else None
 
 
-def find_ml_ready_record(s3, bucket: str, job_run_id: str, now: datetime) -> tuple[str, dict]:
+def runs_prefix(table: str) -> str:
+    """ML-ready 잡의 실행 기록 경로. 테이블 이름 규칙 silver2/_runs/<테이블>(AGENTS.md)."""
+    return f"silver2/_runs/{table.split('.')[1]}"
+
+
+def find_ml_ready_record(
+    s3, bucket: str, job_run_id: str, now: datetime, prefix: str = ML_READY_RUNS_PREFIX
+) -> tuple[str, dict]:
     """같은 실행의 ML-ready 기록(`<시작 UTC>_<job_run_id>.json`). 최근 이틀 안에서 찾는다."""
-    start_after = f"{ML_READY_RUNS_PREFIX}/{(now - timedelta(days=2)).astimezone(UTC):%Y%m%dT}"
+    start_after = f"{prefix}/{(now - timedelta(days=2)).astimezone(UTC):%Y%m%dT}"
     paginator = s3.get_paginator("list_objects_v2")
-    for page in paginator.paginate(
-        Bucket=bucket, Prefix=f"{ML_READY_RUNS_PREFIX}/", StartAfter=start_after
-    ):
+    for page in paginator.paginate(Bucket=bucket, Prefix=f"{prefix}/", StartAfter=start_after):
         for obj in page.get("Contents", []):
             if obj["Key"].endswith(f"_{job_run_id}.json"):
                 body = s3.get_object(Bucket=bucket, Key=obj["Key"])["Body"].read()
@@ -115,7 +120,9 @@ def find_ml_ready_record(s3, bucket: str, job_run_id: str, now: datetime) -> tup
 def resolve_target(p: dict, s3, bucket: str, query, now: datetime) -> dict:
     """research R3. 검사할 범위·스냅샷과 그 출처."""
     if p["ml_ready_job_run_id"]:
-        where, rec = find_ml_ready_record(s3, bucket, p["ml_ready_job_run_id"], now)
+        where, rec = find_ml_ready_record(
+            s3, bucket, p["ml_ready_job_run_id"], now, runs_prefix(p["check_table"])
+        )
         if rec.get("result") != "succeeded" or not rec.get("range"):
             raise ValueError(f"ML-ready 기록이 성공이 아니다: {where} result={rec.get('result')}")
         r = kp.DayRange(

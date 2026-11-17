@@ -60,7 +60,12 @@ def test_glue_tasks_retry_and_alert(states, task, failed):
     assert states[failed]["Next"] == "Notify"
     assert set(states[failed]["Result"]) == {"stage", "job", "runs", "rerun_stage"}
     args = s["Parameters"]["Arguments"]
-    assert set(args) == {"--start_date.$", "--end_date.$", "--sfn_execution.$"}
+    common = {"--start_date.$", "--end_date.$", "--sfn_execution.$"}
+    extra = {
+        "Silver": {"--source_prefix.$", "--silver_table.$", "--runs_prefix.$"},
+        "MlReady": {"--silver_table.$", "--ml_ready_table.$", "--runs_prefix.$", "--data_source.$"},
+    }[task]
+    assert set(args) == common | extra  # 011: 출처별 경로·테이블은 RouteSource가 정한 $.src에서
 
 
 def _route(states: dict, values: dict) -> tuple[list[str], str]:
@@ -195,3 +200,49 @@ def test_notify_detailed_with_raw_fallback(states):
         placeholders, args = _format_args(params["Message.$"])
         assert placeholders == args
         assert "\n" in params["Message.$"]  # 줄바꿈으로 읽기 좋게
+
+
+@pytest.mark.parametrize(
+    ("source", "state", "prefix", "ml_table", "data_source"),
+    [
+        (None, "RealSource", "tms_cleansys/", "tms_silver2.ktms_ml_ready", "ktms"),
+        (
+            "ktms_synth",
+            "SynthSource",
+            "tms_synthetic_train/",
+            "tms_silver2.ktms_synth_ml_ready",
+            "ktms_synth",
+        ),
+    ],
+)
+def test_source_routes_paths_and_tables(states, source, state, prefix, ml_table, data_source):
+    """011: 실측이 기본이고, source=ktms_synth면 합성 경로·테이블·출처와 검사 입력을 쓴다."""
+    route = states["RouteSource"]
+    hit = [c["Next"] for c in route["Choices"] if c["StringEquals"] == source]
+    assert (hit[0] if hit else route["Default"]) == state
+    src = states[state]["Parameters"]["src"]
+    assert src["source_prefix"] == prefix and src["ml_ready_table"] == ml_table
+    assert src["data_source"] == data_source
+    assert src["silver_runs"] == "silver2/_runs/" + src["silver_table"].split(".")[1]
+    assert src["ml_ready_runs"] == "silver2/_runs/" + ml_table.split(".")[1]
+    if source:
+        merged = states[state]["Parameters"]["args.$"]
+        for key in ("tms_silver2.ktms_synth_ml_ready", "ktms_synth", "tms_silver2.ktms_ml_ready"):
+            assert key in merged
+
+
+def test_real_source_matches_job_defaults():
+    """실측 경로의 명시값이 잡 기본값과 같아 008 동작이 바뀌지 않는다."""
+    import glue_ktms_ml_ready
+    import glue_ktms_silver
+
+    s, m = glue_ktms_silver.parse_args([]), glue_ktms_ml_ready.parse_args([])
+    assert (s.source_prefix, s.silver_table, s.runs_prefix) == (
+        "tms_cleansys/",
+        "tms_silver2.ktms",
+        "silver2/_runs/ktms",
+    )
+    assert (m.ml_ready_table, m.runs_prefix) == (
+        "tms_silver2.ktms_ml_ready",
+        "silver2/_runs/ktms_ml_ready",
+    )

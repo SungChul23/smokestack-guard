@@ -108,3 +108,13 @@ variable "eda_bucket_name" {
   type        = string
   default     = "smokestack-tms-eda-952900391026"
 }
+
+# ---------------------------------------------------------------------------
+# 학습용 합성 K-TMS (011)
+# ---------------------------------------------------------------------------
+
+variable "ktms_synth_schedule_enabled" {
+  description = "합성 K-TMS 매일 갱신(03:30 KST, source=ktms_synth)을 켤지. C의 read_bronze 경로 인자 머지와 합성 백필·전체 생성 뒤에 켠다 (011 T030)"
+  type        = bool
+  default     = false
+}

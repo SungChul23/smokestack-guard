@@ -347,3 +347,24 @@ def test_lambda_policy_cannot_write_tables():
 
 def test_columns_constant_matches_contract():
     assert len(COLUMNS) == 36
+
+
+def test_synthetic_check_reads_its_own_ml_ready_record():
+    """011: 합성 검사는 silver2/_runs/ktms_synth_ml_ready/ 기록에서 범위·스냅샷을 찾는다."""
+    assert lc.runs_prefix(lc.DEFAULT_TABLE) == lc.ML_READY_RUNS_PREFIX
+    key = "silver2/_runs/ktms_synth_ml_ready/20261104T180500Z_jr_s.json"
+    rec = {
+        "result": "succeeded",
+        "range": {"start": "2026-11-02", "end": "2026-11-03"},
+        "snapshot_id": 77,
+    }
+    s3 = FakeS3({key: json.dumps(rec).encode()})
+    q = FakeQuery(_window(_table(data_source="ktms_synth")), stacks=["Z"])
+    event = _event(
+        check_table="tms_silver2.ktms_synth_ml_ready",
+        expect_source="ktms_synth",
+        real_table="tms_silver2.ktms_ml_ready",
+    ) | {"ml_ready_job_run_id": "jr_s"}
+    out = lc.run(event, s3, q, "bkt", "r", "111", now=NOW)
+    assert out["result"] == "passed" and out["snapshot_id"] == 77
+    assert '"tms_silver2"."ktms_synth_ml_ready" FOR VERSION AS OF 77' in q.sql[0]

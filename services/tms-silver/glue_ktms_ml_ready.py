@@ -35,6 +35,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--silver_table", default="tms_silver2.ktms")
     p.add_argument("--ml_ready_table", default="tms_silver2.ktms_ml_ready")
     p.add_argument("--runs_prefix", default="silver2/_runs/ktms_ml_ready")
+    # 출처 표시(data_source). 비우면 C 규칙이 자동(ktms)으로 정한다. 합성은 ktms_synth (011)
+    p.add_argument("--data_source", default="")
     p.add_argument("--package_md5", default="unknown")
     p.add_argument("--sfn_execution", default="manual")
     p.add_argument("--JOB_RUN_ID", dest="job_run_id", default="local")
@@ -52,6 +54,7 @@ def main(argv: list[str] | None = None, s3=None, now: datetime | None = None) ->
     args = parse_args(argv)
     record: dict = {
         "table": args.ml_ready_table,
+        "data_source": args.data_source or "auto",
         "result": None,
         "error": None,
         "job_run_id": args.job_run_id,
@@ -86,7 +89,9 @@ def main(argv: list[str] | None = None, s3=None, now: datetime | None = None) ->
         if silver.empty:
             raise ValueError(f"no silver rows in {args.silver_table} for {lo}..{hi}")
 
-        result = kp.in_range(ml_ready.to_ml_ready(silver), TS_COL, r)
+        result = kp.in_range(
+            ml_ready.to_ml_ready(silver, data_source=args.data_source or None), TS_COL, r
+        )
         eligible = result["classification_eligible"].astype(bool)
         days = result[TS_COL].dt.date.astype(str).value_counts().sort_index()
         record |= {
