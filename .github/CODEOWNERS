@@ -14,6 +14,19 @@
 /services/tms-silver/           @SungChul23 @gjfeel4512
 /infra/stacks/tms-silver/       @SungChul23 @olchangiagi
 
+# A — 서비스 인프라 (specs/a-platform/009-service-infra)
+/infra/stacks/tms-foundation/   @SungChul23
+/infra/stacks/tms-network/      @SungChul23
+/infra/stacks/tms-serving/      @SungChul23
+/infra/stacks/tms-database/     @SungChul23
+/infra/stacks/tms-app/          @SungChul23
+
+# D — 대시보드·에이전트 앱 (부담당 A가 배포 길 관리)
+/services/dashboard-api/        @jaeyan42 @SungChul23
+/services/dashboard-agent/      @jaeyan42 @SungChul23
+/services/dashboard-web/        @jaeyan42 @SungChul23
+/.github/workflows/dashboard-*  @SungChul23 @jaeyan42
+
 # B — 수집·Bronze: 수집 코드와 수집 스택 (부담당 A)
 /services/tms-collector/        @olchangiagi @SungChul23
 /services/tms-missing-rate/     @SungChul23 @olchangiagi
