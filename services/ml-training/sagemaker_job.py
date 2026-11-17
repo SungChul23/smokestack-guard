@@ -23,9 +23,9 @@ MODEL_VERSIONS = {model_id: ("1.1" if model_id in ("RN1", "RS1") else "1.0")
                   for model_id in MODEL_IDS}
 
 
-def _job_identity(model_id, now=None):
+def _job_identity(model_id, now=None, *, model_version=None):
     """모델별 버전 설정으로 이름·태그를 함께 만든다. 시각은 UTC다."""
-    version = MODEL_VERSIONS[model_id]
+    version = model_version or MODEL_VERSIONS[model_id]
     if not re.fullmatch(r"\d+\.\d+", version):
         raise ValueError("모델 버전은 major.minor 형식이어야 합니다")
     stamp = (now or datetime.now(timezone.utc)).strftime("%Y%m%d-%H%M%S-%f")
@@ -75,13 +75,17 @@ def main(argv=None):
     parser.add_argument("--role-arn", required=True, type=_role_arn)
     parser.add_argument("--max-run", type=int, default=DEFAULT_MAX_RUN)
     parser.add_argument("--instance-type", default=INSTANCE_TYPE)
+    parser.add_argument("--experiment-id", choices=("S1-C-V1.1-W5",))
     parser.add_argument("--submit", action="store_true")
     args = parser.parse_args(argv)
+    if args.experiment_id and args.model_id != "S1-C":
+        parser.error("S1-C-V1.1-W5는 S1-C에만 적용할 수 있습니다")
     if args.max_run <= 0:
         parser.error("--max-run은 양의 정수(초)여야 합니다")
 
     source_dir = Path(__file__).resolve().parent
-    for name in ("train_entrypoint.py", "requirements.txt"):
+    requirements_file = "requirements-s1c-w5.txt" if args.experiment_id else "requirements.txt"
+    for name in ("train_entrypoint.py", requirements_file):
         if not (source_dir / name).is_file():
             parser.error(f"필수 로컬 파일이 없습니다: {source_dir / name}")
     input_uri = args.input_s3_uri.rstrip("/")
@@ -93,12 +97,26 @@ def main(argv=None):
     ):
         parser.error("입력과 출력은 서로 포함되지 않는 별도 S3 경로로 지정하세요")
 
-    job_name, model_version, tags = _job_identity(args.model_id)
+    job_name, model_version, tags = _job_identity(
+        args.model_id, model_version="1.1" if args.experiment_id else None
+    )
+    hyperparameters = {"model-id": args.model_id, "model-version": model_version}
+    if args.experiment_id:
+        hyperparameters["experiment-id"] = args.experiment_id
+        tags.append({"key": "experiment-id", "value": args.experiment_id})
+        tags.extend([
+            {"key": "data-version", "value": "feature-v1-label-v1-quality-v2"},
+            {"key": "owner-team", "value": "E"},
+        ])
     # 기본 모드는 표준 라이브러리만 사용한다. SDK import·Session도 생성하지 않는다.
     settings = {
         "mode": "submit" if args.submit else "review_only",
         "model_id": args.model_id,
         "model_version": f"V{model_version}",
+        "experiment_id": args.experiment_id,
+        "changed_only": {"scale_pos_weight": 5.0} if args.experiment_id else {},
+        "hyperparameters": hyperparameters,
+        "required_xgboost_version": "3.4.1" if args.experiment_id else None,
         "training_job_name_example": job_name,
         "job_name_note": "실제 timestamp는 SDK가 제출 시 생성합니다 (UTC)",
         "tags": tags,
@@ -109,7 +127,7 @@ def main(argv=None):
         "max_runtime_in_seconds": args.max_run,
         "source_dir": str(source_dir),
         "entry_script": "train_entrypoint.py",
-        "requirements": "requirements.txt",
+        "requirements": requirements_file,
         "input_s3_uri": args.input_s3_uri,
         "output_s3_uri": args.output_s3_uri,
         "role_arn": args.role_arn,
@@ -150,7 +168,7 @@ def main(argv=None):
         source_code=SourceCode(
             source_dir=str(source_dir),
             entry_script="train_entrypoint.py",
-            requirements="requirements.txt",
+            requirements=requirements_file,
         ),
         compute=Compute(
             instance_type=args.instance_type,
@@ -159,7 +177,7 @@ def main(argv=None):
         ),
         stopping_condition=StoppingCondition(max_runtime_in_seconds=args.max_run),
         output_data_config=OutputDataConfig(s3_output_path=args.output_s3_uri),
-        hyperparameters={"model-id": args.model_id, "model-version": model_version},
+        hyperparameters=hyperparameters,
         tags=tags,
         base_job_name=f"e-ml-{args.model_id.lower()}-v{model_version.replace('.', '-')}",
     )

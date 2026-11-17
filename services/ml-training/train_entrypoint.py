@@ -26,9 +26,12 @@ def main(argv=None) -> dict:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-id", required=True, choices=tuple(TRAINERS))
     parser.add_argument("--model-version", help="제출 코드가 전달하는 major.minor 실험 버전")
+    parser.add_argument("--experiment-id", choices=("S1-C-V1.1-W5",))
     parser.add_argument("--input-path", default=os.environ.get("SM_CHANNEL_TRAIN"))
     parser.add_argument("--output-dir", default=os.environ.get("SM_MODEL_DIR"))
     args = parser.parse_args(argv)
+    if args.experiment_id and (args.model_id != "S1-C" or args.model_version != "1.1"):
+        parser.error("W5는 --model-id S1-C --model-version 1.1 조합만 허용합니다")
     if args.model_version is not None:
         import re
         if not re.fullmatch(r"\d+\.\d+", args.model_version):
@@ -65,7 +68,8 @@ def main(argv=None) -> dict:
     train = getattr(import_module(module_name), function_name)
     # 경로만 전달한다. 공통 데이터 준비가 두 번 스캔한 뒤 전체 적격 X/y를
     # 반환하므로 fit 중 원본 35개 컬럼 DataFrame을 보관하지 않는다.
-    result = train(input_path)
+    result = (train(input_path, experiment_id=args.experiment_id)
+              if args.experiment_id else train(input_path))
     model = result["model"]
     datasets = result["datasets"]
     metadata = dict(result["metadata"])
@@ -109,7 +113,10 @@ def main(argv=None) -> dict:
         metadata["model_version"] = f"V{args.model_version}"
         metadata.setdefault("experiment", {})["submission_model_version"] = f"V{args.model_version}"
     metadata["model_class"] = type(model).__name__
-    if args.model_id in ("RN1", "RS1"):
+    if args.experiment_id:
+        # 분류 함수가 기록한 W5 실제 설정·NaN 마커 표현을 그대로 유지한다.
+        pass
+    elif args.model_id in ("RN1", "RS1"):
         # RF V1.1의 실제 설정을 기본값이라는 설명으로 덮어쓰지 않는다.
         metadata["model_settings"] = model.get_params(deep=False)
     else:

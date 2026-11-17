@@ -8,8 +8,14 @@ from xgboost import XGBClassifier, XGBRegressor
 from dataset import prepare_datasets, _log_memory
 
 
-def train_s1_classifier(data: pd.DataFrame | str | PathLike) -> dict:
+def train_s1_classifier(data: pd.DataFrame | str | PathLike, *, experiment_id=None) -> dict:
     """S1-C 모델과 분할별 X·y, 분할 메타데이터를 반환한다."""
+    if experiment_id is not None:
+        from importlib.metadata import version
+        if experiment_id != "S1-C-V1.1-W5":
+            raise ValueError("지원하지 않는 S1-C 실험입니다")
+        if version("xgboost") != "3.4.1":
+            raise RuntimeError("W5는 V1.0과 같은 XGBoost 3.4.1 환경이 필요합니다")
     # 전체 입력의 공통 시간 경계를 사용하며 SO₂ 분류 적격 행을 준비한다.
     datasets, metadata = prepare_datasets(data, task="classification", pollutant="sox")
     train = datasets["train"]
@@ -21,10 +27,27 @@ def train_s1_classifier(data: pd.DataFrame | str | PathLike) -> dict:
         raise ValueError("S1-C: Train Label에 0과 1이 모두 있어야 합니다")
 
     # Feature 순서와 X-y 대응은 공통 모듈에 맡기고 Train만 학습한다.
-    model = XGBClassifier(random_state=42)
+    model = XGBClassifier(random_state=42, **(
+        {"scale_pos_weight": 5.0} if experiment_id else {}
+    ))
     _log_memory("S1-C/fit_before")
     model.fit(train["X"], train["y"])
     _log_memory("S1-C/fit_after")
+    if experiment_id:
+        import json
+        from math import isfinite
+        # NaN은 기본 missing 마커임을 문자열로 기록하며 입력값은 바꾸지 않는다.
+        metadata["model_settings"] = {
+            key: (str(value) if isinstance(value, float) and not isfinite(value) else value)
+            for key, value in model.get_params(deep=False).items()
+        }
+        metadata["effective_booster_config"] = json.loads(model.get_booster().save_config())
+        metadata["experiment"] = {
+            "experiment_id": experiment_id, "model_version": "V1.1",
+            "changed_only": {"scale_pos_weight": 5.0},
+            "xgboost_version": "3.4.1",
+            "nonfinite_parameter_encoding": "nan/inf strings represent parameter markers only",
+        }
     return {"model": model, "datasets": datasets, "metadata": metadata}
 
 

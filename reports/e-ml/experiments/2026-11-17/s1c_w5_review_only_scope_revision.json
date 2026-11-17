@@ -1,0 +1,53 @@
+{
+  "mode": "review_only",
+  "model_id": "S1-C",
+  "model_version": "V1.1",
+  "experiment_id": "S1-C-V1.1-W5",
+  "changed_only": {
+    "scale_pos_weight": 5.0
+  },
+  "hyperparameters": {
+    "model-id": "S1-C",
+    "model-version": "1.1",
+    "experiment-id": "S1-C-V1.1-W5"
+  },
+  "required_xgboost_version": "3.4.1",
+  "training_job_name_example": "e-ml-s1-c-v1-1-20261117-012843-531344",
+  "job_name_note": "실제 timestamp는 SDK가 제출 시 생성합니다 (UTC)",
+  "tags": [
+    {
+      "key": "model-id",
+      "value": "S1-C"
+    },
+    {
+      "key": "model-version",
+      "value": "V1.1"
+    },
+    {
+      "key": "experiment-id",
+      "value": "S1-C-V1.1-W5"
+    },
+    {
+      "key": "data-version",
+      "value": "feature-v1-label-v1-quality-v2"
+    },
+    {
+      "key": "owner-team",
+      "value": "E"
+    }
+  ],
+  "region": "ap-northeast-2",
+  "training_image": "366743142698.dkr.ecr.ap-northeast-2.amazonaws.com/sagemaker-scikit-learn:1.9-0",
+  "instance_type": "ml.m5.xlarge",
+  "instance_count": 1,
+  "max_runtime_in_seconds": 7200,
+  "source_dir": "C:\\Users\\NT551_11TH\\Desktop\\smokestack-guard\\services\\ml-training",
+  "entry_script": "train_entrypoint.py",
+  "requirements": "requirements.txt",
+  "input_s3_uri": "s3://smokestack-tms-raw-952900391026/silver2/tw_cems_ml_ready/",
+  "output_s3_uri": "s3://sagemaker-ap-northeast-2-952900391026/e-ml-training/s1-c/v1.1/S1-C-V1.1-W5/",
+  "role_arn": "arn:aws:iam::952900391026:role/service-role/AmazonSageMaker-ExecutionRole-20261104T140492",
+  "channel_name": "train",
+  "spot_training": false,
+  "automatic_job_retry": false
+}
