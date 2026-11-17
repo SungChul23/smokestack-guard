@@ -1,0 +1,111 @@
+name: dashboard-api
+
+# services/dashboard-api 가 바뀔 때만 돈다. PR은 테스트·빌드만, main 머지는 배포까지.
+# 계약: specs/a-platform/009-service-infra/contracts/deploy-pipeline.md
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/dashboard-api/**"
+      - ".github/workflows/dashboard-api.yml"
+  pull_request:
+    paths:
+      - "services/dashboard-api/**"
+      - ".github/workflows/dashboard-api.yml"
+
+permissions:
+  contents: read
+
+env:
+  APP: api
+  AWS_REGION: ap-northeast-2
+  DEPLOY_ROLE_ARN: arn:aws:iam::952900391026:role/tms-github-deploy
+  ECR_REPOSITORY: tms-dashboard-api
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/dashboard-api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: pytest -q
+
+      - name: Build image
+        run: docker build --platform linux/amd64 -t local/${{ env.ECR_REPOSITORY }}:ci .
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: deploy-dashboard-api
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+        run: |
+          docker build --platform linux/amd64 -t "$IMAGE" services/dashboard-api
+          docker push "$IMAGE"
+
+      - name: Record current version
+        run: |
+          aws ssm put-parameter --overwrite --type String \
+            --name "/tms/app/${APP}/image-tag" --value "${{ github.sha }}"
+
+      # 서버가 0대면 버전만 기록하고 끝낸다. 나중에 켜면 기록된 버전으로 뜬다.
+      - name: Deploy to running servers
+        run: |
+          COUNT=$(aws ec2 describe-instances \
+            --filters "Name=tag:tms:app,Values=${APP}" "Name=instance-state-name,Values=running" \
+            --query 'length(Reservations[].Instances[])' --output text)
+          echo "running ${APP} servers: $COUNT"
+          if [ "$COUNT" = "0" ]; then
+            echo "켜진 서버가 없어 버전만 기록했다."
+            exit 0
+          fi
+          CMD_ID=$(aws ssm send-command \
+            --document-name AWS-RunShellScript \
+            --targets "Key=tag:tms:app,Values=${APP}" \
+            --parameters 'commands=["/opt/tms/deploy.sh"]' \
+            --comment "deploy ${APP} ${{ github.sha }}" \
+            --query Command.CommandId --output text)
+          echo "command: $CMD_ID"
+          for i in $(seq 1 60); do
+            STATUS=$(aws ssm list-commands --command-id "$CMD_ID" --query 'Commands[0].Status' --output text)
+            echo "status: $STATUS"
+            case "$STATUS" in
+              Success) exit 0 ;;
+              Failed|Cancelled|TimedOut) exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "10분 안에 끝나지 않았다"
+          exit 1
