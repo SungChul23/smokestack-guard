@@ -13,10 +13,17 @@ ASL = Path(__file__).resolve().parents[3] / "infra/stacks/tms-silver/ktms_pipeli
 @pytest.fixture(scope="module")
 def states() -> dict:
     text = ASL.read_text(encoding="utf-8")
-    for name in ("silver_job", "ml_ready_job", "topic_arn", "bucket"):
+    for name in (
+        "silver_job",
+        "ml_ready_job",
+        "topic_arn",
+        "bucket",
+        "check_function",
+        "check_mode",
+    ):
         assert f"${{{name}}}" in text
         text = text.replace(f"${{{name}}}", f"fake-{name}")
-    assert "${" not in text  # templatefile 변수는 위 4개뿐
+    assert "${" not in text  # templatefile 변수는 위 6개뿐
     return json.loads(text)["States"]
 
 
@@ -56,33 +63,111 @@ def test_glue_tasks_retry_and_alert(states, task, failed):
     assert set(args) == {"--start_date.$", "--end_date.$", "--sfn_execution.$"}
 
 
-def _route(states: dict, stage: str) -> list[str]:
-    """Choice만 해석해 성공 경로의 Task 순서를 돌려준다."""
+def _route(states: dict, values: dict) -> tuple[list[str], str]:
+    """Choice만 해석해 Task 순서와 끝 상태(Succeed·Fail 이름)를 돌려준다. values: JSONPath → 값."""
     path, name = [], "Defaults"
-    while states[name]["Type"] != "Succeed":
+    while states[name]["Type"] not in ("Succeed", "Fail"):
         s = states[name]
         if s["Type"] == "Task":
             path.append(name)
         if s["Type"] == "Choice":
-            hit = [c["Next"] for c in s["Choices"] if c["StringEquals"] == stage]
+            hit = []
+            for c in s["Choices"]:
+                want = c.get("StringEquals", c.get("BooleanEquals"))
+                if values.get(c["Variable"]) == want:
+                    hit.append(c["Next"])
             name = hit[0] if hit else s["Default"]
         else:
             name = s["Next"]
-    return path
+    return path, name
+
+
+PASSED = {"$.check.result": "passed", "$.args.notify": True, "$.check.block": False}
 
 
 @pytest.mark.parametrize(
     ("stage", "expected"),
-    [("all", ["Silver", "MlReady"]), ("silver", ["Silver"]), ("ml_ready", ["MlReady"])],
+    [
+        ("all", ["Silver", "MlReady", "Check"]),
+        ("silver", ["Silver"]),
+        ("ml_ready", ["MlReady", "Check"]),
+        ("check", ["Check"]),  # 010: Glue 잡 없이 검사만
+    ],
 )
 def test_stage_routes(states, stage, expected):
-    assert _route(states, stage) == expected
+    assert _route(states, PASSED | {"$.args.stage": stage}) == (expected, "Done")
+
+
+@pytest.mark.parametrize(
+    ("result", "notify", "block", "tasks", "end"),
+    [
+        ("violation", True, False, ["Check", "NotifyCheck"], "Done"),  # observe: 알림만
+        ("violation", True, True, ["Check", "NotifyCheck"], "CheckBlocked"),  # block: 실행 실패
+        ("violation", False, False, ["Check"], "Done"),  # notify=false: 알림 없음
+        ("empty", True, False, ["Check", "NotifyCheck"], "Done"),
+    ],
+)
+def test_check_outcomes(states, result, notify, block, tasks, end):
+    values = {
+        "$.args.stage": "check",
+        "$.check.result": result,
+        "$.args.notify": notify,
+        "$.check.block": block,
+    }
+    assert _route(states, values) == (tasks, end)
+
+
+def test_check_task_retries_and_catches(states):
+    s = states["Check"]
+    assert s["Resource"] == "arn:aws:states:::lambda:invoke"
+    assert s["Parameters"]["FunctionName"] == "fake-check_function"
+    assert s["Retry"][-1] == {
+        "ErrorEquals": ["States.ALL"],
+        "IntervalSeconds": 30,
+        "MaxAttempts": 1,
+        "BackoffRate": 1,
+    }
+    assert s["Catch"][0]["Next"] == "CheckFailedNotifyGate"
+    assert set(s["ResultSelector"]) == {
+        "result.$",
+        "block.$",
+        "subject.$",
+        "message.$",
+        "run_record.$",
+    }
+    assert states["CheckOnly"]["Result"] == {"JobRunId": None}
+
+
+def test_check_failure_alerts_and_respects_mode(states):
+    gate = states["CheckFailedNotifyGate"]
+    assert gate["Choices"][0] == {
+        "Variable": "$.args.notify",
+        "BooleanEquals": False,
+        "Next": "CheckFailedOutcome",
+    }
+    out = states["CheckFailedOutcome"]
+    assert out["Choices"][0]["Next"] == "CheckFailedBlocked" and out["Default"] == "Done"
+    notify = states["NotifyCheckFailed"]
+    assert notify["Catch"][0]["Next"] == "NotifyCheckFailedRaw"
+    detailed = notify["Branches"][0]["States"]["NotifyCheckFailedDetailed"]["Parameters"]
+    for params in (detailed, states["NotifyCheckFailedRaw"]["Parameters"]):
+        assert params["Subject"] == "[tms] K-TMS contract check failed"
+        placeholders, args = _format_args(params["Message.$"])
+        assert placeholders == args
+    # 위반 알림 제목과 실행 실패 알림 제목이 다르다 (FR-007)
+    assert states["NotifyCheck"]["Parameters"]["Subject.$"] == "$.check.subject"
+
+
+def test_mode_cannot_be_overridden_by_input(states):
+    expr = states["Defaults"]["Parameters"]["args.$"]
+    # 입력을 먼저 합치고 mode를 마지막에 덮어쓴다
+    assert expr.index("$$.Execution.Input") < expr.index('"mode"')
 
 
 def test_defaults_merge_input(states):
     expr = states["Defaults"]["Parameters"]["args.$"]
     assert expr.startswith("States.JsonMerge(") and "$$.Execution.Input" in expr
-    for key in ('"start_date":"auto"', '"end_date":"auto"', '"stage":"all"'):
+    for key in ('"start_date":"auto"', '"end_date":"auto"', '"stage":"all"', '"notify":true'):
         assert key in expr
 
 

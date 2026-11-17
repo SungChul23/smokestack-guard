@@ -319,7 +319,7 @@ resource "aws_glue_job" "ktms_ml_ready" {
 }
 
 # ---------------------------------------------------------------------------
-# Step Functions: Silver → ML-ready, 단계마다 재시도 1회, 실패 시 SNS (research R8)
+# Step Functions: Silver → ML-ready → 계약 검사(010), 단계마다 재시도 1회, 실패 시 SNS (research R8)
 # ---------------------------------------------------------------------------
 
 data "aws_iam_policy_document" "sfn_assume" {
@@ -359,6 +359,13 @@ data "aws_iam_policy_document" "ktms_sfn" {
     actions   = ["sns:Publish"]
     resources = [data.aws_sns_topic.alerts.arn]
   }
+
+  # 010 계약 검사 단계
+  statement {
+    sid       = "InvokeContractCheck"
+    actions   = ["lambda:InvokeFunction"]
+    resources = [aws_lambda_function.ktms_check.arn, "${aws_lambda_function.ktms_check.arn}:*"]
+  }
 }
 
 resource "aws_iam_role_policy" "ktms_sfn" {
@@ -372,10 +379,12 @@ resource "aws_sfn_state_machine" "ktms" {
   type     = "STANDARD"
   role_arn = aws_iam_role.ktms_sfn.arn
   definition = templatefile("${path.module}/ktms_pipeline.asl.json", {
-    silver_job   = aws_glue_job.ktms_silver.name
-    ml_ready_job = aws_glue_job.ktms_ml_ready.name
-    topic_arn    = data.aws_sns_topic.alerts.arn
-    bucket       = local.raw_bucket
+    silver_job     = aws_glue_job.ktms_silver.name
+    ml_ready_job   = aws_glue_job.ktms_ml_ready.name
+    topic_arn      = data.aws_sns_topic.alerts.arn
+    bucket         = local.raw_bucket
+    check_function = aws_lambda_function.ktms_check.function_name
+    check_mode     = var.ktms_check_mode
   })
 }
 

@@ -75,3 +75,36 @@ variable "ktms_worker_count" {
     error_message = "ktms_worker_count는 2~4 사이여야 한다."
   }
 }
+
+# ---------------------------------------------------------------------------
+# K-TMS ML-ready 계약 검사 (010)
+# ---------------------------------------------------------------------------
+
+variable "ktms_check_mode" {
+  description = "계약 위반 시 동작. observe = 알림만 보내고 실행은 성공(첫 배포 기본), block = 알림 뒤 실행 실패. 매일 실행 7번 동안 오탐이 없으면 block으로 바꾼다 (010 quickstart §7)"
+  type        = string
+  default     = "observe"
+
+  validation {
+    condition     = contains(["observe", "block"], var.ktms_check_mode)
+    error_message = "ktms_check_mode는 observe 또는 block이어야 한다."
+  }
+}
+
+variable "pandas_layer_arn" {
+  description = "AWS SDK for pandas 관리형 레이어(Python 3.12) ARN. 계약 검사 Lambda가 pandas·numpy·awswrangler를 쓴다. apply 전에 있는지 확인한다 (010 quickstart §2)"
+  type        = string
+  default     = "arn:aws:lambda:ap-northeast-2:336392948345:layer:AWSSDKPandas-Python312:18"
+}
+
+variable "athena_workgroup" {
+  description = "계약 검사가 ML-ready를 읽을 Athena 워크그룹 (tms-eda 스택이 관리, 결과는 EDA 버킷 athena-results/)"
+  type        = string
+  default     = "tms-eda"
+}
+
+variable "eda_bucket_name" {
+  description = "Athena 결과가 저장되는 EDA 버킷 이름 (tms-eda 스택이 관리). 계약 검사는 athena-results/에만 쓴다"
+  type        = string
+  default     = "smokestack-tms-eda-952900391026"
+}

@@ -1,11 +1,11 @@
 {
-  "Comment": "K-TMS Silver -> ML-ready (specs/a-platform/008-ktms-silver-pipeline). Input: {start_date, end_date, stage} all optional.",
+  "Comment": "K-TMS Silver -> ML-ready -> contract check (specs/a-platform/008-ktms-silver-pipeline, 010-ml-ready-contract-check). Input: {start_date, end_date, stage, notify, check_table, expect_source, real_table} all optional. mode comes from Terraform and cannot be overridden by input.",
   "StartAt": "Defaults",
   "States": {
     "Defaults": {
       "Type": "Pass",
       "Parameters": {
-        "args.$": "States.JsonMerge(States.StringToJson('{\"start_date\":\"auto\",\"end_date\":\"auto\",\"stage\":\"all\"}'), $$.Execution.Input, false)"
+        "args.$": "States.JsonMerge(States.JsonMerge(States.StringToJson('{\"start_date\":\"auto\",\"end_date\":\"auto\",\"stage\":\"all\",\"notify\":true,\"check_table\":\"tms_silver2.ktms_ml_ready\",\"expect_source\":null,\"real_table\":null}'), $$.Execution.Input, false), States.StringToJson('{\"mode\":\"${check_mode}\"}'), false)"
       },
       "Next": "RouteStart"
     },
@@ -16,6 +16,11 @@
           "Variable": "$.args.stage",
           "StringEquals": "ml_ready",
           "Next": "MlReady"
+        },
+        {
+          "Variable": "$.args.stage",
+          "StringEquals": "check",
+          "Next": "CheckOnly"
         }
       ],
       "Default": "Silver"
@@ -107,7 +112,189 @@
           "Next": "MlReadyFailed"
         }
       ],
-      "Next": "Done"
+      "Next": "Check"
+    },
+    "CheckOnly": {
+      "Comment": "stage=check: Glue 잡 없이 검사만. ML-ready 실행이 없으므로 범위는 입력 날짜, 스냅샷은 최신 (010 research R3)",
+      "Type": "Pass",
+      "Result": {
+        "JobRunId": null
+      },
+      "ResultPath": "$.ml_ready",
+      "Next": "Check"
+    },
+    "Check": {
+      "Comment": "ML-ready 계약 검사 (010). 읽기 전용 Lambda가 결과와 메일 제목·본문을 돌려준다",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${check_function}",
+        "Payload": {
+          "args.$": "$.args",
+          "ml_ready_job_run_id.$": "$.ml_ready.JobRunId",
+          "sfn_execution.$": "$$.Execution.Name"
+        }
+      },
+      "ResultSelector": {
+        "result.$": "$.Payload.result",
+        "block.$": "$.Payload.block",
+        "subject.$": "$.Payload.subject",
+        "message.$": "$.Payload.message",
+        "run_record.$": "$.Payload.run_record"
+      },
+      "ResultPath": "$.check",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        },
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 30,
+          "MaxAttempts": 1,
+          "BackoffRate": 1
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "CheckFailedNotifyGate"
+        }
+      ],
+      "Next": "CheckResult"
+    },
+    "CheckResult": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.check.result",
+          "StringEquals": "passed",
+          "Next": "Done"
+        }
+      ],
+      "Default": "CheckNotifyGate"
+    },
+    "CheckNotifyGate": {
+      "Comment": "notify=false면 알림 없이 결과만 남긴다 (010 FR-014)",
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.args.notify",
+          "BooleanEquals": false,
+          "Next": "CheckOutcome"
+        }
+      ],
+      "Default": "NotifyCheck"
+    },
+    "NotifyCheck": {
+      "Comment": "계약 위반 또는 대상 행 없음. 제목·본문은 Lambda가 만든다 (010 contracts §4)",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${topic_arn}",
+        "Subject.$": "$.check.subject",
+        "Message.$": "$.check.message"
+      },
+      "ResultPath": null,
+      "Next": "CheckOutcome"
+    },
+    "CheckOutcome": {
+      "Comment": "block 모드의 위반만 실행 실패. observe 모드와 대상 행 없음은 성공",
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.check.block",
+          "BooleanEquals": true,
+          "Next": "CheckBlocked"
+        }
+      ],
+      "Default": "Done"
+    },
+    "CheckBlocked": {
+      "Type": "Fail",
+      "Error": "KtmsContractViolation",
+      "Cause": "ML-ready contract violation in block mode; alert sent to SNS"
+    },
+    "CheckFailedNotifyGate": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.args.notify",
+          "BooleanEquals": false,
+          "Next": "CheckFailedOutcome"
+        }
+      ],
+      "Default": "NotifyCheckFailed"
+    },
+    "NotifyCheckFailed": {
+      "Comment": "검사 자체 실패. Lambda 오류는 Cause가 JSON이라 메시지만 꺼내고, 아니면 NotifyCheckFailedRaw가 원문을 보낸다",
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "ParseCheckCause",
+          "States": {
+            "ParseCheckCause": {
+              "Type": "Pass",
+              "Parameters": {
+                "args.$": "$.args",
+                "err.$": "$.error.Error",
+                "cause.$": "States.StringToJson($.error.Cause)"
+              },
+              "Next": "NotifyCheckFailedDetailed"
+            },
+            "NotifyCheckFailedDetailed": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "${topic_arn}",
+                "Subject": "[tms] K-TMS contract check failed",
+                "Message.$": "States.Format('K-TMS ML-ready 계약 검사 실행 실패 (재시도 1회 후)\n\n테이블: {}\n범위: {} ~ {}\n오류 종류: {}\n메시지: {}\n로그: CloudWatch /aws/lambda/${check_function}\n실행 기록: s3://${bucket}/silver2/_runs/ktms_ml_ready_check/\n실행 이름: {}\n모드: {}\n\n데이터는 바뀌지 않았다. 검사만 다시 돌리려면 입력 stage=check로 실행한다.\n읽는 법: specs/a-platform/010-ml-ready-contract-check/contracts/check-interface.md', $.args.check_table, $.args.start_date, $.args.end_date, $.err, $.cause.errorMessage, $$.Execution.Name, $.args.mode)"
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultPath": null,
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.notify_error",
+          "Next": "NotifyCheckFailedRaw"
+        }
+      ],
+      "Next": "CheckFailedOutcome"
+    },
+    "NotifyCheckFailedRaw": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${topic_arn}",
+        "Subject": "[tms] K-TMS contract check failed",
+        "Message.$": "States.Format('K-TMS ML-ready 계약 검사 실행 실패 (재시도 1회 후)\n\n테이블: {}\n범위: {} ~ {}\n오류 종류: {}\n원인(원문): {}\n로그: CloudWatch /aws/lambda/${check_function}\n실행 이름: {}\n모드: {}', $.args.check_table, $.args.start_date, $.args.end_date, $.error.Error, $.error.Cause, $$.Execution.Name, $.args.mode)"
+      },
+      "ResultPath": null,
+      "Next": "CheckFailedOutcome"
+    },
+    "CheckFailedOutcome": {
+      "Comment": "검사 실행 실패도 block 모드에서만 실행 실패로 끝낸다",
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.args.mode",
+          "StringEquals": "block",
+          "Next": "CheckFailedBlocked"
+        }
+      ],
+      "Default": "Done"
+    },
+    "CheckFailedBlocked": {
+      "Type": "Fail",
+      "Error": "KtmsContractCheckFailed",
+      "Cause": "Contract check failed after retry in block mode; alert sent to SNS"
     },
     "SilverFailed": {
       "Comment": "실패 단계 정보. 메일 본문과 다시 실행 명령에 쓴다. Silver가 실패하면 ML-ready도 안 돌았으므로 stage all로 다시 실행한다",
