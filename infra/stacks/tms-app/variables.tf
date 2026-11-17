@@ -55,3 +55,9 @@ variable "github_repository" {
   type        = string
   default     = "SungChul23/smokestack-guard"
 }
+
+variable "github_repository_immutable" {
+  description = "같은 저장소의 변하지 않는 sub 형식 (owner@owner_id/name@repo_id). 저장소가 use_immutable_subject를 쓰면 GitHub가 이 형식으로 보낸다"
+  type        = string
+  default     = "SungChul23@143672987/smokestack-guard@1437820168"
+}

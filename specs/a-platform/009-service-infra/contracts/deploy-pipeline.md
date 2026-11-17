@@ -12,7 +12,7 @@
 
 ## 배포 역할 (`tms-github-deploy`)
 
-- 신뢰: GitHub OIDC, `repo:SungChul23/smokestack-guard:ref:refs/heads/main`만.
+- 신뢰: GitHub OIDC, main 브랜치만. 저장소가 변하지 않는 sub 형식(`use_immutable_subject`)을 써서 `repo:SungChul23@143672987/smokestack-guard@1437820168:ref:refs/heads/main`으로 온다. 이름 형식 `repo:SungChul23/smokestack-guard:ref:refs/heads/main`도 함께 허용한다.
 - 권한:
   - ECR: `GetAuthorizationToken`(계정), 두 저장소에 push 관련 동작
   - SSM: `PutParameter` — `/tms/app/api/image-tag`, `/tms/app/agent/image-tag`
