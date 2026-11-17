@@ -1,0 +1,17 @@
+[project]
+name = "tms-collector"
+version = "0.1.0"
+description = "CleanSYS 수집 Lambda와 Bronze 확정 표지 백필 명령"
+requires-python = ">=3.11"
+# Lambda 런타임(Python 3.13)이 boto3를 제공하므로 런타임 의존성은 없다. 이 파일은 테스트용이며 Lambda zip에 들어가지 않는다.
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "boto3",
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

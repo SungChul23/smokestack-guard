@@ -1,0 +1,45 @@
+name: tms-silver
+
+on:
+  push:
+    paths:
+      - "services/tms-silver/**"
+      - "src/smokestack_guard/silver/**"
+      - ".github/workflows/tms-silver.yml"
+  pull_request:
+    paths:
+      - "services/tms-silver/**"
+      - "src/smokestack_guard/silver/**"
+      - ".github/workflows/tms-silver.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/tms-silver
+    steps:
+      - uses: actions/checkout@v4
+
+      # Glue 5.0과 같은 Spark 3.5.4 / Java 17 / Python 3.11
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check .
+
+      # C의 규칙 코드(src/smokestack_guard/silver)가 바뀌어도 진입 스크립트 테스트가 돈다.
+      - name: Test
+        run: pytest -q

@@ -59,18 +59,50 @@ infra/
 ├── bootstrap/            # Terraform 상태용 S3 버킷 (로컬 상태, 최초 1회)
 ├── stacks/
 │   ├── tms-collection/   # TMS 수집: 원본 버킷 + 수집 Lambda + 누락률 리포트 Lambda + 스케줄 + 알림
-│   └── tms-eda/          # TW CEMS Athena EDA: EDA 버킷 + Glue Job·크롤러 + Athena 워크그룹
+│   ├── tms-eda/          # TW CEMS Athena EDA: EDA 버킷 + Glue Job·크롤러 + Athena 워크그룹
+│   └── tms-silver/       # TW CEMS Silver: Glue Job + 역할 + 카탈로그 (데이터는 원본 버킷 silver/)
 └── modules/
     ├── raw-archive/          # 원본 보존 버킷
     └── scheduled-collector/  # 주기 실행 함수 (Lambda + 역할 + 스케줄 + 로그 + 알람), 수집기·누락률 리포트가 함께 사용
 services/
 ├── tms-collector/        # 수집 Lambda 코드 (Python, 외부 패키지 없음)
 ├── tms-missing-rate/     # 전날 슬롯 누락률 리포트 Lambda 코드
-└── tms-eda/              # JSONL → Parquet 변환 Glue 스크립트 + 백필 명령
+├── tms-eda/              # JSONL → Parquet 변환 Glue 스크립트 + 백필 명령
+└── tms-silver/           # Silver Glue 진입 스크립트 + 일괄 실행 명령
 ```
 
 - **폴더 이름은 기술명이 아니라 하는 일 기준으로 짓는다.** (`lambda/`, `s3/` 금지 → `tms-collection/`, `raw-archive/`)
 - 스택 = 업무 단위로 독립 apply 되는 묶음. 모듈 = 재사용되는 역할 단위.
+
+## S3 경로 규칙
+
+원본 버킷 `smokestack-tms-raw-952900391026` 하나에 원본과 Silver를 경로로 나눠 둔다. EDA 버킷에는 Silver를 두지 않는다.
+
+```
+smokestack-tms-raw-952900391026/
+├── tms_cleansys/                 # K-TMS 수집 원본 (수집 Lambda만 쓴다)
+├── bronze/<출처>/                # 원본 (예: bronze/tw_cems/historical/YYYY-MM.jsonl)
+├── bronze2/<출처>/               # 다시 받은 원본 (예: bronze2/tw_cems/YYYY-MM.jsonl). bronze/는 그대로 둔다
+├── silver/
+│   ├── <테이블>/year=YYYY/month=MM/   # 예: tw_cems, tw_cems_ml_ready, ktms
+│   └── _runs/<테이블>/YYYY-MM.json    # 월 실행 기록
+├── silver2/                      # bronze2로 만든 Silver. TW CEMS 공식. 구조는 silver/와 같다
+└── ops/                          # Terraform이 올리는 운영 파일 (Glue 스크립트, 패키지)
+```
+
+- `bronze/`·`tms_cleansys/`에 쓰는 권한은 수집 주체만 가진다. 원본 버킷에 수명 주기 규칙을 두지 않는다.
+- Silver 경로와 카탈로그 이름을 같게 한다: `silver/<테이블>/` = `tms_silver.<테이블>`, `silver2/<테이블>/` = `tms_silver2.<테이블>`.
+- `bronze2/`·`silver2/`는 원본을 다시 받았을 때 기존 것을 덮어쓰지 않고 나란히 만드는 경로다.
+- **TW CEMS의 공식 데이터는 `bronze2/tw_cems/` → `silver2/` (`tms_silver2.*`)다.** 학습·분석은 `tms_silver2.tw_cems`, `tms_silver2.tw_cems_ml_ready`를 쓴다.
+  - `bronze/tw_cems/historical/`과 `silver/tw_cems*`(`tms_silver.tw_cems*`)은 중복 결함이 있는 옛 원본 기준이라 쓰지 않는다. 정리 전까지 보존만 한다. (`specs/a-platform/006-tw-cems-silver2-compare/`)
+- 테이블 이름은 `<출처>[_<용도>]`다.
+  - 출처: `tw_cems`(대만 CEMS), `ktms`(국내 CleanSYS). 출처가 다르면 같은 테이블에 섞지 않는다.
+  - 용도: 없으면 정제 테이블, `_ml_ready`는 피처·라벨 테이블.
+  - DB 이름의 `tms`는 프로젝트 접두어다. 출처는 테이블 이름 맨 앞으로 구분한다.
+- 파티션은 기본 `year=YYYY/month=MM`(출처의 현지 시각)이다. 다르게 하려면 그 테이블 계약에 적는다.
+- `_`로 시작하는 폴더는 테이블이 아니다(실행 기록 등).
+- 실행 역할마다 쓰기·삭제 권한을 자기 테이블 경로(`silver/<테이블>/*`, `silver/_runs/<테이블>/*`)에만 준다.
+- Spark는 Silver를 카탈로그가 아니라 S3 경로로 읽는다. 카탈로그는 파티션 프로젝션을 쓰는 Athena용이다.
 
 ## Terraform 규칙
 
@@ -104,7 +136,8 @@ services/
 
 - 10분마다 실행, 공개 API 전체 스냅샷을 받아 S3에 gzip 원문 + 메타 파일로 저장한다.
 - 응답 SHA-256 해시를 `tms_cleansys/_state/latest.json`에 기록하고, 이전 해시와 다를 때만 원문을 저장한다. 실행 시각은 매번 기록해 "갱신 없음"과 "수집 중단"을 구분한다.
-- 원본 경로: `tms_cleansys/ingest_date=YYYY-MM-DD/hour=HH/run_ts=YYYYMMDDTHHMMSSZ/snapshot.json.gz` (+ `snapshot.meta.json`)
+- 원본 경로: `tms_cleansys/ingest_date=YYYY-MM-DD/hour=HH/run_ts=YYYYMMDDTHHMMSSZ/snapshot.json.gz` (+ `snapshot.meta.json`, `manifest.json`, `_SUCCESS`)
+- 확정 표지: 원문 점검을 통과한 폴더에만 `manifest.json` → `_SUCCESS`를 마지막에 쓴다. **읽는 쪽은 `_SUCCESS`가 있는 폴더만 완성된 스냅샷으로 본다.** 표지가 있는 폴더는 다시 쓰지 않는다. (`specs/a-platform/007-ktms-bronze-success-marker/contracts/bronze-snapshot-folder.md`)
 - 상태 파일: `tms_cleansys/_state/latest.json` (`sha256_raw`, `last_changed_at`, `last_checked_at`, `raw_key`)
 - `reserved_concurrent_executions`는 쓰지 않는다. 계정 동시 실행 한도가 10이면 설정할 수 없다. 한도 상향 후 상태 파일 경합 방지를 위해 `1`로 설정한다.
 - API 키는 환경 변수로 받은 SSM 파라미터 **이름**으로 읽고, **핸들러 밖 전역 변수에 캐시**한다.
