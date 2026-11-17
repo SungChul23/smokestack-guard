@@ -3,6 +3,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
+from smokestack_guard.silver import ktms
 from smokestack_guard.silver.ml_ready import to_ml_ready
 from smokestack_guard.silver.ml_ready_inference import INFERENCE_COLUMNS, to_inference_features
 
@@ -44,6 +45,15 @@ class InferenceFeatureTests(unittest.TestCase):
         self.assertEqual(to_inference_features(both).stack_code.tolist(), ["A"])
         t = silver("B", n=9).measured_at.max()
         self.assertEqual(sorted(to_inference_features(both, as_of=t).stack_code), ["A", "B"])
+
+    def test_silver_rows_without_a_limit_are_never_eligible(self):
+        times = pd.date_range("2026-11-02 12:00", periods=6, freq="30min")
+        raw = pd.DataFrame({"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "snapshot": 1,
+                            "mesure_dt": times.strftime("%Y-%m-%d %H:%M"), "nox_mesure_value": "25",
+                            "nox_exhst_perm_stdr_value": [None] * 6})
+        self.assertTrue(to_inference_features(ktms.to_silver(raw)).empty)
+        raw["nox_exhst_perm_stdr_value"] = "50"
+        self.assertTrue(to_inference_features(ktms.to_silver(raw)).inference_eligible.iloc[0])
 
     def test_empty_input(self):
         self.assertEqual(list(to_inference_features(silver(n=10).iloc[0:0]).columns), INFERENCE_COLUMNS)
