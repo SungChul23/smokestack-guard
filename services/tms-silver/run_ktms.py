@@ -3,6 +3,7 @@
     python run_ktms.py backfill --from 2026-10-30 --to 2026-11-12 [--chunk-days 5] [--dry-run]
     python run_ktms.py rerun --from 2026-11-05 --to 2026-11-07 [--stage all|silver|ml_ready]
     python run_ktms.py runs --table ktms [--last 5]
+    (모든 명령에 --source ktms_synth를 주면 학습용 합성 테이블을 처리한다. spec 011)
 
 - backfill: Silver를 날짜 묶음별로 차례로 만든 뒤 ML-ready를 전체 범위로 한 번 만든다(research R7).
   묶음마다 ML-ready를 돌리면 묶음 경계의 라벨이 다음 묶음 Silver 없이 계산돼 비기 때문이다.
@@ -25,7 +26,13 @@ DEFAULT_REGION = "ap-northeast-2"
 DEFAULT_ACCOUNT = "952900391026"
 DEFAULT_STATE_MACHINE = "tms-silver2-ktms"
 DEFAULT_BUCKET = "smokestack-tms-raw-952900391026"
-RUNS_PREFIX = {"ktms": "silver2/_runs/ktms", "ktms_ml_ready": "silver2/_runs/ktms_ml_ready"}
+RUNS_PREFIX = {
+    "ktms": "silver2/_runs/ktms",
+    "ktms_ml_ready": "silver2/_runs/ktms_ml_ready",
+    "ktms_synth": "silver2/_runs/ktms_synth",
+    "ktms_synth_ml_ready": "silver2/_runs/ktms_synth_ml_ready",
+}
+SOURCES = ("ktms", "ktms_synth")  # 상태 머신 RouteSource와 같은 값 (011)
 STAGES = ("all", "silver", "ml_ready")
 POLL_SECONDS = 30
 DONE = {"SUCCEEDED", "FAILED", "TIMED_OUT", "ABORTED"}
@@ -36,19 +43,22 @@ class Step:
     stage: str
     start: date
     end: date
+    source: str = "ktms"
 
     def input(self) -> dict[str, str]:
         return {
             "start_date": self.start.isoformat(),
             "end_date": self.end.isoformat(),
             "stage": self.stage,
+            "source": self.source,
         }
 
     def label(self) -> str:
-        return f"{self.stage:<8} {self.start} ~ {self.end}"
+        tail = "  [합성]" if self.source == "ktms_synth" else ""
+        return f"{self.stage:<8} {self.start} ~ {self.end}{tail}"
 
 
-def plan_backfill(start: date, end: date, chunk_days: int = 5) -> list[Step]:
+def plan_backfill(start: date, end: date, chunk_days: int = 5, source: str = "ktms") -> list[Step]:
     if start > end:
         raise ValueError(f"--from({start})가 --to({end})보다 늦다")
     if chunk_days < 1 or chunk_days > 7:
@@ -56,16 +66,17 @@ def plan_backfill(start: date, end: date, chunk_days: int = 5) -> list[Step]:
     steps, cur = [], start
     while cur <= end:
         last = min(cur + timedelta(days=chunk_days - 1), end)
-        steps.append(Step("silver", cur, last))
+        steps.append(Step("silver", cur, last, source))
         cur = last + timedelta(days=1)
-    steps.append(Step("ml_ready", start, end))
+    steps.append(Step("ml_ready", start, end, source))
     return steps
 
 
 def execution_name(step: Step, now: datetime) -> str:
     """Step Functions 실행 이름: 80자 이하, 영숫자·-·_만."""
     stage = step.stage.replace("_", "")
-    name = f"ktms-{stage}-{step.start:%Y%m%d}-{step.end:%Y%m%d}-{now:%Y%m%dT%H%M%S}"
+    head = "synth" if step.source == "ktms_synth" else "ktms"  # 콘솔 목록에서 실측·합성 구분
+    name = f"{head}-{stage}-{step.start:%Y%m%d}-{step.end:%Y%m%d}-{now:%Y%m%dT%H%M%S}"
     assert re.fullmatch(r"[A-Za-z0-9_-]{1,80}", name), name
     return name
 
@@ -150,12 +161,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     b.add_argument("--to", dest="end", type=date.fromisoformat, required=True)
     b.add_argument("--chunk-days", type=int, default=5)
     b.add_argument("--dry-run", action="store_true")
+    b.add_argument("--source", choices=SOURCES, default="ktms")
 
     r = sub.add_parser("rerun", help="범위를 지정해 다시 실행")
     r.add_argument("--from", dest="start", type=date.fromisoformat, required=True)
     r.add_argument("--to", dest="end", type=date.fromisoformat, required=True)
     r.add_argument("--stage", choices=STAGES, default="all")
     r.add_argument("--dry-run", action="store_true")
+    r.add_argument("--source", choices=SOURCES, default="ktms")
 
     s = sub.add_parser("runs", help="최근 실행 기록 표")
     s.add_argument("--table", choices=sorted(RUNS_PREFIX), default="ktms")
@@ -175,13 +188,13 @@ def main(argv: list[str] | None = None, session=None, sleep=time.sleep, now=None
         return 0
 
     if args.command == "backfill":
-        steps = plan_backfill(args.start, args.end, args.chunk_days)
+        steps = plan_backfill(args.start, args.end, args.chunk_days, args.source)
     else:
         if args.start > args.end:
             raise SystemExit(f"--from({args.start})가 --to({args.end})보다 늦다")
         if args.stage in ("all", "silver") and (args.end - args.start).days + 1 > 7:
             raise SystemExit("Silver는 한 번에 7일까지다. 긴 범위는 backfill을 쓴다")
-        steps = [Step(args.stage, args.start, args.end)]
+        steps = [Step(args.stage, args.start, args.end, args.source)]
     sfn = None if args.dry_run else session.client("stepfunctions")
     return run_steps(sfn, args.state_machine_arn, steps, args.dry_run, sleep=sleep, now=now)
 

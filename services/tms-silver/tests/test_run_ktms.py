@@ -74,6 +74,7 @@ def test_backfill_runs_in_order(capsys):
         "start_date": "2026-10-30",
         "end_date": "2026-11-12",
         "stage": "ml_ready",
+        "source": "ktms",
     }
     assert sfn.started[0]["arn"].endswith(":stateMachine:tms-silver2-ktms")
 
@@ -114,7 +115,30 @@ def test_rerun_passes_input():
         "start_date": "2026-11-05",
         "end_date": "2026-11-07",
         "stage": "ml_ready",
+        "source": "ktms",
     }
+
+
+def test_synthetic_backfill_passes_source_and_names_runs(capsys):
+    """011: --source ktms_synth면 같은 순서(Silver 묶음 → ML-ready 전체)로 합성 테이블을 만든다."""
+    sfn = FakeSfn(["SUCCEEDED"] * 4)
+    code = run_ktms.main(
+        ["backfill", "--from", "2026-10-30", "--to", "2026-11-16", "--chunk-days", "7",
+         "--source", "ktms_synth"],
+        session=FakeSession(sfn),
+        sleep=lambda s: None,
+        now=NOW,
+    )  # fmt: skip
+    assert code == 0
+    assert [(s["input"]["stage"], s["input"]["start_date"]) for s in sfn.started] == [
+        ("silver", "2026-10-30"),
+        ("silver", "2026-11-06"),
+        ("silver", "2026-11-13"),
+        ("ml_ready", "2026-10-30"),
+    ]
+    assert {s["input"]["source"] for s in sfn.started} == {"ktms_synth"}
+    assert all(s["name"].startswith("synth-") for s in sfn.started)
+    assert "[합성]" in capsys.readouterr().out
 
 
 def test_rerun_silver_over_seven_days_is_refused():
