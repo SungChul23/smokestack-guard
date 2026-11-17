@@ -60,7 +60,13 @@ infra/
 ├── stacks/
 │   ├── tms-collection/   # TMS 수집: 원본 버킷 + 수집 Lambda + 누락률 리포트 Lambda + 스케줄 + 알림
 │   ├── tms-eda/          # TW CEMS Athena EDA: EDA 버킷 + Glue Job·크롤러 + Athena 워크그룹
-│   └── tms-silver/       # TW CEMS Silver + K-TMS Silver·ML-ready(Iceberg, 매일): Glue Job + 역할 + 카탈로그 + 상태 머신·스케줄
+│   ├── tms-silver/       # TW CEMS Silver + K-TMS Silver·ML-ready(Iceberg, 매일, 실측·합성): Glue Job + 역할 + 카탈로그 + 상태 머신·스케줄 + 계약 검사 Lambda
+│   ├── tms-synthetic/    # 학습용 합성 K-TMS 적재: 30분 예약 실행 + Lambda + 실패 보관함(SQS) + 알람
+│   ├── tms-foundation/   # 서비스: Route 53 영역, GitHub OIDC, 비용 알림
+│   ├── tms-network/      # 서비스: VPC, 서브넷, NAT, 보안그룹
+│   ├── tms-serving/      # 서비스: 인증서, CloudFront + S3 화면, Cognito
+│   ├── tms-database/     # 서비스: RDS PostgreSQL + 배스천
+│   └── tms-app/          # 서비스: ECR, 서버 ASG, ALB, 배포 역할
 └── modules/
     ├── raw-archive/          # 원본 보존 버킷
     └── scheduled-collector/  # 주기 실행 함수 (Lambda + 역할 + 스케줄 + 로그 + 알람), 수집기·누락률 리포트가 함께 사용
@@ -68,7 +74,10 @@ services/
 ├── tms-collector/        # 수집 Lambda 코드 (Python, 외부 패키지 없음)
 ├── tms-missing-rate/     # 전날 슬롯 누락률 리포트 Lambda 코드
 ├── tms-eda/              # JSONL → Parquet 변환 Glue 스크립트 + 백필 명령
-└── tms-silver/           # Silver Glue 진입 스크립트 + 일괄 실행 명령 (TW CEMS, K-TMS)
+├── tms-silver/           # Silver Glue 진입 스크립트 + 계약 검사 Lambda + 일괄 실행 명령 (TW CEMS, K-TMS)
+└── dashboard-{api,agent,web}/  # 대시보드·에이전트 앱 (D)
+k_tms_synthetic/          # 평가·시연용 합성 생성기 (B, specs/b-collection/102)
+k_tms_synthetic_train/    # 학습용 합성 생성기 + AWS 적재 진입점 lambda_handler.py (B·A, 103·011)
 ```
 
 - **폴더 이름은 기술명이 아니라 하는 일 기준으로 짓는다.** (`lambda/`, `s3/` 금지 → `tms-collection/`, `raw-archive/`)
@@ -81,6 +90,9 @@ services/
 ```
 smokestack-tms-raw-952900391026/
 ├── tms_cleansys/                 # K-TMS 수집 원본 (수집 Lambda만 쓴다)
+├── tms_synthetic_train/          # 학습용 합성 K-TMS 원본 (합성 적재 Lambda만 쓴다). 실측과 같은 폴더 모양
+│   ├── _manifest/YYYY-MM-DD.jsonl   # 에피소드 태그 (테이블 아님)
+│   └── _ref_stats/<버전>.csv        # 참조 통계 (실제 굴뚝명 포함, 사람이 올림, 덮어쓰지 않음)
 ├── bronze/<출처>/                # 원본 (예: bronze/tw_cems/historical/YYYY-MM.jsonl)
 ├── bronze2/<출처>/               # 다시 받은 원본 (예: bronze2/tw_cems/YYYY-MM.jsonl). bronze/는 그대로 둔다
 ├── silver/
@@ -90,20 +102,21 @@ smokestack-tms-raw-952900391026/
 └── ops/                          # Terraform이 올리는 운영 파일 (Glue 스크립트, 패키지)
 ```
 
-- `bronze/`·`tms_cleansys/`에 쓰는 권한은 수집 주체만 가진다. 원본 버킷에 수명 주기 규칙을 두지 않는다.
+- `bronze/`·`tms_cleansys/`에 쓰는 권한은 수집 주체만 가진다. `tms_synthetic_train/`은 합성 적재 Lambda만 쓰고, 그 역할은 다른 원본 경로에 권한이 없다. 원본 버킷에 수명 주기 규칙을 두지 않는다.
 - Silver 경로와 카탈로그 이름을 같게 한다: `silver/<테이블>/` = `tms_silver.<테이블>`, `silver2/<테이블>/` = `tms_silver2.<테이블>`.
 - `bronze2/`·`silver2/`는 원본을 다시 받았을 때 기존 것을 덮어쓰지 않고 나란히 만드는 경로다.
 - **TW CEMS의 공식 데이터는 `bronze2/tw_cems/` → `silver2/` (`tms_silver2.*`)다.** 학습·분석은 `tms_silver2.tw_cems`, `tms_silver2.tw_cems_ml_ready`를 쓴다.
   - `bronze/tw_cems/historical/`과 `silver/tw_cems*`(`tms_silver.tw_cems*`)은 중복 결함이 있는 옛 원본 기준이라 쓰지 않는다. 정리 전까지 보존만 한다. (`specs/a-platform/006-tw-cems-silver2-compare/`)
 - 테이블 이름은 `<출처>[_<용도>]`다.
-  - 출처: `tw_cems`(대만 CEMS), `ktms`(국내 CleanSYS). 출처가 다르면 같은 테이블에 섞지 않는다.
+  - 출처: `tw_cems`(대만 CEMS), `ktms`(국내 CleanSYS), `ktms_synth`(학습용 합성 K-TMS). 출처가 다르면 같은 테이블에 섞지 않는다.
+  - 합성은 학습 보강용이다. 검증·평가 데이터에는 넣지 않는다(`data_source = 'ktms_synth'`로 거른다). (`specs/a-platform/011-synthetic-train-s3-ingest/`)
   - 용도: 없으면 정제 테이블, `_ml_ready`는 피처·라벨 테이블.
   - DB 이름의 `tms`는 프로젝트 접두어다. 출처는 테이블 이름 맨 앞으로 구분한다.
 - 파티션은 기본 `year=YYYY/month=MM`(출처의 현지 시각)이다. 다르게 하려면 그 테이블 계약에 적는다.
 - `_`로 시작하는 폴더는 테이블이 아니다(실행 기록 등).
 - 실행 역할마다 쓰기·삭제 권한을 자기 테이블 경로(`silver/<테이블>/*`, `silver/_runs/<테이블>/*`)에만 준다.
 - Spark는 Silver를 카탈로그가 아니라 S3 경로로 읽는다. 카탈로그는 파티션 프로젝션을 쓰는 Athena용이다. (Iceberg 테이블 제외, 아래)
-- **Iceberg 테이블은 예외다:** `tms_silver2.ktms`, `tms_silver2.ktms_ml_ready`(K-TMS, 매일 갱신).
+- **Iceberg 테이블은 예외다:** `tms_silver2.ktms`, `tms_silver2.ktms_ml_ready`(K-TMS, 매일 갱신), `tms_silver2.ktms_synth`, `tms_silver2.ktms_synth_ml_ready`(학습용 합성, 같은 잡·같은 형식).
   - 파티션은 테이블 형식의 숨은 날짜 파티션(KST 측정일)이고 `year=/month=` 폴더로 나타나지 않는다.
   - Spark·pandas·Athena 모두 S3 경로가 아니라 카탈로그로 읽는다. `data/`에는 지난 버전 파일도 남아 있어 직접 읽으면 행이 중복된다.
   - 테이블은 Terraform이 아니라 잡의 DDL이 만든다(Iceberg가 커밋마다 카탈로그 값을 바꾸기 때문).

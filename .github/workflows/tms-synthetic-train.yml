@@ -1,0 +1,36 @@
+name: tms-synthetic-train
+
+# 학습용 합성 데이터 생성기(B, 103)와 AWS 적재 진입점(A, 011) 테스트.
+on:
+  push:
+    paths:
+      - "k_tms_synthetic_train/**"
+      - ".github/workflows/tms-synthetic-train.yml"
+  pull_request:
+    paths:
+      - "k_tms_synthetic_train/**"
+      - ".github/workflows/tms-synthetic-train.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: k_tms_synthetic_train
+    steps:
+      - uses: actions/checkout@v4
+
+      # Lambda 런타임(python3.12)과 같은 버전
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Kafka 클라이언트는 테스트에 필요 없다(발행 테스트는 가짜 producer)
+      - name: Install
+        run: pip install pandas numpy pyyaml pytest
+
+      - name: Test
+        run: python -m pytest -q

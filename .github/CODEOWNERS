@@ -13,6 +13,7 @@
 /services/tms-eda/              @SungChul23
 /services/tms-silver/           @SungChul23 @gjfeel4512
 /infra/stacks/tms-silver/       @SungChul23 @olchangiagi
+/infra/stacks/tms-synthetic/    @SungChul23 @olchangiagi
 
 # A — 서비스 인프라 (specs/a-platform/009-service-infra)
 /infra/stacks/tms-foundation/   @SungChul23
@@ -32,6 +33,7 @@
 /services/tms-missing-rate/     @SungChul23 @olchangiagi
 /infra/stacks/tms-collection/   @olchangiagi @SungChul23
 /k_tms_synthetic/               @olchangiagi @SungChul23
+/k_tms_synthetic_train/         @olchangiagi @SungChul23
 
 # 원칙은 팀 전체가 본다
 /.specify/memory/constitution.md  @SungChul23 @olchangiagi @gjfeel4512 @jaeyan42 @doeun-1202

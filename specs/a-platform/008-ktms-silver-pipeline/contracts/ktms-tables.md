@@ -88,3 +88,20 @@ aws s3 cp s3://smokestack-tms-raw-952900391026/silver2/_runs/ktms_ml_ready_check
 - 합성 테이블(`ktms_synthetic*`)은 B의 생성기에 따라 이름·구조가 정해진다. 생기면 이 문서에 추가한다.
 - 컬럼 의미가 바뀌면 C의 PR과 `feature_version`, `label_version`, `quality_policy_version` 값으로 알린다.
 - **`data_source` 컬럼 (C #48):** 머지와 재배포 뒤 ML-ready 맨 끝에 붙는다(`ktms`, 합성은 `ktms_synth`). 테이블을 합칠 때 출처 구분에 쓴다. 다시 계산하기 전 행은 null이다. 컬럼 추가 전 버전(`snapshot_id`)도 같은 행으로 읽히고, 이 컬럼은 null로 나온다(Spark 확인. 도구에 따라 컬럼 자체가 없게 보일 수 있다).
+
+## 6. 학습용 합성 테이블 (spec 011)
+
+- `tms_silver2.ktms_synth`(Silver), `tms_silver2.ktms_synth_ml_ready`(ML-ready). 실측과 같은 잡·같은 Iceberg 형식·같은 36컬럼이고 `data_source = 'ktms_synth'`다.
+- 원본은 `tms_synthetic_train/`(B의 생성기, 30분마다). 굴뚝 코드는 `SYN-T-<시작날짜>-<성분>-<모양>-<번호>`라 실측과 겹치지 않는다(계약 검사가 매일 확인).
+- **학습**: 실측과 합쳐 쓴다. 각 테이블의 마지막 통과 `snapshot_id`(§3-1, 합성은 `silver2/_runs/ktms_ml_ready_check/`에서 `table`이 `ktms_synth_ml_ready`인 기록)를 함께 학습 기록에 남긴다.
+
+```sql
+SELECT * FROM tms_silver2.ktms_ml_ready FOR VERSION AS OF <실측 통과 스냅샷>
+UNION ALL
+SELECT * FROM tms_silver2.ktms_synth_ml_ready FOR VERSION AS OF <합성 통과 스냅샷>
+```
+
+- **검증·평가**: 합성을 넣지 않는다(`WHERE data_source <> 'ktms_synth'`). 실측만으로 평가해야 같은 조건의 비교가 된다(원칙 V).
+- **외부 검증 기간**: 합성 곡선은 실측 참조 통계(현재 `ref-1030-1110`, 2026-10-30 ~ 11-10)를 빌려 만든다. 외부 검증은 이 기간 **이후**(11-11~)로 잡는다. 통계 버전이 바뀌면 이 기간도 바뀐다.
+- **양성·음성 비율 확인**: Athena 저장된 쿼리 `tms_label_balance_*`(워크그룹 `tms-eda`, 원문 `scripts/label_balance_queries.sql`)에서 출처별·합친 비율, 모양별 합성 양성, 날짜별 추이를 본다.
+
