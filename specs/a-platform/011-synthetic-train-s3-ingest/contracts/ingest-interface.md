@@ -10,7 +10,8 @@ Lambda 이름: `tms-synthetic-train` (ap-northeast-2). Bronze 폴더·파일 형
 {"mode": "check", "day": "2026-11-16"}
 ```
 
-- 정기 스케줄은 `scheduled_time`에 `<aws.scheduler.scheduled-time>`을 넣는다(UTC ISO).
+- 정기 스케줄은 `scheduled_time`에 `<aws.scheduler.scheduled-time>`을 넣는다(UTC ISO). Lambda 대상에서는 치환되지 않고 글자 그대로 오는 경우가 있어(2026-11-17 확인), 값이 없거나 `<`로 시작하면 실행 시각을 쓴다.
+- 그래서 DLQ 메시지로 재처리하면 "재처리하는 시각 기준 최근 180분"을 채운다. 3시간보다 늦게 재처리할 때는 그 날짜로 `backfill`을 실행한다.
 - 알 수 없는 `mode`, 31일 초과 백필, 날짜 형식 오류는 쓰기 전에 실패한다.
 
 ## 2. 수동 실행

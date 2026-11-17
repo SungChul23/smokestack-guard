@@ -95,7 +95,10 @@ def parse_event(event: dict | None, now: datetime) -> dict:
         raise ValueError(f"mode는 {MODES} 중 하나여야 한다: {mode!r}")
     p: dict = {"mode": mode}
     if mode == "regular":
-        p["now"] = _time(event["scheduled_time"]) if event.get("scheduled_time") else now
+        # Scheduler가 자리표시자(<aws.scheduler.scheduled-time>)를 치환하지 않고 그대로 넘기는 경우가 있다
+        # (2026-11-17 운영 확인). 값이 없거나 자리표시자면 실행 시각을 쓴다. 예정 시각과 몇 초 차이다.
+        sched = str(event.get("scheduled_time") or "")
+        p["now"] = _time(sched) if sched and not sched.startswith("<") else now
         p["lookback_min"] = int(event.get("lookback_min") or DEFAULT_LOOKBACK_MIN)
     elif mode == "backfill":
         start, end = _day(event.get("from"), "from"), _day(event.get("to"), "to")

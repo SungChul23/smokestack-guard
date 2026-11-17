@@ -244,3 +244,13 @@ def test_terraform_zip_module_list_is_enough_to_import(tmp_path):
     r = subprocess.run([sys.executable, "-c", code], cwd = tmp_path, capture_output = True, text = True)
     assert r.returncode == 0, r.stderr
 
+
+def test_unsubstituted_scheduler_placeholder_uses_run_time(config, ref_df):
+    '''Scheduler가 <aws.scheduler.scheduled-time>을 그대로 넘겨도 실행 시각 기준으로 쓴다 (2026-11-17 운영)'''
+    now = datetime(2026, 11, 17, 17, 40, 46, tzinfo = KST)
+    raw = {"mode": "regular", "scheduled_time": "<aws.scheduler.scheduled-time>"}
+    assert lh.parse_event(raw, now)["now"] == now
+    s3 = FakeS3()
+    out = run(raw, s3, config, ref_df, now)
+    assert out["written"][-1] == "20261117T084000Z"
+
