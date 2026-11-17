@@ -53,6 +53,21 @@ spark.read.option("snapshot-id", 1234567890123456789).table("glue_catalog.tms_si
 - 같은 `snapshot_id`로 읽으면 이후 갱신과 관계없이 같은 행과 값이 나온다(SC-005).
 - 오래된 버전 정리를 하기 전까지 모든 버전이 남아 있다. 정리 규칙을 정하면 이 문서에 보존 기간을 적는다.
 
+## 3-1. 계약 검사를 통과한 버전 읽기 (spec 010)
+
+매일 갱신 뒤 계약 검사가 같은 범위를 검사하고 결과를 `silver2/_runs/ktms_ml_ready_check/`에 남긴다. 검사는 갱신이 커밋된 **뒤**에 돌아 위반 데이터를 되돌리지 않는다. 그래서 학습은 **마지막으로 통과한 `snapshot_id`**로 고정한다.
+
+```bash
+# 가장 최근 통과 기록 (파일 이름이 시작 시각순)
+aws s3 ls s3://smokestack-tms-raw-952900391026/silver2/_runs/ktms_ml_ready_check/ | tail -5
+aws s3 cp s3://smokestack-tms-raw-952900391026/silver2/_runs/ktms_ml_ready_check/<파일>.json - \
+  | python -c "import json,sys; r=json.load(sys.stdin); print(r['result'], r['range'], r['snapshot_id'])"
+```
+
+- `result`가 `passed`인 가장 최근 기록의 `snapshot_id`를 §3의 방법으로 읽는다.
+- `violation`이면 그 기록의 `violations`에 무엇이 어긋났는지 있다. 그 버전으로 학습하지 않고 A에게 알린다.
+- 학습 기록에 테이블 이름, `snapshot_id`, 검사 기록 파일 이름을 함께 남긴다.
+
 ## 4. 갱신 규칙 (읽는 쪽이 알아야 할 것)
 
 - **갱신 시각**: 매일 03:00 KST에 시작해 수 분 안에 끝난다. 끝난 시각은 `$snapshots`의 `committed_at`으로 알 수 있다.
