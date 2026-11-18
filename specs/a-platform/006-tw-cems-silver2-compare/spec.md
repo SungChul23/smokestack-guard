@@ -133,6 +133,14 @@ C·E가 Athena에서 `tms_silver.*`와 `tms_silver2.*`를 비교해 학습에 �
 | `ratio_rolling_mean_1h` / `_3h` | 7.67e-13 / 2.27e-13 |
 | `ratio_rolling_std_3h` | 5.96e-06 (허용 1e-5, 005 R5) |
 
+### `data_source` 컬럼 추가 뒤 다시 생성 (2026-11-15)
+
+ML-ready 계약에 `data_source`(string)가 추가되어(#48) 36컬럼이 되었다. 카탈로그(`infra/stacks/tms-silver/main.tf` `ml_ready_columns`)에 컬럼을 더하고 `tms_silver2.tw_cems_ml_ready`를 다시 만들었다.
+
+- build: 18,436,379행, `data_source`는 모두 `tw_cems`
+- compare: `passed=True`, 행 수·키 일치(`only_ours`·`only_theirs` 0), 최대 차이는 위 표와 같다. `data_source`는 피처가 아니라서 비교에서 뺀다.
+- 옛 `tms_silver.tw_cems_ml_ready`도 같은 컬럼 목록을 쓰므로 카탈로그는 36컬럼이 되지만, 다시 만들지 않아 `data_source`는 null이다.
+
 ## Assumptions
 
 - 정답지: `s3://smokestack-cems-local-eda-952900391026/tw_cems_ml_ready_fixed/part.parquet` (C가 bronze2로 만든 pandas v2 결과, 1.06GB).

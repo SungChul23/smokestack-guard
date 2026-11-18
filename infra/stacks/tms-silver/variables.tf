@@ -43,3 +43,78 @@ variable "silver2_ml_ready_reference" {
   type        = string
   default     = "s3://smokestack-cems-local-eda-952900391026/tw_cems_ml_ready_fixed/part.parquet"
 }
+
+# ---------------------------------------------------------------------------
+# K-TMS Silver·ML-ready (008)
+# ---------------------------------------------------------------------------
+
+variable "ktms_schedule_enabled" {
+  description = "K-TMS 매일 03:00 KST 실행 스케줄을 켤지. 처음 전체 생성(10-30 ~ 11-12)과 PR #45 수치 비교를 마치고 2026-11-13에 켰다 (008 quickstart §7). 잠시 멈추려면 TF_VAR_ktms_schedule_enabled=false"
+  type        = bool
+  default     = true
+}
+
+variable "ktms_worker_type" {
+  description = "K-TMS Silver·ML-ready Job의 워커 종류. 계산은 driver 한 대의 pandas가 하므로 수보다 크기(메모리)가 중요하다. G.2X = driver 32GB, DPU당 2배 비용. 백필에서 메모리가 부족할 때만 TF_VAR_ktms_worker_type=G.2X로 잠깐 올린다"
+  type        = string
+  default     = "G.1X"
+
+  validation {
+    condition     = contains(["G.1X", "G.2X"], var.ktms_worker_type)
+    error_message = "ktms_worker_type은 G.1X 또는 G.2X여야 한다."
+  }
+}
+
+variable "ktms_worker_count" {
+  description = "K-TMS Silver·ML-ready Job의 워커 수. 계산은 driver의 pandas가 하므로 늘려도 빨라지지 않는다. Glue 최소값 2"
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = var.ktms_worker_count >= 2 && var.ktms_worker_count <= 4
+    error_message = "ktms_worker_count는 2~4 사이여야 한다."
+  }
+}
+
+# ---------------------------------------------------------------------------
+# K-TMS ML-ready 계약 검사 (010)
+# ---------------------------------------------------------------------------
+
+variable "ktms_check_mode" {
+  description = "계약 위반 시 동작. observe = 알림만 보내고 실행은 성공(첫 배포 기본), block = 알림 뒤 실행 실패. 매일 실행 7번 동안 오탐이 없으면 block으로 바꾼다 (010 quickstart §7)"
+  type        = string
+  default     = "observe"
+
+  validation {
+    condition     = contains(["observe", "block"], var.ktms_check_mode)
+    error_message = "ktms_check_mode는 observe 또는 block이어야 한다."
+  }
+}
+
+variable "pandas_layer_arn" {
+  description = "AWS SDK for pandas 관리형 레이어(Python 3.12) ARN. 계약 검사 Lambda가 pandas·numpy·awswrangler를 쓴다. apply 전에 있는지 확인한다 (010 quickstart §2)"
+  type        = string
+  default     = "arn:aws:lambda:ap-northeast-2:336392948345:layer:AWSSDKPandas-Python312:18"
+}
+
+variable "athena_workgroup" {
+  description = "계약 검사가 ML-ready를 읽을 Athena 워크그룹 (tms-eda 스택이 관리, 결과는 EDA 버킷 athena-results/)"
+  type        = string
+  default     = "tms-eda"
+}
+
+variable "eda_bucket_name" {
+  description = "Athena 결과가 저장되는 EDA 버킷 이름 (tms-eda 스택이 관리). 계약 검사는 athena-results/에만 쓴다"
+  type        = string
+  default     = "smokestack-tms-eda-952900391026"
+}
+
+# ---------------------------------------------------------------------------
+# 학습용 합성 K-TMS (011)
+# ---------------------------------------------------------------------------
+
+variable "ktms_synth_schedule_enabled" {
+  description = "합성 K-TMS 매일 갱신(03:30 KST, source=ktms_synth)을 켤지. 합성 백필·전체 생성을 마치고 2026-11-17에 켰다 (011 T030). 잠시 멈추려면 TF_VAR_ktms_synth_schedule_enabled=false"
+  type        = bool
+  default     = true
+}

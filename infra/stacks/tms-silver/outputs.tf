@@ -57,3 +57,22 @@ output "silver2_database_name" {
   description = "비교용 Silver2 카탈로그 DB 이름 (Athena: tms_silver2.tw_cems, tms_silver2.tw_cems_ml_ready)"
   value       = aws_glue_catalog_database.silver2.name
 }
+
+# ---------------------------------------------------------------------------
+# K-TMS (008)
+# ---------------------------------------------------------------------------
+
+output "ktms_state_machine_arn" {
+  description = "K-TMS Silver·ML-ready 상태 머신 ARN (run_ktms.py --state-machine-arn 기본값과 같다)"
+  value       = aws_sfn_state_machine.ktms.arn
+}
+
+output "ktms_glue_job_names" {
+  description = "K-TMS Glue Job 이름 (Silver, ML-ready)"
+  value       = [aws_glue_job.ktms_silver.name, aws_glue_job.ktms_ml_ready.name]
+}
+
+output "ktms_schedule_state" {
+  description = "매일 03:00 KST 스케줄 상태 (ENABLED/DISABLED)"
+  value       = aws_scheduler_schedule.ktms_daily.state
+}

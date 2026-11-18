@@ -54,7 +54,7 @@ spec의 기본값과 열린 항목을 구현 결정으로 바꾼 기록이다. �
   - `pull_request`: 테스트·빌드만. `push` to `main`: OIDC로 배포 역할을 받아 배포.
   - api·agent: `docker build`(linux/amd64) → ECR push(태그 = 커밋 SHA) → SSM 파라미터 `/tms/app/<앱>/image-tag` 갱신 → 태그 `tms:app=<앱>`인 실행 중 인스턴스 수를 세어 0이면 종료, 아니면 `ssm send-command`(`AWS-RunShellScript`, `/opt/tms/deploy.sh`) 후 결과 대기.
   - web: `npm ci && npm run build` → `aws s3 sync`(해시 파일 `Cache-Control: max-age=31536000, immutable`, `index.html`은 `no-cache`) → `index.html`만 CloudFront 무효화.
-  - 배포 역할 신뢰 조건: `token.actions.githubusercontent.com:sub = repo:SungChul23/smokestack-guard:ref:refs/heads/main`, `aud = sts.amazonaws.com`.
+  - 배포 역할 신뢰 조건: `token.actions.githubusercontent.com:sub` = `repo:SungChul23/smokestack-guard:ref:refs/heads/main` 또는 변하지 않는 형식 `repo:SungChul23@143672987/smokestack-guard@1437820168:ref:refs/heads/main`(저장소 설정 `use_immutable_subject`가 켜져 있어 실제로는 이쪽이 온다), `aud = sts.amazonaws.com`.
 - **이유**: spec FR-015·016, US4. 서버 0대일 때도 실패하지 않고 태그만 기록한다.
 - **버린 대안**: CodeDeploy(설정이 많음), 서버가 주기적으로 새 태그를 확인(배포가 느리고 실패를 CI에서 못 봄).
 

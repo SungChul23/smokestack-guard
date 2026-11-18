@@ -8,7 +8,7 @@
   latest.json이 없으면 마지막 build는 실패했거나 진행 중이다.
 
 --mode compare
-- 출력과 정답지(C의 pandas 결과)를 35컬럼 비교해 compare/<ts>.json을 쓴다.
+- 출력과 정답지(C의 pandas 결과)를 비교해(키와 data_source를 뺀 32컬럼) compare/<ts>.json을 쓴다.
   불일치가 있어도 Job은 성공한다.
 
 로그에는 경로·건수·버전만 남기고 값은 남기지 않는다.

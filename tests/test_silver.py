@@ -95,6 +95,27 @@ class KtmsSilverTests(unittest.TestCase):
         self.assertEqual(df["nox_mesure_value"].tolist(), ["1"])
         self.assertTrue(ktms.read_bronze("b", s3=self.fake_s3({failed: []}, unfinished=[failed])).empty)
 
+    def test_read_bronze_prefix_reads_another_root_only(self):
+        """A spec 011: the synthetic training root has the same layout; the default stays tms_cleansys/."""
+        from datetime import date
+
+        real = {"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "mesure_dt": "2026-11-02 09:00", "nox_mesure_value": "10", "nox_exhst_perm_stdr_value": "50"}
+        synth = {"area_nm": "합성지역", "fact_manage_nm": "합성사업장-T-20261102-NOX-SPIKE-001", "stack_code": "SYN-T-20261102-NOX-SPIKE-001",
+                 "mesure_dt": "2026-11-02 09:00", "nox_mesure_value": "47.50", "nox_exhst_perm_stdr_value": "50"}
+        s3 = self.fake_s3({
+            "tms_cleansys/ingest_date=2026-11-02/hour=01/run_ts=20261102T011000Z/snapshot.json.gz": [real],
+            "tms_synthetic_train/ingest_date=2026-11-02/hour=01/run_ts=20261102T011000Z/snapshot.json.gz": [synth],
+        })
+        default = ktms.read_bronze("b", date(2026, 11, 2), date(2026, 11, 2), s3=s3)
+        self.assertEqual(default["stack_code"].tolist(), ["1"])
+        df = ktms.read_bronze("b", date(2026, 11, 2), date(2026, 11, 2), s3=s3, prefix="tms_synthetic_train/")
+        self.assertEqual(df["stack_code"].tolist(), ["SYN-T-20261102-NOX-SPIKE-001"])
+        out = ktms.to_silver(df)
+        nox = out[out["item"] == "nox"].iloc[0]
+        self.assertEqual((nox["status"], round(nox["ratio"], 3)), ("ok", 0.95))
+        with self.assertRaises(ValueError):
+            ktms.read_bronze("b", s3=s3, prefix="tms_synthetic_train")
+
     def test_values_with_a_thousands_separator_are_kept(self):
         base = {"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "snapshot": 0, "nox_exhst_perm_stdr_value": "42.5"}
         df = pd.DataFrame([

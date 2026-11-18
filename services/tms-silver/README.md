@@ -46,7 +46,7 @@ python run_silver.py --only-missing                          # 실행 기록이 
 
 ## ML-ready (005)
 
-Silver(`silver/tw_cems/`) 36개월 전체를 읽어 학습용 35컬럼 ML-ready(`silver/tw_cems_ml_ready/`)를 만든다.
+Silver(`silver/tw_cems/`) 36개월 전체를 읽어 학습용 36컬럼 ML-ready(`silver/tw_cems_ml_ready/`)를 만든다.
 - 규칙의 기준은 C의 `src/smokestack_guard/silver/ml_ready.py`(pandas)다. Spark 구현은 `ml_ready_spark.py`이고, 상수는 그 모듈에서 가져온다.
 - 빈 슬롯을 건너뛰지 않도록 `lag()` 대신 30분 슬롯 번호 위의 범위 윈도우(`rangeBetween`)로 계산한다.
 - spec·plan: [`specs/a-platform/005-tw-cems-ml-ready-spark/`](../../specs/a-platform/005-tw-cems-ml-ready-spark/)
@@ -54,10 +54,10 @@ Silver(`silver/tw_cems/`) 36개월 전체를 읽어 학습용 35컬럼 ML-ready(
 | 파일 | 하는 일 |
 |---|---|
 | `ml_ready_spark.py` | 규칙(정규화, 피처, 라벨), 정답지 읽기, 결과 비교 |
-| `glue_tw_cems_ml_ready.py` | Glue 진입 스크립트. `--mode build`(생성) / `--mode compare`(정답지와 35컬럼 비교) |
+| `glue_tw_cems_ml_ready.py` | Glue 진입 스크립트. `--mode build`(생성) / `--mode compare`(정답지와 비교. 키와 `data_source`를 뺀 32컬럼) |
 | `run_ml_ready.py` | 사람이 실행하는 명령. 1회 실행 후 실행 기록·비용 출력. 자동 재시도 없음 |
 
-테스트(`tests/test_ml_ready_spark.py`)는 같은 가짜 Silver에 pandas `to_ml_ready`를 돌린 결과와 35컬럼을 비교한다. C의 `ml_ready.py`가 바뀌면 CI에서 차이를 잡는다.
+테스트(`tests/test_ml_ready_spark.py`)는 같은 가짜 Silver에 pandas `to_ml_ready`를 돌린 결과와 36컬럼을 비교한다(`data_source`는 비교에서 뺀다). C의 `ml_ready.py`가 바뀌면 CI에서 차이를 잡는다.
 
 ```bash
 python run_ml_ready.py --mode build      # 생성 (기본 파일 6개)
@@ -89,3 +89,68 @@ python run_ml_ready.py --mode compare --job-name tms-silver2-tw-cems-ml-ready --
 
 - 조회: Athena `tms_silver2.tw_cems`, `tms_silver2.tw_cems_ml_ready` (워크그룹 `tms-eda`)
 - compare 정답지: C가 같은 bronze2로 만든 pandas 결과 `s3://smokestack-cems-local-eda-952900391026/tw_cems_ml_ready_fixed/part.parquet` (변수 `silver2_ml_ready_reference`)
+
+## K-TMS Silver·ML-ready (008) — Iceberg, 매일 갱신
+
+K-TMS 수집 원본(`tms_cleansys/`, `_SUCCESS` 있는 폴더)을 매일 03:00 KST에 끝난 최근 2일만 다시 계산해 Iceberg 테이블 두 개를 갱신한다.
+
+```
+EventBridge Scheduler(03:00 KST) → Step Functions tms-silver2-ktms
+   ├─ Glue tms-silver2-ktms           tms_cleansys/ → tms_silver2.ktms           (9컬럼, KST 측정일 파티션)
+   └─ Glue tms-silver2-ktms-ml-ready  tms_silver2.ktms → tms_silver2.ktms_ml_ready (36컬럼 = tw_cems_ml_ready)
+   실패: 단계마다 재시도 1회 → SNS tms-collector-alerts
+```
+
+- 계산은 C의 `src/smokestack_guard/silver/ktms.py`, `ml_ready.py`를 수정 없이 driver의 pandas로 부른다. Spark는 Iceberg 읽기·쓰기에만 쓴다.
+- spec·plan: [`specs/a-platform/008-ktms-silver-pipeline/`](../../specs/a-platform/008-ktms-silver-pipeline/), 인프라: `infra/stacks/tms-silver/ktms.tf`
+
+| 파일 | 하는 일 |
+|---|---|
+| `ktms_pipeline.py` | 공통: 처리 범위(`auto` = 끝난 최근 2일), 원본·ML-ready 입력 범위, 테이블 DDL, 범위 교체 쓰기, 실행 기록 |
+| `glue_ktms_silver.py` | Silver 잡. 원본 0행·결과 0행이면 쓰기 전에 실패. 한 번에 최대 7일 |
+| `glue_ktms_ml_ready.py` | ML-ready 잡. Silver를 대상 날짜 앞 150분 ~ 뒤 60분까지 읽어 계산하고 대상 날짜만 쓴다 |
+| `run_ktms.py` | 사람이 실행: `backfill`(처음 전체 생성), `rerun`(범위 지정), `runs`(실행 기록 표) |
+
+테스트: Iceberg 테스트는 jar를 붙인 Spark 세션이 따로 필요해서 두 번 나눠 돌린다.
+
+```bash
+pytest -q -m "not iceberg"   # 단위 (범위 계산, ML-ready 앞뒤 범위 = 전체 계산, 상태 머신 정의, run_ktms)
+pytest -q -m iceberg         # Iceberg 통합 (처음 한 번 Maven에서 iceberg-spark-runtime 1.7.1을 받는다)
+```
+
+실행 (사람, WSL):
+
+```bash
+python run_ktms.py backfill --from 2026-10-30 --to 2026-11-12 --dry-run   # Silver 5일 묶음 → ML-ready 전체
+python run_ktms.py backfill --from 2026-10-30 --to 2026-11-12
+python run_ktms.py rerun --from 2026-11-05 --to 2026-11-07 [--stage all|silver|ml_ready]
+python run_ktms.py runs --table ktms --last 5
+```
+
+- 매일 스케줄은 전체 생성(10-30 ~ 11-12)과 PR #45 수치 비교를 마친 뒤 켰다(2026-11-13, `ktms_schedule_enabled` 기본값 true). 잠시 멈추려면 `TF_VAR_ktms_schedule_enabled=false`로 apply한다.
+- 실행 기록: `silver2/_runs/ktms/`, `silver2/_runs/ktms_ml_ready/` (`<시작 UTC>_<job_run_id>.json`, 실패한 시도도 남는다)
+
+**읽기 (E·D):** S3의 Parquet 파일을 직접 읽지 않는다. 지난 버전 파일이 함께 있어 행이 중복된다. 카탈로그로 읽고, 학습에 쓴 버전은 `snapshot_id`로 기록한다.
+
+```sql
+SELECT * FROM tms_silver2.ktms_ml_ready WHERE classification_eligible;            -- 최신본 (워크그룹 tms-eda)
+SELECT snapshot_id, committed_at FROM "tms_silver2"."ktms_ml_ready$snapshots";   -- 버전 목록
+SELECT * FROM tms_silver2.ktms_ml_ready FOR VERSION AS OF <snapshot_id>;          -- 그 버전 그대로
+```
+
+자세한 읽는 법: [`contracts/ktms-tables.md`](../../specs/a-platform/008-ktms-silver-pipeline/contracts/ktms-tables.md)
+
+## K-TMS ML-ready 계약 검사 (010) — Lambda
+
+매일 갱신의 ML-ready 다음 단계에서 `tms-ktms-ml-ready-check` Lambda(`lambda_ktms_ml_ready_check.py`)가 같은 범위·스냅샷을 Athena로 읽어 C의 `ml_ready_check` 규칙으로 판정한다. 읽기 전용이고, 결과는 `silver2/_runs/ktms_ml_ready_check/`에 남는다.
+
+```bash
+# 검사만, 알림 없음 (Glue 잡·테이블·메일 영향 없음)
+aws stepfunctions start-execution --region ap-northeast-2 \
+  --state-machine-arn arn:aws:states:ap-northeast-2:952900391026:stateMachine:tms-silver2-ktms \
+  --input '{"stage":"check","start_date":"2026-11-15","end_date":"2026-11-16","notify":false}'
+```
+
+- 모드: `ktms_check_mode` = `observe`(기본, 위반이어도 실행 성공) | `block`(위반이면 실행 실패)
+- 메일 제목: `[tms] K-TMS contract violation - …` / `… contract check: no rows …` / `… contract check failed`
+- 시험 순서와 전환: `specs/a-platform/010-ml-ready-contract-check/quickstart.md`

@@ -39,12 +39,12 @@ def _s3():
     return boto3.client("s3", region_name=REGION)
 
 
-def _keys(s3, bucket: str, start: date | None, end: date | None) -> list[str]:
+def _keys(s3, bucket: str, start: date | None, end: date | None, prefix: str = PREFIX) -> list[str]:
     if start is None and end is None:
-        prefixes = [PREFIX]
+        prefixes = [prefix]
     else:
         start, end = start or end, end or start
-        prefixes = [f"{PREFIX}ingest_date={start + timedelta(days=n)}/" for n in range((end - start).days + 1)]
+        prefixes = [f"{prefix}ingest_date={start + timedelta(days=n)}/" for n in range((end - start).days + 1)]
     keys = [
         o["Key"]
         for prefix in prefixes
@@ -57,10 +57,15 @@ def _keys(s3, bucket: str, start: date | None, end: date | None) -> list[str]:
     )
 
 
-def read_bronze(bucket: str = BUCKET, start: date | None = None, end: date | None = None, s3=None) -> pd.DataFrame:
+def read_bronze(
+    bucket: str = BUCKET, start: date | None = None, end: date | None = None, s3=None, prefix: str = PREFIX
+) -> pd.DataFrame:
+    """prefix: same folder layout under another root, e.g. "tms_synthetic_train/" (synthetic training data, A spec 011)."""
+    if not prefix.endswith("/"):
+        raise ValueError(f"prefix must end with '/': {prefix!r}")
     s3 = s3 or _s3()
     frames = []
-    for i, key in enumerate(_keys(s3, bucket, start, end)):
+    for i, key in enumerate(_keys(s3, bucket, start, end, prefix)):
         body = json.loads(gzip.decompress(s3.get_object(Bucket=bucket, Key=key)["Body"].read()))
         df = pd.DataFrame(body["response"]["body"]["items"])
         df["snapshot"] = i
