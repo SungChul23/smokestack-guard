@@ -12,10 +12,10 @@ def train_n1_classifier(data: pd.DataFrame | str | PathLike, *, experiment_id=No
     """N1-C 모델과 분할별 X·y, 분할 메타데이터를 반환한다."""
     if experiment_id is not None:
         from importlib.metadata import version
-        if experiment_id != "N1-C-V1.1-D4":
+        if experiment_id not in ("N1-C-V1.1-D4", "N1-C-V1.2-W10"):
             raise ValueError("지원하지 않는 N1-C 실험입니다")
         if version("xgboost") != "3.4.1":
-            raise RuntimeError("D4는 V1.0과 같은 XGBoost 3.4.1 환경이 필요합니다")
+            raise RuntimeError("N1-C 후보는 V1.0과 같은 XGBoost 3.4.1 환경이 필요합니다")
     # 전체 입력을 전달해 공통 시간 경계를 유지하고 분류 적격 행만 준비한다.
     datasets, metadata = prepare_datasets(data, task="classification", pollutant="nox")
     train = datasets["train"]
@@ -28,7 +28,8 @@ def train_n1_classifier(data: pd.DataFrame | str | PathLike, *, experiment_id=No
 
     # 확정 Feature 순서와 X-y 대응을 그대로 사용한다. 나머지 설정은 기본값이다.
     model = XGBClassifier(random_state=42, **(
-        {"max_depth": 4} if experiment_id else {}
+        {"scale_pos_weight": 10.0} if experiment_id == "N1-C-V1.2-W10"
+        else {"max_depth": 4} if experiment_id else {}
     ))
     _log_memory("N1-C/fit_before")
     model.fit(train["X"], train["y"])
@@ -43,8 +44,11 @@ def train_n1_classifier(data: pd.DataFrame | str | PathLike, *, experiment_id=No
         }
         metadata["effective_booster_config"] = json.loads(model.get_booster().save_config())
         metadata["experiment"] = {
-            "experiment_id": experiment_id, "model_version": "V1.1",
-            "changed_only": {"max_depth": 4}, "baseline_effective_max_depth": 6,
+            "experiment_id": experiment_id,
+            "model_version": "V1.2" if experiment_id == "N1-C-V1.2-W10" else "V1.1",
+            "changed_only": ({"scale_pos_weight": 10.0}
+                             if experiment_id == "N1-C-V1.2-W10" else {"max_depth": 4}),
+            "baseline_effective_max_depth": 6,
             "xgboost_version": "3.4.1",
             "nonfinite_parameter_encoding": "nan/inf strings represent parameter markers only",
         }

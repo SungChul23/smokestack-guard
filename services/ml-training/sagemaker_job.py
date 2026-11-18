@@ -75,10 +75,10 @@ def main(argv=None):
     parser.add_argument("--role-arn", required=True, type=_role_arn)
     parser.add_argument("--max-run", type=int, default=DEFAULT_MAX_RUN)
     parser.add_argument("--instance-type", default=INSTANCE_TYPE)
-    parser.add_argument("--experiment-id", choices=("S1-C-V1.1-W5", "N1-C-V1.1-D4"))
+    parser.add_argument("--experiment-id", choices=("S1-C-V1.1-W5", "N1-C-V1.1-D4", "N1-C-V1.2-W10"))
     parser.add_argument("--submit", action="store_true")
     args = parser.parse_args(argv)
-    experiment_models = {"S1-C-V1.1-W5": "S1-C", "N1-C-V1.1-D4": "N1-C"}
+    experiment_models = {"S1-C-V1.1-W5": "S1-C", "N1-C-V1.1-D4": "N1-C", "N1-C-V1.2-W10": "N1-C"}
     if args.experiment_id and args.model_id != experiment_models[args.experiment_id]:
         parser.error("실험 ID와 모델이 일치해야 합니다")
     if args.max_run <= 0:
@@ -99,7 +99,8 @@ def main(argv=None):
         parser.error("입력과 출력은 서로 포함되지 않는 별도 S3 경로로 지정하세요")
 
     job_name, model_version, tags = _job_identity(
-        args.model_id, model_version="1.1" if args.experiment_id else None
+        args.model_id, model_version=("1.2" if args.experiment_id == "N1-C-V1.2-W10"
+                                     else "1.1" if args.experiment_id else None)
     )
     hyperparameters = {"model-id": args.model_id, "model-version": model_version}
     if args.experiment_id:
@@ -115,7 +116,8 @@ def main(argv=None):
         "model_id": args.model_id,
         "model_version": f"V{model_version}",
         "experiment_id": args.experiment_id,
-        "changed_only": ({"max_depth": 4} if args.experiment_id == "N1-C-V1.1-D4"
+        "changed_only": ({"scale_pos_weight": 10.0} if args.experiment_id == "N1-C-V1.2-W10"
+                         else {"max_depth": 4} if args.experiment_id == "N1-C-V1.1-D4"
                          else {"scale_pos_weight": 5.0} if args.experiment_id else {}),
         "hyperparameters": hyperparameters,
         "required_xgboost_version": "3.4.1" if args.experiment_id else None,

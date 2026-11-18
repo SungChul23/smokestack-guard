@@ -26,15 +26,16 @@ def main(argv=None) -> dict:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-id", required=True, choices=tuple(TRAINERS))
     parser.add_argument("--model-version", help="제출 코드가 전달하는 major.minor 실험 버전")
-    parser.add_argument("--experiment-id", choices=("S1-C-V1.1-W5", "N1-C-V1.1-D4"))
+    parser.add_argument("--experiment-id", choices=("S1-C-V1.1-W5", "N1-C-V1.1-D4", "N1-C-V1.2-W10"))
     parser.add_argument("--input-path", default=os.environ.get("SM_CHANNEL_TRAIN"))
     parser.add_argument("--output-dir", default=os.environ.get("SM_MODEL_DIR"))
     args = parser.parse_args(argv)
-    experiment_models = {"S1-C-V1.1-W5": "S1-C", "N1-C-V1.1-D4": "N1-C"}
+    experiment_models = {"S1-C-V1.1-W5": "S1-C", "N1-C-V1.1-D4": "N1-C", "N1-C-V1.2-W10": "N1-C"}
+    expected_version = "1.2" if args.experiment_id == "N1-C-V1.2-W10" else "1.1"
     if args.experiment_id and (
-        args.model_id != experiment_models[args.experiment_id] or args.model_version != "1.1"
+        args.model_id != experiment_models[args.experiment_id] or args.model_version != expected_version
     ):
-        parser.error("실험 ID에 맞는 모델과 --model-version 1.1 조합만 허용합니다")
+        parser.error("실험 ID에 맞는 모델·버전 조합만 허용합니다")
     if args.model_version is not None:
         import re
         if not re.fullmatch(r"\d+\.\d+", args.model_version):
@@ -91,6 +92,11 @@ def main(argv=None) -> dict:
         _log_memory(f"{args.model_id}/validation_before")
         probability = model.predict_proba(validation["X"])[:, positive_column]
         metrics["validation"] = select_f2_threshold(validation["y"], probability)
+        if args.experiment_id == "N1-C-V1.2-W10":
+            from evaluation import select_precision_threshold_at_recall
+            metrics["validation_recall65"] = select_precision_threshold_at_recall(
+                validation["y"], probability, 0.65
+            )
         threshold = metrics["validation"]["threshold"]
         del probability
         _log_memory(f"{args.model_id}/validation_after")
@@ -98,6 +104,12 @@ def main(argv=None) -> dict:
         _log_memory(f"{args.model_id}/test_before")
         probability = model.predict_proba(test["X"])[:, positive_column]
         metrics["test"] = evaluate_classifier(test["y"], probability, threshold)
+        if args.experiment_id == "N1-C-V1.2-W10":
+            recall_threshold = metrics["validation_recall65"]["threshold"]
+            metrics["test_recall65_policy"] = evaluate_classifier(
+                test["y"], probability, recall_threshold
+            )
+            metadata["classification_threshold_recall65"] = recall_threshold
         metadata["classification_threshold"] = threshold
         del probability
         _log_memory(f"{args.model_id}/test_after")

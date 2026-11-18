@@ -82,6 +82,29 @@ def select_f2_threshold(y_true, y_probability) -> dict:
     return result
 
 
+def select_precision_threshold_at_recall(y_true, y_probability, minimum_recall=0.65) -> dict:
+    """Validation 전용: Recall 하한 내 Precision 최대, 동점은 Recall·낮은 임계값 우선."""
+    truth, probability = _validate_pair(y_true, y_probability, classification=True)
+    if np.unique(truth).size != 2:
+        raise ValueError("Validation 정답에 두 클래스가 모두 필요합니다")
+    if not np.isfinite(minimum_recall) or not 0 < minimum_recall <= 1:
+        raise ValueError("minimum_recall은 0 초과 1 이하여야 합니다")
+    thresholds, inverse, counts = np.unique(probability, return_inverse=True, return_counts=True)
+    positives = np.bincount(inverse[truth == 1], minlength=len(thresholds))
+    tp = positives[::-1].cumsum()[::-1]
+    predicted = counts[::-1].cumsum()[::-1]
+    total = int(positives.sum())
+    floor = Fraction(str(minimum_recall))
+    eligible = np.flatnonzero(tp * floor.denominator >= total * floor.numerator)
+    best = max(eligible, key=lambda i: (
+        Fraction(int(tp[i]), int(predicted[i])), int(tp[i]), -float(thresholds[i])
+    ))
+    result = evaluate_classifier(truth, probability, float(thresholds[best]))
+    result.update(selection_split="validation", minimum_recall=minimum_recall,
+                  selection_rule="maximum_precision_at_minimum_recall")
+    return result
+
+
 def evaluate_classifier(y_true, y_probability, threshold) -> dict:
     """고정 임계값으로 평가한다. 양성은 probability >= threshold이다.
 
