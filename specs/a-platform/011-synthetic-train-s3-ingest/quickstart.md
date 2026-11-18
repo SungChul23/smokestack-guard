@@ -30,7 +30,7 @@ terraform plan    # 추가만: Lambda, 역할·정책, 로그 그룹, 스케줄 
 terraform apply
 ```
 
-- 스케줄은 `synthetic_schedule_enabled`(기본 false)로 꺼진 채 만들어진다. §4·§5를 확인한 뒤 켠다.
+- 처음 배포 때는 스케줄을 `synthetic_schedule_enabled=false`로 꺼 둔 채 만들고 §4·§5를 확인한 뒤 켰다. 2026-11-17 운영을 시작하며 기본값을 true로 바꿨다. 새 환경에서 처음부터 다시 만들 때는 `$env:TF_VAR_synthetic_schedule_enabled = "false"`로 꺼 두고 같은 순서를 따른다.
 
 ## 4. 슬롯 하나 (US1)
 

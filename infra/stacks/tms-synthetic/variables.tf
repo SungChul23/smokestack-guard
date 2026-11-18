@@ -17,7 +17,7 @@ variable "pandas_layer_arn" {
 }
 
 variable "synthetic_schedule_enabled" {
-  description = "30분 정기 적재(매 :10, :40 KST)와 매일 06:00 점검 스케줄을 켤지. 슬롯 하나·바이트 비교를 확인한 뒤 켠다 (011 quickstart §6)"
+  description = "30분 정기 적재(매 :10, :40 KST)와 매일 06:00 점검 스케줄을 켤지. 슬롯 하나·바이트 비교를 확인하고 2026-11-17에 켰다 (011 quickstart §6). 잠시 멈추려면 TF_VAR_synthetic_schedule_enabled=false"
   type        = bool
-  default     = false
+  default     = true
 }

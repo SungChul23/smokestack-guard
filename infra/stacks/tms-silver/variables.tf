@@ -114,7 +114,7 @@ variable "eda_bucket_name" {
 # ---------------------------------------------------------------------------
 
 variable "ktms_synth_schedule_enabled" {
-  description = "합성 K-TMS 매일 갱신(03:30 KST, source=ktms_synth)을 켤지. C의 read_bronze 경로 인자 머지와 합성 백필·전체 생성 뒤에 켠다 (011 T030)"
+  description = "합성 K-TMS 매일 갱신(03:30 KST, source=ktms_synth)을 켤지. 합성 백필·전체 생성을 마치고 2026-11-17에 켰다 (011 T030). 잠시 멈추려면 TF_VAR_ktms_synth_schedule_enabled=false"
   type        = bool
-  default     = false
+  default     = true
 }
