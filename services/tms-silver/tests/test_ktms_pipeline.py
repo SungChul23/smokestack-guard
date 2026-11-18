@@ -95,7 +95,7 @@ def test_default_prefix_passes():
 
 
 def test_other_prefix_needs_c_prefix_argument():
-    def read_bronze(bucket, start=None, end=None, s3=None):  # 지금의 C 함수 모양
+    def read_bronze(bucket, start=None, end=None, s3=None):  # 경로 인자가 없던 예전 C 함수 모양
         return None
 
     with pytest.raises(ValueError, match="C의 read_bronze에 경로 인자 필요"):
@@ -109,9 +109,9 @@ def test_other_prefix_passes_when_c_adds_argument():
     check_source_prefix("tms_synthetic/", read_bronze=read_bronze)
 
 
-def test_current_c_read_bronze_rejects_synthetic():
-    with pytest.raises(ValueError, match="경로 인자 필요"):
-        check_source_prefix("tms_synthetic/")
+def test_current_c_read_bronze_accepts_synthetic():
+    # 6c3c408에서 C의 read_bronze에 prefix 인자가 생겨 합성 원본 경로도 통과한다
+    check_source_prefix("tms_synthetic_train/")
 
 
 # ---------------------------------------------------------------------------

@@ -137,18 +137,28 @@ def test_bad_arguments_leave_failure_record(fake_s3, tmp_path):
     assert _record(tmp_path)["result"] == "failed"
 
 
-def test_synthetic_prefix_needs_c_change(iceberg_spark, fake_s3, tmp_path):
+def test_synthetic_prefix_reads_only_that_prefix(iceberg_spark, fake_s3, tmp_path):
+    # 6c3c408에서 C의 read_bronze에 prefix 인자가 생겨, 같은 잡이 합성 원본 경로만 읽는다
     _bronze(fake_s3)
     glue_ktms_silver.main(_args("tms_job.ktms_real", tmp_path), s3=fake_s3, now=RUN_AT)
     snap = latest_snapshot_id(iceberg_spark, "tms_job.ktms_real")
 
-    with pytest.raises(ValueError, match="C의 read_bronze에 경로 인자 필요"):
-        glue_ktms_silver.main(
-            _args("tms_job.ktms_synthetic", tmp_path, "--source_prefix", "tms_synthetic/"),
-            s3=fake_s3,
-            now=RUN_AT.replace(minute=2),
-        )
-    assert latest_snapshot_id(iceberg_spark, "tms_job.ktms_real") == snap
-    assert (
-        latest_snapshot_id(iceberg_spark, "tms_job.ktms_synthetic") is None
-    )  # 검사가 DDL보다 먼저
+    put_snapshot(
+        fake_s3,
+        BUCKET,
+        _utc(2026, 11, 11, 1, 10),
+        [stack_item(*A, "2026-11-11 10:00", nox="5")],
+        prefix="tms_synthetic_train/",
+    )
+    glue_ktms_silver.main(
+        _args("tms_job.ktms_synthetic", tmp_path, "--source_prefix", "tms_synthetic_train/"),
+        s3=fake_s3,
+        now=RUN_AT.replace(minute=2),
+    )
+
+    synth = iceberg_spark.table(qualified("tms_job.ktms_synthetic")).toPandas()
+    assert len(synth) >= 1  # 합성 원본의 한 슬롯만 들어오고 실측 원본은 읽지 않는다
+    assert set(synth["stack_code"]) == {"001"}
+    assert set(synth["ts_kst"]) == {datetime(2026, 11, 11, 10, 0)}
+    assert synth.loc[synth["item"] == "nox", "value"].tolist() == [5.0]
+    assert latest_snapshot_id(iceberg_spark, "tms_job.ktms_real") == snap  # 실측 테이블은 그대로
