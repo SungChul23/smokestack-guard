@@ -75,11 +75,12 @@ def main(argv=None):
     parser.add_argument("--role-arn", required=True, type=_role_arn)
     parser.add_argument("--max-run", type=int, default=DEFAULT_MAX_RUN)
     parser.add_argument("--instance-type", default=INSTANCE_TYPE)
-    parser.add_argument("--experiment-id", choices=("S1-C-V1.1-W5",))
+    parser.add_argument("--experiment-id", choices=("S1-C-V1.1-W5", "N1-C-V1.1-D4"))
     parser.add_argument("--submit", action="store_true")
     args = parser.parse_args(argv)
-    if args.experiment_id and args.model_id != "S1-C":
-        parser.error("S1-C-V1.1-W5는 S1-C에만 적용할 수 있습니다")
+    experiment_models = {"S1-C-V1.1-W5": "S1-C", "N1-C-V1.1-D4": "N1-C"}
+    if args.experiment_id and args.model_id != experiment_models[args.experiment_id]:
+        parser.error("실험 ID와 모델이 일치해야 합니다")
     if args.max_run <= 0:
         parser.error("--max-run은 양의 정수(초)여야 합니다")
 
@@ -114,7 +115,8 @@ def main(argv=None):
         "model_id": args.model_id,
         "model_version": f"V{model_version}",
         "experiment_id": args.experiment_id,
-        "changed_only": {"scale_pos_weight": 5.0} if args.experiment_id else {},
+        "changed_only": ({"max_depth": 4} if args.experiment_id == "N1-C-V1.1-D4"
+                         else {"scale_pos_weight": 5.0} if args.experiment_id else {}),
         "hyperparameters": hyperparameters,
         "required_xgboost_version": "3.4.1" if args.experiment_id else None,
         "training_job_name_example": job_name,

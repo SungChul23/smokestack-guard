@@ -1,4 +1,4 @@
-# 성공 S1-C V1.0 Job 로그의 실제 버전. W5만 사용하며 공통 requirements는 보존.
+# 성공 분류 V1.0 환경 고정. W5와 D4에서 재사용하며 공통 requirements는 보존.
 pandas==2.2.3
 numpy==2.5.1
 scikit-learn==1.9.0
