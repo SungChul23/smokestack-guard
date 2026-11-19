@@ -1,0 +1,20 @@
+# 성공 분류 V1.0 환경 고정. W5와 D4에서 재사용하며 공통 requirements는 보존.
+pandas==2.2.3
+numpy==2.5.1
+scikit-learn==1.9.0
+pyarrow==26.0.1
+xgboost==3.4.1
+joblib==1.5.3
+psutil==7.2.2
+scipy==1.18.0
+python-dateutil==2.9.0.post0
+pytz==2026.2
+tzdata==2026.3
+narwhals==2.24.0
+threadpoolctl==3.6.0
+six==1.17.0
+nvidia-nccl-cu13==2.32.6; platform_system == "Linux" and platform_machine == "x86_64"
+
+# B Athena 로더: 공식 3.18.0 의존성 범위가 A pandas/numpy/pyarrow 고정값을 포함함.
+# https://github.com/aws/aws-sdk-pandas/blob/3.18.0/pyproject.toml
+awswrangler==3.18.0
