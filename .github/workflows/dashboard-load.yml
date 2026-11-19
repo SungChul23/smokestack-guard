@@ -45,7 +45,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install
-        run: pip install "pandas>=2.2" numpy boto3 "pg8000==1.31.2" pytest ruff
+        run: pip install "pandas>=2.2" numpy boto3 "pg8000==1.31.2" "scramp==1.4.6" pytest ruff
 
       - name: Lint
         run: ruff check .

@@ -29,7 +29,7 @@
 ## 테스트
 
 ```bash
-python3.11 -m venv .venv && .venv/bin/pip install "pandas>=2.2" numpy boto3 "pg8000==1.31.2" pytest ruff
+python3.11 -m venv .venv && .venv/bin/pip install "pandas>=2.2" numpy boto3 "pg8000==1.31.2" "scramp==1.4.6" pytest ruff
 docker run -d --name tms-pg-test -e POSTGRES_PASSWORD=test -p 55432:5432 pgvector/pgvector:pg16
 TEST_PG_PASSWORD=test .venv/bin/python -m pytest -q    # TEST_PG_PASSWORD가 없으면 DB 테스트는 건너뜀
 .venv/bin/ruff check .

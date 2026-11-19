@@ -3,7 +3,7 @@ name = "tms-dashboard-load"
 version = "0.1.0"
 description = "대시보드용 K-TMS 관측 RDS 적재 (spec 012)"
 requires-python = ">=3.11"
-dependencies = ["pandas>=2.2", "boto3", "pg8000>=1.31"]
+dependencies = ["pandas>=2.2", "boto3", "pg8000==1.31.2", "scramp==1.4.6"]  # scramp 1.5는 pg8000 TLS 접속과 안 맞음
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff"]
