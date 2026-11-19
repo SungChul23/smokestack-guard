@@ -20,6 +20,8 @@ DB `tms`(RDS PostgreSQL 16, 009). 스키마 5개: `ref`(기준 정보), `obs`(�
 - UPSERT는 `value`, `limit_value`, `ratio_pct`, `status_code` 중 하나라도 다를 때만 갱신한다(`IS DISTINCT FROM`). 같으면 `loaded_at`도 바꾸지 않는다.
 - 행 수: 하루 약 18만~20만, 12월 중순까지 약 1,000만. 분할 없음.
 
+**지표 정의는 C의 `scripts/silver_metric_queries.sql`(용어·산식 사전 5.1절)을 따른다.** 진입 = 정상 칸 중 비율 ≥ 90%, 초과 = ≥ 100%, 극단값 = > 200%(평균·최대는 넣은 값과 뺀 값을 함께). 비율은 RDS에서 %(100 = 기준), Silver에서는 1.0 = 기준이다. 결측 비율을 C와 같게 내려면 분모에서 행 없는 칸(`n_missing`)을 뺀다.
+
 ## 2. `obs.daily_stack_summary` — 굴뚝·물질·일
 
 기본키 `(stack_key, item, obs_date)`. `obs_date`는 KST 날짜.
@@ -32,7 +34,8 @@ DB `tms`(RDS PostgreSQL 16, 009). 스키마 5개: `ref`(기준 정보), `obs`(�
 | `n_missing` | 48 − (그날 행 수). 행 자체가 없는 칸 |
 | `mean_value`, `max_value`, `max_at`, `min_value` | `ok` 행만, 0 포함 |
 | `mean_ratio_pct`, `max_ratio_pct` | `ok` 행만 |
-| `n_ge_90`, `n_ge_100`, `n_gt_100` | `ok` 행 중 비율 ≥90, ≥100, >100 칸 수 |
+| `n_entry`, `n_exceed`, `n_extreme` | `ok` 행 중 진입(≥90), 초과(≥100), 극단값(>200) 칸 수 |
+| `mean_ratio_pct_ex_extreme`, `max_ratio_pct_ex_extreme` | 극단값(>200)을 뺀 비율 평균·최대 (사전 보고 규칙: 넣은 값과 뺀 값을 함께) |
 | `limit_min`, `limit_max` | 그날 허용기준 범위(기준이 바뀐 날 구분) |
 | `computed_at` | 계산 시각 |
 
@@ -48,7 +51,7 @@ DB `tms`(RDS PostgreSQL 16, 009). 스키마 5개: `ref`(기준 정보), `obs`(�
 | `max_value` | 그 행의 측정값 |
 | `mean_ratio_pct` | 그날 전국 `ok` 행 평균 |
 | `n_stacks_reporting` | `ok` 행이 하나라도 있는 굴뚝 수 |
-| `n_stacks_ge_90`, `n_stacks_gt_100` | 그날 한 번이라도 ≥90, >100이었던 굴뚝 수 |
+| `n_stacks_entry`, `n_stacks_exceed` | 그날 한 번이라도 진입(≥90), 초과(≥100)였던 굴뚝 수 |
 | `computed_at` | |
 
 ## 4. `ref` — 기준 정보
@@ -106,7 +109,7 @@ WHERE m.measured_at >= $1 AND m.measured_at < $2;
 
 | 뷰 | 내용 |
 |---|---|
-| `obs.v_valid_measurement` | `status_code = 0`인 칸만. `near_limit`(≥90), `at_or_over_limit`(≥100), `over_limit`(>100), `obs_date` |
+| `obs.v_valid_measurement` | `status_code = 0`인 칸만. `is_entry`(≥90), `is_exceed`(≥100), `is_extreme`(>200), `obs_date` |
 | `obs.v_measurement_site` | 모든 상태의 칸 + `ref.v_stack`(사업장 코드·화면 id) + `ref.status_code`(상태 이름·표시 문구·설명). 시계열과 "빈칸 이유" 질문용 |
 
 Athena 뷰는 두지 않는다. NOx·SOx 외 물질이나 대만 비교 같은 요구가 생기면 같은 정의로 추가한다.

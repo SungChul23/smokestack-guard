@@ -96,14 +96,14 @@ def test_daily_stack_summary_counts_and_stats(pg):
     before = _count(pg, "SELECT count(*) FROM obs.measurement_30m")
     db.refresh_daily_summaries(pg, [date(2026, 11, 18)], NOW)
     s = pg.run("""SELECT n_ok, n_zero, n_no_signal, n_missing, max_value, max_at, min_value,
-                         n_ge_90, n_ge_100, n_gt_100, limit_min, limit_max
+                         n_entry, n_exceed, n_extreme, limit_min, limit_max
                   FROM obs.daily_stack_summary""")[0]
     assert s[:4] == [40, 1, 5, 3]  # US2-3: 정상 40, 미수신 5, 행 없음 3
     assert s[4] == 101.0 and s[5] == datetime(2026, 11, 18, 3, 30) and s[6] == 0.0
-    assert s[7:10] == [2, 1, 1]
+    assert s[7:10] == [2, 1, 0]  # 진입(≥90) 95·101, 초과(≥100) 101, 극단값(>200) 없음
     assert s[10:] == [100.0, 100.0]
     assert _count(pg, "SELECT count(*) FROM obs.measurement_30m") == before  # 관측은 안 바뀜
-    n = pg.run("SELECT max_ratio_pct, max_stack_key, n_stacks_reporting, n_stacks_gt_100 "
+    n = pg.run("SELECT max_ratio_pct, max_stack_key, n_stacks_reporting, n_stacks_exceed "
                "FROM obs.daily_national_summary")[0]
     assert n == [101.0, "서울특별시|가나다발전|001", 1, 1]
 
@@ -167,8 +167,8 @@ def test_app_role_cannot_write_obs_or_ref_but_can_write_app(pg):
     pg.run("SET ROLE tms_app")
     try:
         with pytest.raises(Exception, match="permission denied"):
-            pg.run("INSERT INTO obs.daily_national_summary (obs_date, item, n_stacks_reporting, n_stacks_ge_90, "
-                   "n_stacks_gt_100, computed_at) VALUES ('2026-11-18', 'nox', 0, 0, 0, now())")
+            pg.run("INSERT INTO obs.daily_national_summary (obs_date, item, n_stacks_reporting, n_stacks_entry, "
+                   "n_stacks_exceed, computed_at) VALUES ('2026-11-18', 'nox', 0, 0, 0, now())")
     finally:
         pg.run("RESET ROLE")
     pg.run("SET ROLE tms_app")
@@ -203,8 +203,8 @@ def test_semantic_views_filter_ok_and_join_site(pg):
                   ("001", "nox", "2026-11-18 10:30", 101.0, "ok"),
                   ("001", "nox", "2026-11-18 11:00", None, "no_signal")])
     db.upsert_measurements(pg, rows, "recent", NOW)
-    valid = pg.run("SELECT ratio_pct, near_limit, over_limit FROM obs.v_valid_measurement ORDER BY measured_at")
-    assert valid == [[95.0, True, False], [101.0, True, True]]  # 미수신 칸은 빠짐
+    valid = pg.run("SELECT ratio_pct, is_entry, is_exceed, is_extreme FROM obs.v_valid_measurement ORDER BY measured_at")
+    assert valid == [[95.0, True, False, False], [101.0, True, True, False]]  # 미수신 칸은 빠짐
     site = pg.run("SELECT site_id, frontend_stack_id, status, status_display FROM obs.v_measurement_site "
                   "ORDER BY measured_at")
     assert [r[0] for r in site] == ["112003"] * 3
@@ -214,3 +214,13 @@ def test_semantic_views_filter_ok_and_join_site(pg):
         assert _count(pg, "SELECT count(*) FROM obs.v_measurement_site") == 3  # 앱 계정이 읽을 수 있음
     finally:
         pg.run("RESET ROLE")
+
+
+def test_exceed_is_at_least_100_and_extreme_excluded_from_ex_stats(pg):
+    """C의 사전 정의: 초과 = 비율 ≥ 100%(정확히 100 포함), 극단값(> 200%)은 뺀 통계를 따로 낸다."""
+    rows = _day_rows("2026-11-18", ok=3, no_signal=0, values={0: 100.0, 1: 250.0, 2: 50.0})
+    db.upsert_measurements(pg, rows, "recent", NOW)
+    db.refresh_daily_summaries(pg, [date(2026, 11, 18)], NOW)
+    s = pg.run("SELECT n_exceed, n_extreme, max_ratio_pct, max_ratio_pct_ex_extreme, mean_ratio_pct_ex_extreme "
+               "FROM obs.daily_stack_summary")[0]
+    assert s == [2, 1, 250.0, 100.0, 75.0]

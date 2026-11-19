@@ -212,7 +212,8 @@ _STATUS_COUNTS = [
 _STACK_COLS = [
     "slots_expected", "n_ok", "n_zero", *[c for c, _ in _STATUS_COUNTS], "n_missing",
     "mean_value", "max_value", "max_at", "min_value", "mean_ratio_pct", "max_ratio_pct",
-    "n_ge_90", "n_ge_100", "n_gt_100", "limit_min", "limit_max", "computed_at",
+    "n_entry", "n_exceed", "n_extreme", "mean_ratio_pct_ex_extreme", "max_ratio_pct_ex_extreme",
+    "limit_min", "limit_max", "computed_at",
 ]
 _OK = "status_code = 0"
 _STACK_SUMMARY = f"""
@@ -235,7 +236,9 @@ SELECT stack_key, item, obs_date, {SLOTS_PER_DAY},
   max(ratio_pct) FILTER (WHERE {_OK}),
   count(*) FILTER (WHERE {_OK} AND ratio_pct >= 90),
   count(*) FILTER (WHERE {_OK} AND ratio_pct >= 100),
-  count(*) FILTER (WHERE {_OK} AND ratio_pct > 100),
+  count(*) FILTER (WHERE {_OK} AND ratio_pct > 200),
+  avg(ratio_pct) FILTER (WHERE {_OK} AND ratio_pct <= 200),
+  max(ratio_pct) FILTER (WHERE {_OK} AND ratio_pct <= 200),
   min(limit_value), max(limit_value), :now
 FROM m GROUP BY stack_key, item, obs_date
 ON CONFLICT (stack_key, item, obs_date) DO UPDATE SET
@@ -243,7 +246,7 @@ ON CONFLICT (stack_key, item, obs_date) DO UPDATE SET
 """
 _NATIONAL_COLS = [
     "max_ratio_pct", "max_stack_key", "max_at", "max_value", "mean_ratio_pct",
-    "n_stacks_reporting", "n_stacks_ge_90", "n_stacks_gt_100", "computed_at",
+    "n_stacks_reporting", "n_stacks_entry", "n_stacks_exceed", "computed_at",
 ]
 _ORDER = "ratio_pct DESC NULLS LAST, measured_at, stack_key"
 _NATIONAL_SUMMARY = f"""
@@ -262,7 +265,7 @@ SELECT obs_date, item,
   avg(ratio_pct),
   count(DISTINCT stack_key),
   count(DISTINCT stack_key) FILTER (WHERE ratio_pct >= 90),
-  count(DISTINCT stack_key) FILTER (WHERE ratio_pct > 100),
+  count(DISTINCT stack_key) FILTER (WHERE ratio_pct >= 100),
   :now
 FROM s GROUP BY obs_date, item
 ON CONFLICT (obs_date, item) DO UPDATE SET

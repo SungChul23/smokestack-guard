@@ -1,5 +1,7 @@
 -- 관측(30분), 일일 요약 2개, 적재 운영 기록 (data-model §1~3, §5).
 -- 시각은 KST 벽시계 timestamp(시간대 없음). Silver ts_kst와 같다.
+-- 지표 정의는 C의 scripts/silver_metric_queries.sql(용어·산식 사전 5.1절)을 따른다:
+--   진입(entry) = 정상 칸 중 비율 ≥ 90%, 초과(exceed) = 비율 ≥ 100%, 극단값(extreme) = 비율 > 200%.
 
 CREATE TABLE IF NOT EXISTS obs.measurement_30m (
   stack_key   text NOT NULL,
@@ -38,9 +40,11 @@ CREATE TABLE IF NOT EXISTS obs.daily_stack_summary (
   min_value       double precision,
   mean_ratio_pct  double precision,
   max_ratio_pct   double precision,
-  n_ge_90         integer NOT NULL,
-  n_ge_100        integer NOT NULL,
-  n_gt_100        integer NOT NULL,
+  n_entry         integer NOT NULL,              -- 비율 ≥ 90%
+  n_exceed        integer NOT NULL,              -- 비율 ≥ 100%
+  n_extreme       integer NOT NULL,              -- 비율 > 200%
+  mean_ratio_pct_ex_extreme double precision,    -- 극단값 뺀 평균 (사전 보고 규칙)
+  max_ratio_pct_ex_extreme  double precision,
   limit_min       double precision,
   limit_max       double precision,
   computed_at     timestamptz NOT NULL,
@@ -56,8 +60,8 @@ CREATE TABLE IF NOT EXISTS obs.daily_national_summary (
   max_value          double precision,
   mean_ratio_pct     double precision,
   n_stacks_reporting integer NOT NULL,
-  n_stacks_ge_90     integer NOT NULL,
-  n_stacks_gt_100    integer NOT NULL,
+  n_stacks_entry     integer NOT NULL,           -- 그날 진입(≥ 90%)이 한 번이라도 있었던 굴뚝 수
+  n_stacks_exceed    integer NOT NULL,           -- 그날 초과(≥ 100%)가 한 번이라도 있었던 굴뚝 수
   computed_at        timestamptz NOT NULL,
   PRIMARY KEY (obs_date, item)
 );
