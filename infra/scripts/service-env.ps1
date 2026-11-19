@@ -6,7 +6,7 @@
 .EXAMPLE
   .\service-env.ps1 dev          # 개발: NAT 1, DB 단일 AZ + 배스천, ALB, 서버 각 1  (하루 약 $5)
   .\service-env.ps1 demo         # 시연: NAT 2, DB Multi-AZ + 배스천, ALB, 서버 각 2 (하루 약 $8)
-  .\service-env.ps1 off          # 꺼 둠: 시간당 요금 자원 0 (DB는 마지막 스냅샷을 남기고 삭제)
+  .\service-env.ps1 off          # 꺼 둠: NAT·ALB·서버 0. DB·배스천은 켜 둔다(대시보드 적재 012, 2026-11-19)
   .\service-env.ps1 dev -AutoApprove   # 스택마다 yes 입력 없이
 
 .NOTES
@@ -26,7 +26,7 @@ $ErrorActionPreference = "Stop"
 $stacks = Join-Path $PSScriptRoot "..\stacks"
 
 $config = @{
-  off  = @{ nat = 0; rds = "false"; multiAz = "false"; alb = "false"; api = 0; agent = 0 }
+  off  = @{ nat = 0; rds = "true";  multiAz = "false"; alb = "false"; api = 0; agent = 0 }
   dev  = @{ nat = 1; rds = "true";  multiAz = "false"; alb = "true";  api = 1; agent = 1 }
   demo = @{ nat = 2; rds = "true";  multiAz = "true";  alb = "true";  api = 2; agent = 2 }
 }[$Mode]
