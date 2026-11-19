@@ -61,10 +61,21 @@ Catch     모든 오류 → sns:publish 운영 토픽 "[tms] dashboard load fail
 | `backfill --from 2026-10-30 --to 2026-11-19 [--dry-run]` | 날짜마다 상태 머신을 `{"mode":"day","date":…}`로 실행하고 결과 표를 출력. 이미 성공한 날도 다시 돌려도 결과가 같다 | AWS API(본인 IAM) |
 | `status` | 최근 `ops.load_run` 10건과 날짜별 행 수 | 베스천 터널 |
 
-### 사업장 목록 CSV (D에게 요청할 최소 컬럼)
+### 사업장 목록 CSV (D, 2026-11-19 받은 형식)
 
-`site_id`, `area_nm`, `fact_manage_nm`, `display_name`, `region_sigungu`, `address`, `lat`, `lon`, `coordinate_source`, `stack_code`, `frontend_stack_id`, `mapping_status`(`auto`/`confirmed`/`unobserved`).
-한 줄 = 굴뚝 하나. 사업장 정보는 같은 `site_id`끼리 같아야 한다(다르면 `load-ref`가 거부).
+위치: `s3://smokestack-tms-raw-952900391026/ref/sites/<버전>.csv` (예: `sites-20261119.csv`, 파일 이름이 버전). **한 줄 = 사업장 하나**(909행).
+
+| D 컬럼 | 쓰는 곳 |
+|---|---|
+| `site_id` | `ref.site.site_id` (CleanSYS 사업체 코드, 중복이면 거부) |
+| `source_name` | `ref.site.display_name`, 이름 이력의 `fact_manage_nm` (K-TMS 사업장 이름과 같은 표기) |
+| `region_sido_cleansys` | "새 이름:약칭"(예: `전남광주통합특별시:전남`) → 약칭을 K-TMS `area_nm` 정식 이름으로 바꿔(`전라남도`) 이름 이력의 `area_nm`. 바꿀 수 없는 값이면 거부(`db.KTMS_SIDO`) |
+| `region_sigungu(주소에서 추출)`, `address` | `ref.site` |
+| `lat`, `lon`, `coordinate_source` | `ref.site` (D가 검토한 좌표) |
+| `lat_cleansys`, `lon_cleansys` | 쓰지 않음 |
+
+- 굴뚝 목록은 이 파일에 없다. `ref.stack`은 적재가 관측에서 처음 본 굴뚝을 추가하고, 사업장 코드는 이름 이력으로 연결된다. 화면 굴뚝 id(`KS-…`)는 필요해지면 D와 따로 정한다.
+- 같은 (시·도, 사업장 이름)이 둘 이상인 동명 사업장은 자동 연결하지 않고 `load-ref`가 목록을 출력한다. 사람이 확인해 `ref.site_name_map`에 넣는다.
 
 ## 5. 오류와 알림
 

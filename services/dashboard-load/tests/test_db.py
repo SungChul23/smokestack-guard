@@ -122,24 +122,34 @@ def test_summary_days_includes_dates_changed_since_last_daily(pg):
 
 
 def _sites():
+    """D의 사업장 목록 형식(한 줄 = 사업장 하나). 가짜 이름·주소."""
     return pd.DataFrame([
-        {"site_id": "112003", "area_nm": "서울특별시", "fact_manage_nm": "가나다발전", "display_name": "가나다발전(주)",
-         "region_sigungu": "중구", "address": "가상 주소 1", "lat": "37.5", "lon": "127.0",
-         "coordinate_source": "test", "stack_code": "001", "frontend_stack_id": "KS-T1", "mapping_status": "auto"},
+        {"site_id": "112003", "source_name": "가나다발전", "region_sido_cleansys": "서울특별시:서울",
+         "region_sigungu(주소에서 추출)": "중구", "address": "가상 주소 1", "lat": "37.5", "lon": "127.0",
+         "coordinate_source": "test", "lat_cleansys": "37.5", "lon_cleansys": "127.0"},
     ])
 
 
 def test_load_ref_is_idempotent_and_view_resolves_site(pg):
-    assert db.load_ref(pg, _sites(), "test-v1") == {"sites": 1, "names": 1, "stacks": 1}
+    out = db.load_ref(pg, _sites(), "test-v1")
+    assert (out["sites"], out["names"], out["shared_names"]) == (1, 1, [])
     db.load_ref(pg, _sites(), "test-v1")
-    assert _count(pg, "SELECT count(*) FROM ref.stack") == 1
-    assert pg.run("SELECT site_id FROM ref.v_stack")[0][0] == "112003"
+    assert _count(pg, "SELECT count(*) FROM ref.site") == 1
+    db.add_stack_keys(pg, _rows([("001", "nox", "2026-11-18 10:00", 1.0, "ok")]), date(2026, 11, 18))
+    assert pg.run("SELECT site_id FROM ref.v_stack")[0][0] == "112003"  # 관측에서 본 굴뚝이 이름으로 연결
 
 
-def test_load_ref_rejects_inconsistent_site():
-    bad = pd.concat([_sites(), _sites().assign(stack_code="002", address="다른 주소")])
-    with pytest.raises(ValueError, match="사업장 정보가 다름"):
-        db.validate_sites(bad)
+def test_validate_sites_rejects_duplicate_id_and_holds_shared_names():
+    with pytest.raises(ValueError, match="같은 site_id"):
+        db.validate_sites(pd.concat([_sites(), _sites()]))
+    twin = pd.concat([_sites(), _sites().assign(site_id="112999", address="다른 주소")])
+    sites, names, shared = db.validate_sites(twin)
+    assert len(sites) == 2 and names.empty and sorted(shared["site_id"]) == ["112003", "112999"]  # 동명은 사람이
+
+
+def test_validate_sites_reports_missing_columns():
+    with pytest.raises(ValueError, match="없는 컬럼"):
+        db.validate_sites(_sites().drop(columns=["source_name"]))
 
 
 def test_mapping_check_alerts_new_name_once_and_name_change_links_history(pg):
@@ -153,6 +163,7 @@ def test_mapping_check_alerts_new_name_once_and_name_change_links_history(pg):
     assert names == [{"area_nm": "서울특별시", "fact_manage_nm": "가나다에너지"}]
     assert db.mapping_check(pg, date(2026, 11, 18), LATER) == []  # 같은 이름은 다시 알리지 않음
     assert _count(pg, "SELECT n_items FROM ops.mapping_report WHERE check_type = 'C'") == 1  # 새 굴뚝은 기록만
+    assert _count(pg, "SELECT n_items FROM ops.mapping_report WHERE check_type = 'B'") == 1  # 그날 관측 없는 사업장
 
     pg.run("INSERT INTO ref.site_name_map (area_nm, fact_manage_nm, valid_from, site_id, confirmed_by) "
            "VALUES ('서울특별시', '가나다에너지', '2026-11-18', '112003', 'A')")  # 사람이 한 줄 추가
@@ -203,6 +214,7 @@ def test_semantic_views_filter_ok_and_join_site(pg):
                   ("001", "nox", "2026-11-18 10:30", 101.0, "ok"),
                   ("001", "nox", "2026-11-18 11:00", None, "no_signal")])
     db.upsert_measurements(pg, rows, "recent", NOW)
+    db.add_stack_keys(pg, rows, date(2026, 11, 18))  # 적재가 처음 본 굴뚝을 ref.stack에 추가
     valid = pg.run("SELECT ratio_pct, is_entry, is_exceed, is_extreme FROM obs.v_valid_measurement ORDER BY measured_at")
     assert valid == [[95.0, True, False, False], [101.0, True, True, False]]  # 미수신 칸은 빠짐
     site = pg.run("SELECT site_id, frontend_stack_id, status, status_display FROM obs.v_measurement_site "
@@ -224,3 +236,13 @@ def test_exceed_is_at_least_100_and_extreme_excluded_from_ex_stats(pg):
     s = pg.run("SELECT n_exceed, n_extreme, max_ratio_pct, max_ratio_pct_ex_extreme, mean_ratio_pct_ex_extreme "
                "FROM obs.daily_stack_summary")[0]
     assert s == [2, 1, 250.0, 100.0, 75.0]
+
+
+def test_ktms_sido_maps_cleansys_labels():
+    assert db.ktms_sido("전남광주통합특별시:전남") == "전라남도"
+    assert db.ktms_sido("전남광주통합특별시:광주") == "광주광역시"
+    assert db.ktms_sido("경기") == "경기도" and db.ktms_sido("경상남도") == "경상남도"
+    assert db.ktms_sido("강원특별자치도") == "강원도"
+    assert db.ktms_sido("어딘가") is None
+    with pytest.raises(ValueError, match="바꿀 수 없는 값"):
+        db.validate_sites(_sites().assign(region_sido_cleansys="어딘가:모름"))

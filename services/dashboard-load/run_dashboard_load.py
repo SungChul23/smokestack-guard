@@ -59,10 +59,12 @@ def cmd_migrate(args) -> None:
 
 def cmd_load_ref(args) -> None:
     df = read_sites(args.sites)
-    checked = db.validate_sites(df)
+    sites, names, shared = db.validate_sites(df)
     version = Path(args.sites).stem
-    print(f"사업장 {checked['site_id'].nunique()} · 이름 {checked[['area_nm', 'fact_manage_nm']].drop_duplicates().shape[0]}"
-          f" · 굴뚝 {len(checked)} (버전 {version})")
+    print(f"사업장 {len(sites)} · 자동 연결할 이름 {len(names)} · 좌표 없음 {int(sites['lat'].isna().sum())} (버전 {version})")
+    if not shared.empty:
+        print(f"동명 사업장 {len(shared)}곳은 자동 연결하지 않음 (사람이 site_name_map에 넣는다): "
+              + ", ".join(shared["site_id"]))
     if args.dry_run:
         return
     conn = admin_connection(args.host, args.port)
@@ -107,6 +109,8 @@ def cmd_status(args) -> None:
         for r in conn.run("SELECT run_id, result, rows_read, rows_upserted, rows_unchanged, summary_days "
                           "FROM ops.load_run ORDER BY started_at DESC LIMIT 10"):
             print(*r)
+        n = conn.run("SELECT count(*), count(site_id) FROM ref.v_stack")[0]
+        print(f"--- 굴뚝 {n[0]} 중 사업장 연결 {n[1]}")
         print("--- 날짜별 관측 행 수 (최근 14일)")
         for r in conn.run("SELECT measured_at::date, item, count(*) FROM obs.measurement_30m "
                           "WHERE measured_at >= now()::date - 14 GROUP BY 1, 2 ORDER BY 1, 2"):

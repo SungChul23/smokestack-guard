@@ -314,10 +314,10 @@ WHERE m.measured_at >= :day AND m.measured_at < CAST(:day AS date) + 1 AND s.sit
 ORDER BY 1, 2
 """
 _SILENT = """
-SELECT s.stack_key FROM ref.stack s
-WHERE s.source = 'site_list' AND NOT EXISTS (
-  SELECT 1 FROM obs.measurement_30m m
-  WHERE m.stack_key = s.stack_key AND m.measured_at >= :day AND m.measured_at < CAST(:day AS date) + 1)
+SELECT si.site_id FROM ref.site si
+WHERE NOT EXISTS (
+  SELECT 1 FROM obs.measurement_30m m JOIN ref.v_stack s USING (stack_key)
+  WHERE s.site_id = si.site_id AND m.measured_at >= :day AND m.measured_at < CAST(:day AS date) + 1)
 ORDER BY 1
 """
 _NEW_STACKS = "SELECT stack_key FROM ref.stack WHERE source = 'observed' AND first_seen = :day ORDER BY 1"
@@ -333,7 +333,7 @@ DETAIL_LIMIT = 200
 def mapping_check(conn, day: date, now: datetime) -> list[dict]:
     """그날 관측에 나왔는데 이름 이력에 없는 (지역, 사업장) 중 처음 본 것만 돌려준다(FR-010).
 
-    점검 A(미연결 이름)·B(관측 없는 목록 굴뚝)·C(새 굴뚝)는 ops.mapping_report에 남긴다.
+    점검 A(미연결 이름)·B(그날 관측이 없는 사업장)·C(새 굴뚝)는 ops.mapping_report에 남긴다.
     """
     unmapped = [tuple(r) for r in conn.run(_UNMAPPED, day=day)]
     silent = [r[0] for r in conn.run(_SILENT, day=day)]
@@ -389,38 +389,75 @@ def record_run(conn, run: dict) -> None:
 # 사업장 목록 → ref (사람, 베스천 터널)
 # ---------------------------------------------------------------------------
 
-SITE_COLUMNS = [
-    "site_id", "area_nm", "fact_manage_nm", "display_name", "region_sigungu", "address",
-    "lat", "lon", "coordinate_source", "stack_code", "frontend_stack_id", "mapping_status",
-]
-SITE_FIELDS = ["display_name", "area_nm", "region_sigungu", "address", "lat", "lon", "coordinate_source"]
+# D의 사업장 목록(2026-11-19, 한 줄 = 사업장 하나, 909행) 컬럼 → 우리 이름
+SITE_COLUMN_MAP = {
+    "site_id": "site_id",
+    "source_name": "display_name",                 # 사업장 원표기(㈜ 포함). K-TMS fact_manage_nm과 같은 표기
+    "region_sido_cleansys": "region_sido",         # K-TMS area_nm과 같은 표기
+    "region_sigungu(주소에서 추출)": "region_sigungu",
+    "address": "address",
+    "lat": "lat",                                  # D가 검토한 좌표 (lat_cleansys·lon_cleansys는 쓰지 않음)
+    "lon": "lon",
+    "coordinate_source": "coordinate_source",
+}
+SITE_FIELDS = ["display_name", "region_sido", "region_sigungu", "address", "lat", "lon", "coordinate_source"]
+# K-TMS area_nm은 예전 정식 이름이다(2026-11-19 Athena 확인, 17개). D의 목록은 "새 이름:약칭"(예: 전남광주통합특별시:전남).
+KTMS_SIDO = {
+    "서울": "서울특별시", "부산": "부산광역시", "대구": "대구광역시", "인천": "인천광역시", "광주": "광주광역시",
+    "대전": "대전광역시", "울산": "울산광역시", "세종": "세종특별자치시", "경기": "경기도", "강원": "강원도",
+    "충북": "충청북도", "충남": "충청남도", "전북": "전라북도", "전남": "전라남도", "경북": "경상북도",
+    "경남": "경상남도", "제주": "제주특별자치도",
+    # 바뀐 정식 이름도 예전 이름으로
+    "강원특별자치도": "강원도", "전북특별자치도": "전라북도",
+}
+
+
+def ktms_sido(value: str) -> str | None:
+    """사업장 목록의 시·도 표기 → K-TMS area_nm. 모르는 값이면 None."""
+    v = str(value).strip()
+    part = v.rsplit(":", 1)[-1].strip()  # "새 이름:약칭"이면 약칭
+    if part in KTMS_SIDO.values():
+        return part
+    return KTMS_SIDO.get(part)
 INITIAL_VALID_FROM = date(2000, 1, 1)
 
 
-def validate_sites(df: pd.DataFrame) -> pd.DataFrame:
-    """contracts §4. 한 줄 = 굴뚝 하나, 같은 site_id의 사업장 정보는 같아야 한다."""
-    missing = [c for c in SITE_COLUMNS if c not in df.columns]
+def validate_sites(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """contracts §4. (사업장 표, 이름 이력에 넣을 행, 동명 사업장). 사업장 코드는 한 번만 나와야 한다.
+
+    같은 (시·도, 사업장 이름)이 사업장 둘 이상이면(동명 사업장, 예: 한국주강) 자동으로 연결하지 않고
+    이름 이력에서 뺀다. 사람이 확인해 site_name_map에 직접 넣는다.
+    """
+    missing = [c for c in SITE_COLUMN_MAP if c not in df.columns]
     if missing:
         raise ValueError(f"사업장 목록에 없는 컬럼: {missing}")
-    df = df[SITE_COLUMNS].copy()
-    for c in ["site_id", "area_nm", "fact_manage_nm", "stack_code"]:
-        df[c] = df[c].astype(str).str.strip()
-    bad = df.groupby("site_id")[SITE_FIELDS].nunique(dropna=False).gt(1).any(axis=1)
-    if bad.any():
-        raise ValueError(f"같은 site_id인데 사업장 정보가 다름: {sorted(bad[bad].index)[:10]}")
-    if not set(df["mapping_status"]).issubset({"auto", "confirmed", "unobserved"}):
-        raise ValueError("mapping_status는 auto / confirmed / unobserved")
-    df["stack_key"] = df["area_nm"] + "|" + df["fact_manage_nm"] + "|" + df["stack_code"]
-    if df["stack_key"].duplicated().any():
-        raise ValueError("같은 (지역, 사업장, 굴뚝 번호)가 여러 줄")
-    return df
+    sites = df[list(SITE_COLUMN_MAP)].rename(columns=SITE_COLUMN_MAP).copy()
+    for c in ["site_id", "display_name", "region_sido"]:
+        sites[c] = sites[c].astype(str).str.strip()
+    dup = sites["site_id"][sites["site_id"].duplicated()]
+    if not dup.empty:
+        raise ValueError(f"같은 site_id가 여러 줄: {sorted(set(dup))[:10]}")
+    for c in ["lat", "lon"]:
+        sites[c] = pd.to_numeric(sites[c], errors="coerce")
+    sido = sites["region_sido"].map(ktms_sido)
+    unknown = sorted(set(sites.loc[sido.isna(), "region_sido"]))
+    if unknown:
+        raise ValueError(f"K-TMS 시·도 이름으로 바꿀 수 없는 값: {unknown} (db.KTMS_SIDO에 추가)")
+    sites["region_sido_source"] = sites["region_sido"]
+    sites["region_sido"] = sido  # 이름 이력은 K-TMS area_nm 표기로 넣어야 관측과 이어진다
+    key = ["region_sido", "display_name"]
+    shared = sites.duplicated(key, keep=False)
+    names = sites.loc[~shared, ["region_sido", "display_name", "site_id"]].rename(
+        columns={"region_sido": "area_nm", "display_name": "fact_manage_nm"})
+    return sites, names, sites.loc[shared, ["site_id", *key]]
 
 
 def load_ref(conn, df: pd.DataFrame, version: str) -> dict:
-    """ref.site · ref.site_name_map · ref.stack(source=site_list). 같은 파일로 다시 돌려도 같다."""
-    df = validate_sites(df)
-    sites = df.drop_duplicates("site_id")
-    names = df.drop_duplicates(["area_nm", "fact_manage_nm", "site_id"])
+    """ref.site · ref.site_name_map. 같은 파일로 다시 돌려도 같다.
+
+    굴뚝 목록(ref.stack)은 적재가 관측에서 처음 본 굴뚝을 추가한다. 사업장 코드는 이름 이력으로 연결된다.
+    """
+    sites, names, shared = validate_sites(df)
     conn.run("BEGIN")
     try:
         for r in sites.itertuples(index=False):
@@ -433,32 +470,22 @@ def load_ref(conn, df: pd.DataFrame, version: str) -> dict:
                      address = EXCLUDED.address, lat = EXCLUDED.lat, lon = EXCLUDED.lon,
                      coordinate_source = EXCLUDED.coordinate_source,
                      source_version = EXCLUDED.source_version, loaded_at = now()""",
-                id=r.site_id, name=r.display_name, sido=r.area_nm, sgg=_clean([r.region_sigungu])[0],
-                addr=_clean([r.address])[0], lat=_clean([float(r.lat)])[0], lon=_clean([float(r.lon)])[0],
-                src=_clean([r.coordinate_source])[0], ver=version,
+                id=r.site_id, name=r.display_name, sido=r.region_sido, **dict(zip(
+                    ["sgg", "addr", "lat", "lon", "src"],
+                    _clean([r.region_sigungu, r.address, r.lat, r.lon, r.coordinate_source]))),
+                ver=version,
             )
         for r in names.itertuples(index=False):
             conn.run(
                 """INSERT INTO ref.site_name_map (area_nm, fact_manage_nm, valid_from, site_id, confirmed_by, note)
-                   VALUES (:a, :f, :vf, :id, :by, :note)
-                   ON CONFLICT (area_nm, fact_manage_nm, valid_from) DO UPDATE SET
-                     site_id = EXCLUDED.site_id, confirmed_by = EXCLUDED.confirmed_by""",
+                   VALUES (:a, :f, :vf, :id, 'site_list', :note)
+                   ON CONFLICT (area_nm, fact_manage_nm, valid_from) DO UPDATE SET site_id = EXCLUDED.site_id""",
                 a=r.area_nm, f=r.fact_manage_nm, vf=INITIAL_VALID_FROM, id=r.site_id,
-                by="auto" if r.mapping_status == "auto" else "site_list_confirmed",
                 note=f"사업장 목록 {version}",
-            )
-        for r in df.itertuples(index=False):
-            conn.run(
-                """INSERT INTO ref.stack (stack_key, area_nm, fact_manage_nm, stack_code,
-                     frontend_stack_id, source)
-                   VALUES (:k, :a, :f, :c, :fid, 'site_list')
-                   ON CONFLICT (stack_key) DO UPDATE SET frontend_stack_id = EXCLUDED.frontend_stack_id,
-                     source = 'site_list'""",
-                k=r.stack_key, a=r.area_nm, f=r.fact_manage_nm, c=r.stack_code,
-                fid=_clean([r.frontend_stack_id])[0],
             )
         conn.run("COMMIT")
     except Exception:
         conn.run("ROLLBACK")
         raise
-    return {"sites": len(sites), "names": len(names), "stacks": len(df)}
+    return {"sites": len(sites), "names": len(names),
+            "shared_names": shared.to_dict("records")}  # 사람이 연결할 동명 사업장
