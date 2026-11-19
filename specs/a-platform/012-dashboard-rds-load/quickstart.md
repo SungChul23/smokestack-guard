@@ -73,7 +73,7 @@ GROUP BY 1, 2 ORDER BY 1, 2;
 ## 7. 스케줄 켜기
 
 ```powershell
-cd infra/stacks/tms-dashboard-load; $env:TF_VAR_load_schedule_enabled="true"; terraform apply
+cd infra/stacks/tms-dashboard-load; terraform apply   # 2026-11-19부터 기본값 true. 처음부터 다시 만들 때는 $env:TF_VAR_load_schedule_enabled="false"로 꺼 둔 채 §3~§6을 먼저 한다
 ```
 
 - 다음 :15·:45 실행이 성공하는지, 다음 날 03:20 `daily`가 `summary_days`(최근 2일 이상)를 돌려주고 관측 행 수는 바꾸지 않는지 확인한다.

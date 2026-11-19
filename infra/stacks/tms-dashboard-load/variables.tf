@@ -29,9 +29,9 @@ variable "db_instance_identifier" {
 }
 
 variable "load_schedule_enabled" {
-  description = "30분 적재(:15·:45)와 매일 요약(03:20) 스케줄을 켤지. migrate·load-ref·backfill을 마친 뒤 켠다 (012 quickstart §7)"
+  description = "30분 적재(:15·:45)와 매일 요약(03:20) 스케줄을 켤지. migrate·load-ref·backfill(10/30~11/19)과 Silver 비교를 마치고 2026-11-19에 켰다 (012 quickstart §7). 잠시 멈추려면 TF_VAR_load_schedule_enabled=false"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "recent_hours" {
