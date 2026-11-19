@@ -36,7 +36,7 @@ def _count(conn, sql, **kw):
 def test_migrations_apply_once_and_seed_status(pg):
     assert db.migrate(pg, MIGRATIONS) == []  # 두 번째는 건너뜀
     assert _count(pg, "SELECT count(*) FROM ref.status_code") == 9
-    assert _count(pg, "SELECT count(*) FROM ops.schema_migrations") == 4
+    assert _count(pg, "SELECT count(*) FROM ops.schema_migrations") == 5
 
 
 def test_split_sql_keeps_dollar_blocks():
@@ -190,5 +190,27 @@ def test_loader_role_cannot_write_site_map(pg):
     try:
         with pytest.raises(Exception, match="permission denied"):
             pg.run("INSERT INTO ref.site_name_map (area_nm, fact_manage_nm, valid_from, site_id, confirmed_by) VALUES ('a', 'b', '2026-01-01', 'x', 'y')")
+    finally:
+        pg.run("RESET ROLE")
+
+
+# --- 시멘틱 레이어 뷰 (005) -------------------------------------------------------
+
+
+def test_semantic_views_filter_ok_and_join_site(pg):
+    db.load_ref(pg, _sites(), "test-v1")
+    rows = _rows([("001", "nox", "2026-11-18 10:00", 95.0, "ok"),
+                  ("001", "nox", "2026-11-18 10:30", 101.0, "ok"),
+                  ("001", "nox", "2026-11-18 11:00", None, "no_signal")])
+    db.upsert_measurements(pg, rows, "recent", NOW)
+    valid = pg.run("SELECT ratio_pct, near_limit, over_limit FROM obs.v_valid_measurement ORDER BY measured_at")
+    assert valid == [[95.0, True, False], [101.0, True, True]]  # 미수신 칸은 빠짐
+    site = pg.run("SELECT site_id, frontend_stack_id, status, status_display FROM obs.v_measurement_site "
+                  "ORDER BY measured_at")
+    assert [r[0] for r in site] == ["112003"] * 3
+    assert site[2][2:] == ["no_signal", "미수신"]  # 빈칸 이유
+    pg.run("SET ROLE tms_app")
+    try:
+        assert _count(pg, "SELECT count(*) FROM obs.v_measurement_site") == 3  # 앱 계정이 읽을 수 있음
     finally:
         pg.run("RESET ROLE")

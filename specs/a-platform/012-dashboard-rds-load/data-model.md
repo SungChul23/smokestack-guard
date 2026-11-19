@@ -100,6 +100,17 @@ WHERE m.measured_at >= $1 AND m.measured_at < $2;
 - `ops.mapping_report(report_date, check_type, detail jsonb, PK(report_date, check_type))`: 매일 점검. `check_type` = `A`(관측에는 있는데 `ref`에 없는 이름) / `B`(`ref`에는 있는데 그날 관측이 없는 굴뚝)
 - `ops.unmapped_name(area_nm, fact_manage_nm, first_seen, alerted_at, resolved_at, PK(area_nm, fact_manage_nm))`: 같은 이름 반복 알림 방지(FR-010)
 
+## 5-1. 시멘틱 레이어 뷰 (`005_semantic_views.sql`)
+
+에이전트 조회 함수와 화면은 원본 표 대신 이 뷰와 일일 요약 표를 본다. 지표 정의(정상 칸만, 비율 %, 굴뚝 키, 사업장 연결)를 한 곳에 고정한다. 정의를 바꾸면 `semantic_version`을 올린다.
+
+| 뷰 | 내용 |
+|---|---|
+| `obs.v_valid_measurement` | `status_code = 0`인 칸만. `near_limit`(≥90), `at_or_over_limit`(≥100), `over_limit`(>100), `obs_date` |
+| `obs.v_measurement_site` | 모든 상태의 칸 + `ref.v_stack`(사업장 코드·화면 id) + `ref.status_code`(상태 이름·표시 문구·설명). 시계열과 "빈칸 이유" 질문용 |
+
+Athena 뷰는 두지 않는다. NOx·SOx 외 물질이나 대만 비교 같은 요구가 생기면 같은 정의로 추가한다.
+
 ## 6. `app`·`rag` — 구조만 (D 앱이 채움)
 
 D 제안(2026-11-18)의 표를 그대로 만든다. `app.user_favorite`, `app.conversation`, `app.message`, `app.query_log`, `rag.doc_chunk`(`embedding vector(1024)`, 차원은 D가 고르는 임베딩 모델에 맞춰 바꿀 수 있음, `text_tsv` + GIN, 벡터 인덱스 HNSW). LangGraph 체크포인트 표는 D 앱이 라이브러리로 만든다(`app` 스키마 쓰기 권한).
