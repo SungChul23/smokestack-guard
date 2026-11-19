@@ -73,3 +73,4 @@ k_tms_synthetic_train/run_cycle.look
 k_tms_synthetic_train/ckpt_s3/
 # 학습용 합성 적재 Lambda zip (terraform이 만듦, spec 011)
 k_tms_synthetic_train/build/
+services/dashboard-load/build/

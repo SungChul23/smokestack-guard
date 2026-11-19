@@ -110,7 +110,7 @@ D 제안(2026-11-18)의 표를 그대로 만든다. `app.user_favorite`, `app.co
 |---|---|---|
 | `tms_admin` | 비밀번호(Secrets Manager, 009) | 소유자. 마이그레이션·초기 적재(사람, 베스천 터널) |
 | `tms_loader` | IAM 인증(`rds_iam`) | `obs`·`ops` 읽기·쓰기, `ref` 읽기, `ref.stack` 추가(새 키만) |
-| `tms_app` | IAM 인증(`rds_iam`) | `ref`·`obs`·`rag` 읽기, `app` 읽기·쓰기·표 생성 |
+| `tms_app` | IAM 인증(`rds_iam`) | `ref`·`obs` 읽기, `app` 읽기·쓰기·표 생성, `rag` 읽기·쓰기(문서 색인은 D가 채움) |
 
 팀원 계정(009 `db_user_names`)은 그대로 둔다.
 
