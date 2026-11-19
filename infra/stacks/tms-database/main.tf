@@ -40,6 +40,9 @@ resource "aws_db_instance" "main" {
   username                    = "tms_admin"
   manage_master_user_password = true
 
+  # 적재·앱 계정은 비밀번호 없이 IAM 토큰으로 접속한다 (012 research R4). 관리자는 비밀번호 그대로.
+  iam_database_authentication_enabled = true
+
   allocated_storage = 20
   storage_type      = "gp3"
   storage_encrypted = true

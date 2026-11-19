@@ -1,4 +1,4 @@
-# 보안그룹 4개와 규칙 (data-model.md §3). 출발지는 IP 대신 다른 보안그룹을 가리킨다.
+# 보안그룹 5개와 규칙 (009 data-model.md §3, 012 research R6). 출발지는 IP 대신 다른 보안그룹을 가리킨다.
 # 설명(description)은 AWS가 ASCII만 받아서 영어로 쓴다.
 
 resource "aws_security_group" "this" {
@@ -7,6 +7,7 @@ resource "aws_security_group" "this" {
     app     = "API and agent servers - 8000 from ALB only"
     bastion = "Bastion - SSH tunnel to RDS only"
     db      = "RDS - 5432 from app servers and bastion only"
+    loader  = "Dashboard load Lambda - RDS and S3 endpoint only"
   }
 
   name        = "tms-${each.key}"
@@ -119,6 +120,35 @@ resource "aws_vpc_security_group_ingress_rule" "db_from_bastion" {
   security_group_id            = local.sg.db
   description                  = "Bastion to RDS"
   referenced_security_group_id = local.sg.bastion
+  ip_protocol                  = "tcp"
+  from_port                    = 5432
+  to_port                      = 5432
+}
+
+# ── 대시보드 관측 적재 Lambda (012 research R6) ──
+# NAT 없이 RDS와 S3 게이트웨이 엔드포인트에만 나간다. 들어오는 규칙은 없다.
+resource "aws_vpc_security_group_egress_rule" "loader_to_db" {
+  security_group_id            = local.sg.loader
+  description                  = "Loader to RDS"
+  referenced_security_group_id = local.sg.db
+  ip_protocol                  = "tcp"
+  from_port                    = 5432
+  to_port                      = 5432
+}
+
+resource "aws_vpc_security_group_egress_rule" "loader_to_s3" {
+  security_group_id = local.sg.loader
+  description       = "Loader to S3 gateway endpoint"
+  prefix_list_id    = aws_vpc_endpoint.s3.prefix_list_id
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
+}
+
+resource "aws_vpc_security_group_ingress_rule" "db_from_loader" {
+  security_group_id            = local.sg.db
+  description                  = "Loader to RDS"
+  referenced_security_group_id = local.sg.loader
   ip_protocol                  = "tcp"
   from_port                    = 5432
   to_port                      = 5432
