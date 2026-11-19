@@ -12,8 +12,15 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 from datetime import UTC, date, datetime
+
+# C의 규칙 패키지 레이어(tms-smokestack-guard-rules)는 Glue와 같은 zip이라 /opt/smokestack_guard로 풀린다.
+# Lambda 기본 경로(/opt/python)가 아니므로 /opt를 넣는다 (010 계약 검사 Lambda와 같은 처리).
+_LAYER = os.environ.get("RULES_LAYER_DIR", "/opt")
+if os.path.isdir(os.path.join(_LAYER, "smokestack_guard")) and _LAYER not in sys.path:
+    sys.path.insert(0, _LAYER)
 
 import boto3
 

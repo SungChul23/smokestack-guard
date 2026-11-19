@@ -46,3 +46,28 @@ def test_recent_then_daily_then_day(pg, fake_s3, monkeypatch):
     day = h.run({"mode": "day", "date": date(2026, 11, 18)}, pg, fake_s3, now)
     assert day["rows"]["read"] == 2 and day["rows"]["upserted"] == 2  # 11-18 칸 NOx·SOx 새로
     assert pg.run("SELECT count(*) FROM obs.daily_stack_summary WHERE obs_date = '2026-11-18'")[0][0] == 2
+
+
+def test_lambda_zip_imports_with_rules_layer_layout(tmp_path):
+    """Lambda처럼 코드와 규칙 레이어(<layer>/smokestack_guard)를 나눠 놓아도 진입점이 import된다.
+
+    2026-11-19 첫 실행이 `No module named 'smokestack_guard'`로 실패한 것을 막는다.
+    """
+    import os
+    import shutil
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    here = Path(__file__).resolve().parent.parent
+    task, layer = tmp_path / "task", tmp_path / "opt"
+    task.mkdir()
+    for f in ["lambda_handler.py", "load.py", "db.py"]:
+        shutil.copy(here / f, task / f)
+    shutil.copy(here.parent / "tms-silver" / "ktms_pipeline.py", task / "ktms_pipeline.py")
+    shutil.copytree(here.parent.parent / "src" / "smokestack_guard", layer / "smokestack_guard",
+                    ignore=shutil.ignore_patterns("__pycache__", "data"))
+    env = {**os.environ, "RULES_LAYER_DIR": str(layer), "PYTHONPATH": str(task)}
+    r = subprocess.run([sys.executable, "-c", "import lambda_handler"],
+                       cwd=task, capture_output=True, text=True, env=env, check=False)
+    assert r.returncode == 0, r.stderr
