@@ -1,0 +1,162 @@
+/* 로그인 전 첫 화면 (013). D가 대시보드 디자인을 정하면 맞춰 바꿔도 된다. */
+.landing {
+  --bg: #f4f6f5;
+  --panel: #ffffff;
+  --ink: #15211d;
+  --muted: #5b6b65;
+  --line: #dde3e0;
+  --accent: #0f7a5c;
+  --warn: #d9822b;
+  --danger: #c2412d;
+  --chart-bg: #0f1a17;
+  --chart-grid: #233530;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+@media (prefers-color-scheme: dark) {
+  .landing {
+    --bg: #0c1311;
+    --panel: #131d1a;
+    --ink: #e7efeb;
+    --muted: #93a49d;
+    --line: #24332e;
+    --accent: #3fbf93;
+    --chart-bg: #0a110f;
+    --chart-grid: #1c2b26;
+  }
+}
+
+.landing-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px max(20px, env(safe-area-inset-left)) 0;
+  max-width: 1080px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.landing-top svg { color: var(--accent); }
+
+.landing-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 48px;
+  align-items: center;
+  max-width: 1080px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 40px 20px 32px;
+  box-sizing: border-box;
+}
+@media (max-width: 860px) {
+  .landing-main { grid-template-columns: 1fr; gap: 32px; padding-top: 24px; }
+}
+
+.landing-eyebrow {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.landing h1 {
+  font-size: clamp(30px, 4.2vw, 44px);
+  line-height: 1.18;
+  letter-spacing: -0.03em;
+  margin: 0 0 16px;
+  text-wrap: balance;
+}
+.landing h1 em { font-style: normal; color: var(--accent); }
+.landing-lead {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 0 0 28px;
+  max-width: 34em;
+}
+
+.landing-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  margin: 0 0 30px;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  color: var(--muted);
+}
+.landing-facts strong { color: var(--ink); font-variant-numeric: tabular-nums; margin-right: 4px; }
+
+/* Google 브랜드 가이드에 맞춘 버튼 (흰 바탕, 공식 G 로고) */
+.google-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  height: 48px;
+  padding: 0 22px 0 14px;
+  border: 1px solid #dadce0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1f1f1f;
+  font: 600 15px/1 "Roboto", "Pretendard", system-ui, sans-serif;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 26, 23, 0.08);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.google-btn:hover { box-shadow: 0 4px 14px rgba(15, 26, 23, 0.16); transform: translateY(-1px); }
+.google-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.google-btn:disabled { opacity: 0.6; cursor: progress; transform: none; }
+.landing-note { margin: 14px 0 0; font-size: 13px; color: var(--muted); }
+
+/* 오른쪽: 대시보드 미리보기 카드 */
+.preview {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 20px 50px -24px rgba(15, 26, 23, 0.35);
+}
+.preview-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+.preview-title { font-weight: 700; font-size: 14px; }
+.preview-sub { font-size: 12px; color: var(--muted); }
+.preview-chart { background: var(--chart-bg); border-radius: 10px; padding: 10px 10px 4px; }
+.preview-chart svg { display: block; width: 100%; height: auto; }
+.preview-legend { display: flex; gap: 14px; margin-top: 12px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  max-width: 1080px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 20px 40px;
+  box-sizing: border-box;
+}
+@media (max-width: 860px) { .features { grid-template-columns: 1fr; } }
+.feature { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+.feature h3 { margin: 10px 0 6px; font-size: 15px; letter-spacing: -0.01em; }
+.feature p { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--muted); }
+.feature-icon {
+  width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent);
+}
+
+.landing-foot {
+  border-top: 1px solid var(--line);
+  padding: 16px 20px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}

@@ -1,5 +1,5 @@
 // 로그인하고 들어오는 흐름 (009 US3, 013):
-// 1) 토큰이 없으면 Cognito 화면을 건너뛰고 바로 Google로 보낸다.
+// 1) 로그인 전에는 첫 화면(Landing). 버튼을 누르면 Cognito 화면을 건너뛰고 바로 Google로 간다.
 // 2) 로그인 뒤 /api/me로 자격(members)을 확인한다. 없으면 초대 코드 화면.
 // 3) 코드 통과 → 갱신 토큰으로 새 토큰(그룹 반영)을 받아 바로 대시보드.
 // D는 <Dashboard /> 자리에 대시보드를 만든다. 서버 호출은 api.ts의 apiGet(토큰, 경로)을 쓰고,
@@ -9,20 +9,13 @@ import { hasAuthParams, useAuth } from "react-oidc-context";
 import { ApiError, apiGet } from "./api";
 import { cognitoLogoutUrl, signinArgs } from "./auth";
 import Invite from "./Invite";
+import Landing from "./Landing";
 
 type Membership = "checking" | "member" | "not_member" | { error: string };
 
 export default function App() {
   const auth = useAuth();
-  const [redirecting, setRedirecting] = useState(false);
   const [membership, setMembership] = useState<Membership>("checking");
-
-  useEffect(() => {
-    if (!hasAuthParams() && !auth.isAuthenticated && !auth.activeNavigator && !auth.isLoading && !auth.error && !redirecting) {
-      setRedirecting(true);
-      void auth.signinRedirect(signinArgs);
-    }
-  }, [auth, redirecting]);
 
   const accessToken = auth.user?.access_token;
 
@@ -60,11 +53,15 @@ export default function App() {
   }
 
   if (!auth.isAuthenticated || !accessToken) {
-    return (
-      <Shell>
-        <p>Google 로그인으로 이동하는 중…</p>
-      </Shell>
-    );
+    // 로그인에서 막 돌아왔거나(?code=…) 저장된 로그인을 읽는 중이면 잠깐 기다린다
+    if (hasAuthParams() || auth.isLoading || auth.activeNavigator) {
+      return (
+        <Shell>
+          <p style={{ textAlign: "center", paddingTop: 96, color: "#666" }}>로그인 중…</p>
+        </Shell>
+      );
+    }
+    return <Landing onLogin={() => void auth.signinRedirect(signinArgs)} />;
   }
 
   const email = (auth.user?.profile.email as string | undefined) ?? auth.user?.profile.sub;

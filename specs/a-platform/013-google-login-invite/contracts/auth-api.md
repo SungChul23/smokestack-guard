@@ -4,7 +4,7 @@ D가 대시보드·에이전트 라우트를 만들 때 지키는 약속이다. 
 
 ## 1. 화면 로그인
 
-- 로그인하지 않았으면 `signinRedirect({ extraQueryParams: { identity_provider: "Google" } })`로 바로 Google에 보낸다.
+- 로그인하지 않았으면 첫 화면(`Landing.tsx`)을 보여 준다. "Google 계정으로 로그인"을 누르면 `signinRedirect({ extraQueryParams: { identity_provider: "Google" } })`로 바로 Google에 보낸다. 자동 이동은 하지 않는다.
 - 로그인 뒤 `GET /api/me`로 자격을 확인한다. `member: false`면 대시보드 대신 초대 코드 화면을 보여 준다.
 - 초대 코드 통과(`200`) 뒤 `signinSilent()`로 새 토큰을 받고 다시 `/api/me`를 부른다. 실패하면 `signinRedirect()`.
 - 서버 호출이 `403`이고 `detail.code == "not_member"`면 초대 코드 화면으로 보낸다(`api.ts`의 `ApiError.code`).

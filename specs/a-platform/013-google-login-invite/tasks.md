@@ -54,6 +54,8 @@
 - [X] T018 [US2] `services/dashboard-web/src/Invite.tsx`: 코드 입력·제출, `invalid_code`·`too_many_attempts`·`not_configured` 문구, 성공 시 `onJoined()`.
 - [X] T019 [US2] `services/dashboard-web/src/App.tsx`: 로그인 뒤 `/api/me` → `member: false`면 `<Invite>`; 통과 시 `auth.signinSilent()` → 실패하면 `signinRedirect(signinArgs)` → 다시 `/api/me`; 다른 호출에서 403 `not_member`면 `<Invite>` (contracts §1, research R4).
 
+- [X] T031 [US1] `services/dashboard-web/src/Landing.tsx`·`landing.css`: 로그인 전 첫 화면(소개, 사실 3개, 예시 그래프, 기능 3개, Google 로그인 버튼). `App.tsx`의 자동 Google 이동 제거, 로그아웃 뒤 첫 화면 (FR-002 수정)
+
 ## Phase 5: US3 - 운영 (P2)
 
 - [X] T020 [US3] quickstart §6에 운영 명령 추가: 코드 교체(SSM 값 수정, 5분 안 반영), 자격 빼기(`admin-remove-user-from-group` + 즉시 막을 때 `admin-user-global-sign-out`), 회원 목록.
