@@ -1,103 +1,139 @@
 // 로그인 전 첫 화면 (013). 버튼을 누르면 Cognito 화면을 건너뛰고 바로 Google로 간다.
-// 오른쪽 그래프는 장식용 예시 그림이다(실제 데이터 아님). D가 디자인을 맞춰 바꿔도 된다.
-import { useState } from "react";
+// 오른쪽 그래프는 연출용 예시다(실제 데이터 아님). D가 디자인을 맞춰 바꿔도 된다.
+import { useCallback, useEffect, useState } from "react";
+import LiveChart, { type Level } from "./LiveChart";
 import "./landing.css";
 
-// 30분 측정값 48칸 모양의 예시 곡선 (기준 대비 %)
-const SERIES = [52, 55, 54, 58, 61, 60, 63, 66, 64, 68, 71, 70, 74, 77, 75, 79, 83, 81, 84, 88, 86, 91, 94, 92];
-const W = 360;
-const H = 170;
-const PAD = 8;
-const yOf = (pct: number) => H - PAD - ((pct - 40) / (110 - 40)) * (H - PAD * 2);
-const xOf = (i: number) => PAD + (i / (SERIES.length - 1)) * (W - PAD * 2);
-const LINE = SERIES.map((v, i) => `${i ? "L" : "M"}${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(" ");
-const AREA = `${LINE} L${xOf(SERIES.length - 1).toFixed(1)},${H - PAD} L${PAD},${H - PAD} Z`;
-const LAST = SERIES.length - 1;
+const LEVEL_TEXT: Record<Level, string> = { ok: "정상", warn: "주의", alarm: "기준 초과" };
+
+function useKstClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  return now.toLocaleTimeString("en-GB", { timeZone: "Asia/Seoul", hourCycle: "h23" });
+}
 
 export default function Landing({ onLogin }: { onLogin: () => void }) {
   const [busy, setBusy] = useState(false);
+  const [level, setLevel] = useState<Level>("ok");
+  const [value, setValue] = useState(0);
+  const [eta, setEta] = useState<number | null>(null);
+  const clock = useKstClock();
+
+  const onLevel = useCallback((l: Level, v: number, e: number | null) => {
+    setLevel(l);
+    setValue(v);
+    setEta(e);
+  }, []);
 
   return (
-    <div className="landing">
+    <div className={`landing level-${level}`}>
+      <div className="siren-bar" aria-hidden="true" />
+
       <header className="landing-top">
         <StackMark />
         <span>smokestack-guard</span>
+        <span className="live-pill" aria-label={`실시간, 한국 시각 ${clock}`}>
+          <i className="live-dot" />
+          <b>LIVE</b>
+          <span className="live-clock">{clock}</span>
+          <span className="live-tz">KST</span>
+        </span>
       </header>
 
       <main className="landing-main">
-        <section>
-          <span className="landing-eyebrow">굴뚝 TMS 모니터링 · AI 사전 경고</span>
-          <h1>
+        <section className="hero">
+          <span className="landing-eyebrow reveal" style={{ ["--d" as string]: "0ms" }}>
+            <Beacon /> 굴뚝 TMS 모니터링 · AI 사전 경고
+          </span>
+          <h1 className="reveal" style={{ ["--d" as string]: "80ms" }}>
             굴뚝 배출을 30분마다 보고,
             <br />
-            <em>넘기 전에</em> 알립니다
+            <em className="heartbeat">넘기 전에</em> 알립니다
           </h1>
-          <p className="landing-lead">
+          <p className="landing-lead reveal" style={{ ["--d" as string]: "160ms" }}>
             전국 굴뚝자동측정기기(TMS)의 질소산화물·황산화물 측정값을 지도와 시계열로 보여 주고,
             배출허용기준에 다가가는 굴뚝을 미리 알려 줍니다. 궁금한 점은 에이전트에게 물어보세요.
           </p>
-          <ul className="landing-facts">
+          <ul className="landing-facts reveal" style={{ ["--d" as string]: "240ms" }}>
             <li><strong>2,925</strong>굴뚝</li>
             <li><strong>30분</strong>측정 주기</li>
             <li><strong>NOx · SOx</strong>배출허용기준 대비</li>
           </ul>
 
-          <button
-            className="google-btn"
-            disabled={busy}
-            onClick={() => {
-              setBusy(true);
-              onLogin();
-            }}
-          >
-            <GoogleG />
-            {busy ? "Google로 이동 중…" : "Google 계정으로 로그인"}
-          </button>
-          <p className="landing-note">처음 로그인하면 초대 코드를 한 번 입력합니다.</p>
+          <div className="reveal" style={{ ["--d" as string]: "320ms" }}>
+            <button
+              className="google-btn"
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                onLogin();
+              }}
+            >
+              <GoogleG />
+              {busy ? "Google로 이동 중…" : "Google 계정으로 로그인"}
+              <span className="btn-arrow" aria-hidden="true">→</span>
+            </button>
+            <p className="landing-note">처음 로그인하면 초대 코드를 한 번 입력합니다.</p>
+          </div>
         </section>
 
-        <aside className="preview" aria-label="대시보드 미리보기 (예시 그림)">
+        <aside className={`preview reveal level-${level}`} style={{ ["--d" as string]: "200ms" }} aria-label="실시간 모니터링 예시">
           <div className="preview-head">
-            <span className="preview-title">NOx · 기준 대비 %</span>
-            <span className="preview-sub">최근 12시간 · 예시</span>
+            <div>
+              <span className="preview-title">
+                <span className="card-live"><i className="live-dot" />LIVE</span>
+                NOx · 기준 대비 %
+              </span>
+              <span className="preview-sub">예시 굴뚝 A-03 · 연출용</span>
+            </div>
+            <div className="preview-value">
+              <span className={`state-chip ${level}`}>
+                {level === "alarm" && <Beacon />}
+                {LEVEL_TEXT[level]}
+              </span>
+              <strong>{value.toFixed(1)}<small>%</small></strong>
+            </div>
           </div>
+
           <div className="preview-chart">
-            <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="기준 대비 비율이 90%를 넘어 100%에 다가가는 예시 곡선">
-              <defs>
-                <linearGradient id="fill" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="#3fbf93" stopOpacity="0.35" />
-                  <stop offset="100%" stopColor="#3fbf93" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              {[50, 70, 90].map((g) => (
-                <line key={g} x1={PAD} x2={W - PAD} y1={yOf(g)} y2={yOf(g)} stroke="var(--chart-grid)" strokeWidth="1" />
-              ))}
-              <line x1={PAD} x2={W - PAD} y1={yOf(100)} y2={yOf(100)} stroke="#c2412d" strokeWidth="1.5" strokeDasharray="5 4" />
-              <text x={W - PAD} y={yOf(100) - 5} textAnchor="end" fontSize="10" fill="#e8806f">배출허용기준 100%</text>
-              <line x1={PAD} x2={W - PAD} y1={yOf(90)} y2={yOf(90)} stroke="#d9822b" strokeWidth="1" strokeDasharray="2 4" />
-              <text x={PAD + 2} y={yOf(90) - 5} fontSize="10" fill="#e3a35f">주의 90%</text>
-              <path d={AREA} fill="url(#fill)" />
-              <path d={LINE} fill="none" stroke="#3fbf93" strokeWidth="2.2" strokeLinejoin="round" />
-              <circle cx={xOf(LAST)} cy={yOf(SERIES[LAST])} r="9" fill="#d9822b" opacity="0.25" />
-              <circle cx={xOf(LAST)} cy={yOf(SERIES[LAST])} r="4" fill="#d9822b" />
-            </svg>
+            <LiveChart onLevel={onLevel} />
           </div>
-          <div className="preview-legend">
-            <span><i className="dot" style={{ background: "#3fbf93" }} />측정값</span>
-            <span><i className="dot" style={{ background: "#d9822b" }} />주의 진입</span>
-            <span><i className="dot" style={{ background: "#c2412d" }} />기준 초과</span>
+
+          <div className={`alert-strip ${level}`} role="status" aria-live="polite">
+            {level === "ok" && <>정상 범위 · {eta ? `현재 추세면 약 ${eta * 30}분 뒤 기준 도달` : "30분마다 새 측정값 반영"}</>}
+            {level === "warn" && (
+              <>
+                <b>AI 사전 경고</b> 주의 구간 진입 · {eta ? `약 ${eta * 30}분 뒤 기준 초과 예상` : "기준에 근접"}
+              </>
+            )}
+            {level === "alarm" && (
+              <>
+                <b>기준 초과</b> 담당자에게 알림 발송 · 대응 중
+              </>
+            )}
+          </div>
+
+          {/* 기준을 넘으면 마스코트가 카드 아래에서 튀어나와 경고한다. 주의 단계에서는 살짝 고개만 내민다 */}
+          <div className={`mascot ${level}`} aria-hidden="true">
+            <div className="mascot-bubble">
+              {level === "alarm" ? "삐용삐용! 기준 초과!" : "어, 올라간다…"}
+            </div>
+            <img src="/mascot.png" alt="" width={133} height={150} />
           </div>
         </aside>
       </main>
 
       <section className="features" aria-label="주요 기능">
-        <Feature title="전국 굴뚝 지도" icon={<MapIcon />}>
+        <Feature title="전국 굴뚝 지도" icon={<MapIcon />} delay={0}>
           사업장별 굴뚝의 최근 측정값과 상태(정상·가동중지·미수신)를 지도에서 한눈에 봅니다.
         </Feature>
-        <Feature title="AI 사전 경고" icon={<BellIcon />}>
+        <Feature title="AI 사전 경고" icon={<BellIcon />} delay={90}>
           규칙과 모델이 기준 초과 가능성을 미리 판단해, 넘기 전에 대응할 시간을 줍니다.
         </Feature>
-        <Feature title="에이전트에게 질문" icon={<ChatIcon />}>
+        <Feature title="에이전트에게 질문" icon={<ChatIcon />} delay={180}>
           "어제 가장 높았던 굴뚝은?", "이 그래프는 왜 비었지?" 같은 질문에 근거와 함께 답합니다.
         </Feature>
       </section>
@@ -109,9 +145,9 @@ export default function Landing({ onLogin }: { onLogin: () => void }) {
   );
 }
 
-function Feature({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+function Feature({ title, icon, delay, children }: { title: string; icon: React.ReactNode; delay: number; children: React.ReactNode }) {
   return (
-    <div className="feature">
+    <div className="feature reveal" style={{ ["--d" as string]: `${400 + delay}ms` }}>
       <div className="feature-icon">{icon}</div>
       <h3>{title}</h3>
       <p>{children}</p>
@@ -119,12 +155,22 @@ function Feature({ title, icon, children }: { title: string; icon: React.ReactNo
   );
 }
 
+function Beacon() {
+  return (
+    <span className="beacon" aria-hidden="true">
+      <span className="beacon-light" />
+      <span className="beacon-base" />
+    </span>
+  );
+}
+
 function StackMark() {
   return (
-    <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
-      <path d="M5 24V12l4-2v14M11 24V8l4-2v18M17 24V14l4-2v12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M13 4c1-2 3-2 4-1s3 1 4-1" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" opacity="0.6" />
-      <path d="M3 24h20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <svg className="stack-mark" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
+      <path className="smoke s1" d="M9 8c-1-2 0-4 2-4" />
+      <path className="smoke s2" d="M15 6c-1-2 0-4 2-4" />
+      <path d="M6 26V13l4-2v15M12 26V9l4-2v19M18 26V15l4-2v13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M4 26h20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -150,7 +196,7 @@ function MapIcon() {
 
 function BellIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+    <svg className="bell" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
       <path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4l2-2zM10 21h4" />
     </svg>
   );
