@@ -95,9 +95,12 @@ def _default_service() -> AgentService:
     """환경 변수로 구성한다.
 
     AGENT_DATA_SOURCE / AGENT_LOCAL_DAY_DIR: _data_source() 참고.
+    AGENT_CHECKPOINT=postgres: 대화 상태와 재시도 응답을 RDS `app` 스키마에 둔다.
+        서버가 2대 이상일 때 필요하다. 그 밖(기본 memory)은 이 프로세스 메모리.
+        자세한 것은 conversation_store.py 참고.
     AGENT_FIXED_NOW: 'YYYY-MM-DDTHH:MM' (KST). 보관 자료로 시험할 때 현재 시각을 고정한다.
     """
-    from langgraph.checkpoint.memory import InMemorySaver
+    from app.agent.conversation_store import make_checkpointer, make_response_store
 
     data = _data_source()
     resolver = SiteResolver(sites_from(data))
@@ -111,12 +114,13 @@ def _default_service() -> AgentService:
     return AgentService(
         extractor,
         data,
-        InMemorySaver(),
+        make_checkpointer(),
         clock,
         model,
         resolver,
         planner,
         default_agent(summarizer),
+        make_response_store(),
     )
 
 

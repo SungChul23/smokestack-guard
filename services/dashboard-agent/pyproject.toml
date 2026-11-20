@@ -10,6 +10,7 @@ dependencies = [
     "langgraph>=1.2,<2",
     "boto3>=1.35,<2",  # AGENT_LLM_BACKEND=bedrock 일 때 Bedrock 호출, RDS IAM 토큰 발급
     "psycopg[binary,pool]>=3.2,<4",  # AGENT_DATA_SOURCE=rds 일 때 RDS 읽기 (spec 316)
+    "langgraph-checkpoint-postgres>=3.2,<4",  # AGENT_CHECKPOINT=postgres (spec 319)
 ]
 
 [project.optional-dependencies]

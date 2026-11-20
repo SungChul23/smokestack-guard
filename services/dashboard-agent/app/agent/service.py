@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import time
 import uuid
-from collections import OrderedDict
 from collections.abc import Callable
 from datetime import datetime
 from typing import Any
@@ -28,9 +27,9 @@ from app.agent.contract import (
 )
 from app.agent.graph import build_graph
 from app.agent.guard import mask_pii
+from app.agent.response_store import MemoryResponseStore, ResponseStore
 from app.agent.slots import KST
 
-MAX_CACHED = 500
 Clock = Callable[[], datetime]
 
 
@@ -49,18 +48,22 @@ class AgentService:
         resolver: Any = None,
         planner: Any = None,
         evidence: Any = None,
+        responses: ResponseStore | None = None,
     ) -> None:
         self.graph = build_graph(extractor, data, checkpointer, resolver, planner, evidence)
         self.clock = clock
         self.model_name = model_name
-        self._done: OrderedDict[tuple[str, str], ChatResponse] = OrderedDict()
+        # 재시도 응답 저장소. 서버가 여러 대면 RDS 구현을 넣는다(기본은 이 프로세스 메모리).
+        self.responses: ResponseStore = responses or MemoryResponseStore()
 
     # ── 입구 ──────────────────────────────────────────────────────────
     def chat(self, request: ChatRequest, user_sub: str) -> ChatResponse:
         started = time.perf_counter()
         # 같은 사용자의 같은 request_id는 재시도로 보고 저장된 응답을 돌려준다.
-        if request.request_id and (user_sub, request.request_id) in self._done:
-            return self._done[(user_sub, request.request_id)]
+        if request.request_id:
+            cached = self.responses.get(user_sub, request.request_id)
+            if cached is not None:
+                return cached
         conversation_id = request.conversation_id or uuid.uuid4().hex[:16]
         thread = f"{user_sub}:{conversation_id}"
         request_id = request.request_id or uuid.uuid4().hex[:16]
@@ -74,9 +77,7 @@ class AgentService:
             update={"trace": response.trace.model_copy(update={"turn_type": turn})}
         )
         if request.request_id:
-            self._done[(user_sub, request.request_id)] = response
-            while len(self._done) > MAX_CACHED:
-                self._done.popitem(last=False)
+            self.responses.put(user_sub, request.request_id, response)
         return response
 
     # ── 새 질문 ───────────────────────────────────────────────────────

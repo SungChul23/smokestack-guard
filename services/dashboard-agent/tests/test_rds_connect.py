@@ -87,3 +87,46 @@ def test_root_cert_switches_to_verify_full(monkeypatch):
     assert kw["sslmode"] == "verify-full"
     assert kw["sslrootcert"] == "/certs/global-bundle.pem"
     assert kw["user"] == "x"
+
+
+def test_write_pool_is_not_read_only_and_uses_the_app_schema(monkeypatch):
+    """대화 상태 저장용 풀(spec 319): 읽기 전용 옵션이 없고 `app` 스키마를 기본으로 쓴다."""
+    captured: dict = {}
+
+    class FakePool:
+        def __init__(self, **kwargs) -> None:
+            captured.update(kwargs)
+
+        def open(self) -> None:
+            pass
+
+    monkeypatch.setattr(rc, "ConnectionPool", FakePool)
+    rc.make_pool(
+        {"DB_HOST": "db.example"},
+        read_only=False,
+        search_path="app",
+        extra_kwargs={"prepare_threshold": 0},
+        name="agent-state",
+    )
+    kw = captured["kwargs"]
+    assert "default_transaction_read_only" not in kw["options"]
+    assert "search_path=app" in kw["options"]
+    assert "statement_timeout" in kw["options"]
+    assert kw["prepare_threshold"] == 0 and kw["autocommit"] is True
+    assert captured["name"] == "agent-state"
+
+
+def test_pools_check_connections_before_handing_them_out(monkeypatch):
+    """DB 점검·장애·Multi-AZ 전환 뒤 끊어진 연결을 쓰지 않도록 꺼내기 전에 점검한다."""
+    captured: dict = {}
+
+    class FakePool:
+        def __init__(self, **kwargs) -> None:
+            captured.update(kwargs)
+
+        def open(self) -> None:
+            pass
+
+    monkeypatch.setattr(rc, "ConnectionPool", FakePool)
+    rc.make_pool({"DB_HOST": "db.example"})
+    assert captured["check"] is rc.CHECK_CONNECTION

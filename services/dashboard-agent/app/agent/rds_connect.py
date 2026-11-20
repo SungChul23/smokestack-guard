@@ -23,6 +23,8 @@ DEFAULT_USER = "tms_app"
 DEFAULT_DB = "tms"
 DEFAULT_REGION = "ap-northeast-2"
 SESSION_OPTIONS = "-c default_transaction_read_only=on -c statement_timeout=8000"
+WRITE_SESSION_OPTIONS = "-c statement_timeout=8000"  # 대화 상태 저장용(쓰기). 읽기 전용 옵션은 없다
+CHECK_CONNECTION = ConnectionPool.check_connection  # 꺼내 쓰기 전에 연결이 살아 있는지 점검
 
 
 def _auth_token(host: str, port: int, user: str, region: str) -> str:
@@ -42,8 +44,20 @@ def iam_connection_class(host: str, port: int, user: str, region: str) -> type[p
     return IamConnection
 
 
-def make_pool(env: Mapping[str, str] | None = None) -> ConnectionPool:
-    """풀을 만들어 연다. 서버가 뜰 때 DB가 닫혀 있어도 서비스는 뜬다(첫 질문에서 오류로 알린다)."""
+def make_pool(
+    env: Mapping[str, str] | None = None,
+    *,
+    read_only: bool = True,
+    search_path: str | None = None,
+    extra_kwargs: Mapping[str, object] | None = None,
+    name: str | None = None,
+) -> ConnectionPool:
+    """풀을 만들어 연다. 서버가 뜰 때 DB가 닫혀 있어도 서비스는 뜬다(첫 질문에서 오류로 알린다).
+
+    - read_only=True(기본): 관측 읽기용. 쓰기 풀(체크포인트 등)은 False로 만들고
+      `search_path`로 `app`을 준다.
+    - 끊어진 연결(DB 점검·장애·Multi-AZ 전환 뒤)은 꺼내 쓰기 전에 점검해서 버린다.
+    """
     env = os.environ if env is None else env
     host = env.get("DB_HOST")
     if not host:
@@ -51,15 +65,19 @@ def make_pool(env: Mapping[str, str] | None = None) -> ConnectionPool:
     port = int(env.get("DB_PORT", "5432"))
     user = env.get("DB_USER", DEFAULT_USER)
     region = env.get("AWS_REGION", DEFAULT_REGION)
+    options = SESSION_OPTIONS if read_only else WRITE_SESSION_OPTIONS
+    if search_path:
+        options += f" -c search_path={search_path}"
     kwargs: dict[str, object] = {
         "host": host,
         "port": port,
         "dbname": env.get("DB_NAME", DEFAULT_DB),
         "user": user,
         "connect_timeout": 5,
-        "options": SESSION_OPTIONS,
+        "options": options,
         "autocommit": True,
     }
+    kwargs.update(extra_kwargs or {})
     root_cert = env.get("DB_SSLROOTCERT")
     if root_cert:
         kwargs["sslmode"] = "verify-full"
@@ -74,6 +92,8 @@ def make_pool(env: Mapping[str, str] | None = None) -> ConnectionPool:
         max_size=4,
         max_lifetime=3000,
         timeout=10,
+        check=CHECK_CONNECTION,
+        name=name,
         open=False,
     )
     pool.open()
