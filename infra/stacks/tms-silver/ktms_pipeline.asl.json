@@ -37,12 +37,12 @@
       "Next": "RouteStart"
     },
     "SynthSource": {
-      "Comment": "합성은 원본 tms_synthetic_train/, 테이블 *_synth*, 검사는 출처 ktms_synth + 실측 굴뚝 키 비겹침 (011 research R9)",
+      "Comment": "합성은 원본 tms_synthetic_train_v2/(생성기 v2, spec 015), 테이블 *_synth*, 검사는 출처 ktms_synth + 실측 굴뚝 키 비겹침 (011 research R9)",
       "Type": "Pass",
       "Parameters": {
         "args.$": "States.JsonMerge($.args, States.StringToJson('{\"check_table\":\"tms_silver2.ktms_synth_ml_ready\",\"expect_source\":\"ktms_synth\",\"real_table\":\"tms_silver2.ktms_ml_ready\"}'), false)",
         "src": {
-          "source_prefix": "tms_synthetic_train/",
+          "source_prefix": "tms_synthetic_train_v2/",
           "silver_table": "tms_silver2.ktms_synth",
           "silver_runs": "silver2/_runs/ktms_synth",
           "ml_ready_table": "tms_silver2.ktms_synth_ml_ready",
