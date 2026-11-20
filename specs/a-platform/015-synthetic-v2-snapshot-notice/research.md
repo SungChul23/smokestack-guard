@@ -19,7 +19,7 @@
 
 ## R4. Silver는 같은 표를 v2 원본으로 다시 계산
 
-- **Decision**: `tms-silver`의 합성 원본 경로(`local.synth_source_prefix`, 상태 머신 정의의 `source_prefix`)를 `tms_synthetic_train_v2`로 바꾼다. apply 뒤 `run_ktms.py backfill --source synth --from 2026-10-30 --to <D−2>`로 Silver 5일 묶음 → ML-ready 전체를 다시 계산하고, 계약 검사를 한 번 실행한다(008·011과 같은 절차).
+- **Decision**: `tms-silver`의 합성 원본 경로(`local.synth_source_prefix`, 상태 머신 정의의 `source_prefix`)를 `tms_synthetic_train_v2`로 바꾼다. apply 뒤 `run_ktms.py backfill --source ktms_synth --from 2026-10-30 --to <어제>`(끝난 날짜만, 매일 갱신도 오늘은 계산하지 않으므로 어제까지면 v1 행이 남지 않음)로 Silver 5일 묶음 → ML-ready 전체를 다시 계산하고, 계약 검사를 한 번 실행한다(008·011과 같은 절차).
 - **Rationale**: `overwrite_range`가 범위를 커밋 한 번으로 교체해 새 스냅샷이 생긴다. 범위가 합성 기간 전체라 최신 버전에 v1 행이 남지 않는다. v1은 이전 스냅샷(시간 여행)과 S3 원본으로 남는다.
 - **확인 쿼리**: `SELECT count(DISTINCT stack_code) FROM tms_silver2.ktms_synth_ml_ready WHERE stack_code LIKE '%-OTHER-%'` = 0.
 - **Glue 읽기 권한**: 합성 Silver 잡 역할의 원본 읽기(`ReadSynthBronze`)도 같은 로컬 값을 쓰므로 함께 바뀐다.

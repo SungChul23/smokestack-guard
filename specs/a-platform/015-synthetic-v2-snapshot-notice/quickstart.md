@@ -49,10 +49,14 @@ terraform apply
 
 ```bash
 cd services/tms-silver
-python run_ktms.py backfill --source synth --from 2026-10-30 --to <D−2> --dry-run
-python run_ktms.py backfill --source synth --from 2026-10-30 --to <D−2>
+python run_ktms.py backfill --source ktms_synth --from 2026-10-30 --to <어제> --dry-run   # 끝난 날짜만(오늘은 받지 않음)
+python run_ktms.py backfill --source ktms_synth --from 2026-10-30 --to <어제>
 ```
-끝나면 계약 검사(011 quickstart와 같음).
+끝나면 계약 검사만 실행:
+```bash
+aws stepfunctions start-execution --state-machine-arn arn:aws:states:ap-northeast-2:952900391026:stateMachine:tms-silver2-ktms \
+  --input '{"source":"ktms_synth","stage":"check","start_date":"2026-10-30","end_date":"<어제>"}'
+```
 
 ## 6. 확인 (Athena)
 
