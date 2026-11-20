@@ -1,6 +1,7 @@
 // Cognito 로그인 설정 (specs/a-platform/009-service-infra, US3)
 // 값은 빌드 때 환경 변수로 들어온다. 운영 빌드는 CI가 SSM /tms/app/config/* 에서 읽어 넣는다. 비밀 아님.
 import { WebStorageStateStore } from "oidc-client-ts";
+import type { SigninRedirectArgs } from "oidc-client-ts";
 import type { AuthProviderProps } from "react-oidc-context";
 
 const region = "ap-northeast-2";
@@ -30,3 +31,7 @@ export function cognitoLogoutUrl(): string {
   const params = new URLSearchParams({ client_id: clientId, logout_uri: `${window.location.origin}/` });
   return `https://${loginDomain}/logout?${params.toString()}`;
 }
+
+// 013: 로그인은 Google만. Cognito 로그인 화면을 건너뛰고 바로 Google로 보낸다 (research R5)
+export const LOGIN_PROVIDER = "Google";
+export const signinArgs: SigninRedirectArgs = { extraQueryParams: { identity_provider: LOGIN_PROVIDER } };

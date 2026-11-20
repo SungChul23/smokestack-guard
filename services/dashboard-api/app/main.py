@@ -3,17 +3,25 @@
 계약: specs/a-platform/009-service-infra/contracts/app-runtime.md
 - 포트 8000, 상태 확인 GET /health
 - 모든 API 경로는 /api/ 아래 (ALB가 접두사를 떼지 않는다)
-- 로그인 필수: 운영 확인용(/health, /api/health, /api/db-check)만 공개.
-  새 라우트는 인자에 `user: CurrentUser`를 붙인다 (app/auth.py)
+- 공개: 운영 확인용(/health, /api/health, /api/db-check)
+- 로그인만: /api/me, /api/invite (초대 코드 전, 013)
+- 그 밖: 새 라우트는 인자에 `user: CurrentUser`(로그인 + members)를 붙인다 (app/auth.py)
+  계약: specs/a-platform/013-google-login-invite/contracts/auth-api.md
 """
 
 import json
+import logging
 import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-from app.auth import CurrentUser
+from app import invite
+from app.auth import LoggedInUser, is_member
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
+log = logging.getLogger("tms.api")
 
 app = FastAPI(title="tms dashboard api")
 
@@ -80,6 +88,36 @@ def db_check() -> dict:
 
 
 @app.get("/api/me")
-def me(user: CurrentUser) -> dict:
-    """로그인 확인용. 화면이 처음 서버 인증을 확인할 때 부른다."""
-    return {"sub": user.get("sub"), "username": user.get("username")}
+def me(user: LoggedInUser) -> dict:
+    """로그인·자격 확인. 화면은 member가 false면 초대 코드 화면을 보여 준다 (013)."""
+    return {"sub": user.get("sub"), "member": is_member(user)}
+
+
+class InviteRequest(BaseModel):
+    code: str
+
+
+def _error(status: int, code: str, message: str) -> HTTPException:
+    return HTTPException(status_code=status, detail={"code": code, "message": message})
+
+
+@app.post("/api/invite")
+def join(body: InviteRequest, user: LoggedInUser) -> dict:
+    """초대 코드가 맞으면 members 그룹에 넣는다. 화면은 이어서 토큰을 새로 받는다 (013 R4)."""
+    sub = user.get("sub")
+    if is_member(user):
+        return {"member": True}
+    try:
+        ok = invite.checker.check(sub, body.code)
+    except invite.TooManyAttempts:
+        log.info("invite sub=%s result=limited", sub)
+        raise _error(429, "too_many_attempts", "잠시 뒤 다시 시도") from None
+    except invite.NotConfigured as e:
+        log.warning("invite sub=%s result=not_configured reason=%s", sub, e)
+        raise _error(503, "not_configured", "초대 코드 설정이 없다") from None
+    if not ok:
+        log.info("invite sub=%s result=invalid", sub)
+        raise _error(400, "invalid_code", "초대 코드가 맞지 않는다")
+    invite.checker.add_to_members(user.get("username"))
+    log.info("invite sub=%s result=ok", sub)
+    return {"member": True}
