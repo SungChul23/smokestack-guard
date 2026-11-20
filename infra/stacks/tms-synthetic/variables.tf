@@ -1,5 +1,5 @@
 variable "raw_bucket_name" {
-  description = "원본 버킷 이름 (tms-collection 스택이 관리). 이 스택은 tms_synthetic_train/ 아래에만 쓴다"
+  description = "원본 버킷 이름 (tms-collection 스택이 관리). 이 스택은 tms_synthetic_train_v2/ 아래에만 쓴다(v1 tms_synthetic_train/은 보존만)"
   type        = string
   default     = "smokestack-tms-raw-952900391026"
 }

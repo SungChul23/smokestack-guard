@@ -1,6 +1,7 @@
 # 학습용 합성 K-TMS 데이터 AWS Bronze 적재. specs/a-platform/011-synthetic-train-s3-ingest
 #
-# EventBridge Scheduler(매 :10, :40 KST) → Lambda tms-synthetic-train → 원본 버킷 tms_synthetic_train/
+# EventBridge Scheduler(매 :10, :40 KST) → Lambda tms-synthetic-train → 원본 버킷 tms_synthetic_train_v2/
+# - 2026-11-21 생성기 v2(B PR #72)로 전환. v1 경로 tms_synthetic_train/은 보존만 하고 쓰지 않는다 (spec 015).
 # - 생성 규칙은 B의 k_tms_synthetic_train/synth_train을 수정 없이 zip에 넣는다. 진입점은 lambda_handler.py.
 # - Kafka·Kinesis 없음(research R1). 에피소드는 seed로 매번 다시 계산(R2).
 # - 실패: Scheduler 재시도+DLQ, Lambda 비동기 재시도 2회+실패 목적지(같은 SQS), DLQ 알람, 매일 06:00 점검(R5).
@@ -8,7 +9,7 @@
 
 locals {
   name       = "tms-synthetic-train"
-  root       = "tms_synthetic_train"
+  root       = "tms_synthetic_train_v2" # synth_train.snapshot.TRAIN_ROOT와 같아야 한다
   source_dir = "${path.module}/../../../k_tms_synthetic_train"
   # research R3. plan.py는 PyYAML을 import하므로 넣지 않는다(설정은 daily.json).
   modules = [
@@ -101,7 +102,7 @@ data "aws_iam_policy_document" "lambda_assume" {
 
 resource "aws_iam_role" "lambda" {
   name               = "tms-lambda-synthetic-train"
-  description        = "Synthetic training data writer (tms_synthetic_train/ only)"
+  description        = "Synthetic training data writer (tms_synthetic_train_v2/ only)"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
 }
 
@@ -160,7 +161,7 @@ resource "aws_iam_role_policy" "lambda" {
 
 resource "aws_lambda_function" "this" {
   function_name    = local.name
-  description      = "Synthetic K-TMS training data to tms_synthetic_train/ every 30 min (spec 011)"
+  description      = "Synthetic K-TMS training data v2 to tms_synthetic_train_v2/ every 30 min (spec 011, 015)"
   role             = aws_iam_role.lambda.arn
   runtime          = "python3.12"
   handler          = "lambda_handler.handler"
