@@ -13,6 +13,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.agent.api import router as agent_router
 from app.auth import CurrentUser
 
 app = FastAPI(title="tms dashboard agent")
@@ -23,6 +24,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+
+app.include_router(agent_router)
 
 
 @app.get("/health")
