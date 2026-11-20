@@ -49,7 +49,7 @@
 
 **Independent Test**: 표본 사업장 목록으로 `load-ref`를 돌려 `ref` 세 표가 채워지고, 다시 돌려도 같으며, 이름 이력 한 줄 추가로 옛 이름 관측이 같은 `site_id`로 조회되는지.
 
-- [ ] T027 📨 [US3] D에게 사업장 목록 요청(contracts §4 컬럼, 한 줄 = 굴뚝 하나). 받으면 🧑 원본 버킷 `ref/sites/<버전>.csv`에 올린다(저장소에 넣지 않음, research R9).
+- [X] T027 📨 [US3] D에게 사업장 목록 요청(contracts §4 컬럼, 한 줄 = 굴뚝 하나). 받으면 🧑 원본 버킷 `ref/sites/<버전>.csv`에 올린다(저장소에 넣지 않음, research R9). → 2026-11-19 받음(사업장 단위 909행, 시·도 "새 이름:약칭"). 11-20 성주군 1곳 추가해 `sites-20261120.csv`(910)
 - [X] T028 [P] [US3] `tests/test_ref.py`: 표본 CSV(가짜 이름) → `ref.site`·`ref.site_name_map`(`confirmed_by=auto|사람`)·`ref.stack`(`source=site_list`), 같은 `site_id`인데 사업장 정보가 다르면 거부, 두 번 적재 시 동일, 이름 이력 추가 후 `ref.v_stack`이 옛·새 이름 키 모두 같은 `site_id`.
 - [X] T029 [US3] `run_dashboard_load.py load-ref --sites <s3://… | 로컬> [--dry-run]` + `db.py`의 `load_ref` 구현 (contracts §4).
 
@@ -76,20 +76,22 @@
 
 ## Phase 8: 배포와 운영 확인 (사람)
 
-- [ ] T040 🧑 `build_layer.sh` 실행 후 quickstart §2: `tms-network`(추가만) → `tms-database`(RDS **수정**이지 교체 아님 확인, IAM 인증) → `tms-dashboard-load`(스케줄 꺼짐) plan·apply.
-- [ ] T041 🧑 quickstart §3: 베스천 터널 → `migrate` → `load-ref`.
-- [ ] T042 🧑 quickstart §4: `recent` 1회 실행, 두 번째 실행 `upserted = 0`(SC-002), 상태 행 null 0건(SC-005).
-- [ ] T043 🧑 quickstart §5: `backfill --from 2026-10-30 --to <오늘>`, 1시간 안(SC-006).
-- [ ] T044 🧑 quickstart §6: 확정 날짜 2개를 Athena Silver와 비교(SC-003). 다르면 그 날짜 `backfill`.
-- [ ] T045 🧑 quickstart §7: `load_schedule_enabled = true` 적용, 다음 :15·:45와 다음 날 03:20 `daily` 확인, 새 슬롯이 40분 안에 보이는지(SC-001).
-- [ ] T046 🧑 quickstart §8: RDS 끄고 다음 실행이 `skipped`로 성공·메일 없음 확인 → 다시 켜고 `backfill`로 복구.
+- [X] T040 🧑 `build_layer.sh` 실행 후 quickstart §2: `tms-network`(추가만) → `tms-database`(RDS **수정**이지 교체 아님 확인, IAM 인증) → `tms-dashboard-load`(스케줄 꺼짐) plan·apply. → 2026-11-19 완료. pg8000 레이어는 scramp 1.4.6 고정 뒤 v2로 교체
+- [X] T041 🧑 quickstart §3: 베스천 터널 → `migrate` → `load-ref`. → 완료. migrate 001~005, load-ref 사업장 909·이름 907(동명 2곳 보류)
+- [X] T042 🧑 quickstart §4: `recent` 1회 실행, 두 번째 실행 `upserted = 0`(SC-002), 상태 행 null 0건(SC-005). → 완료. 32,567행 13초, 두 번째 실행 바뀐 행 0
+- [X] T043 🧑 quickstart §5: `backfill --from 2026-10-30 --to <오늘>`, 1시간 안(SC-006). → 완료. 10/30~11/19 21일 약 366만 행, 18분 44초
+- [X] T044 🧑 quickstart §6: 확정 날짜 2개를 Athena Silver와 비교(SC-003). 다르면 그 날짜 `backfill`. → 11/15 NOx·SOx 행 수·정상 아닌 칸·값 합계 Athena와 일치
+- [X] T045 🧑 quickstart §7: `load_schedule_enabled = true` 적용, 다음 :15·:45와 다음 날 03:20 `daily` 확인, 새 슬롯이 40분 안에 보이는지(SC-001). → 11-19 스케줄 켬(기본값 true), 11-20 03:20 `daily` 성공·새 이름 메일 3건 확인
+- [ ] T046 🧑 (보류: 2026-11-19부터 RDS를 계속 켜 둠. 끄게 되면 확인) quickstart §8: RDS 끄고 다음 실행이 `skipped`로 성공·메일 없음 확인 → 다시 켜고 `backfill`로 복구.
 - [ ] T047 🧑 quickstart §9: `tms_app` 권한 확인(SC-008), 한 굴뚝 하루 시계열 조회 1초 안(SC-009).
 
 ## Phase 9: Polish
 
+- [X] T051 2026-11-20 매핑 메일로 K-TMS 원본 이름 끝 공백 2곳 발견 → `migrations/006_name_trim_match.sql`: `ref.v_stack`이 `btrim`으로 비교(키는 그대로), 연결 2,918 → 2,925/2,925
+
 - [X] T048 [P] `AGENTS.md`: 저장소 구조에 `infra/stacks/tms-dashboard-load/`, `services/dashboard-load/`, S3 경로 규칙에 `ref/sites/`(사업장 목록, 사람이 올림, 덮어쓰지 않음), RDS 서비스 복사본 원칙(정본은 S3).
 - [ ] T049 [P] D 공유: 테이블·키·상태 번호 약속(data-model), 읽기 예시 SQL, `tms_app` 접속 방식, `ref.status_code.explanation_ko`는 C·B 확인 뒤 채움.
-- [ ] T050 spec Status 갱신(운영 시작일, 확인한 SC), 이슈 #62 할 일 체크.
+- [X] T050 spec Status 갱신(운영 시작일, 확인한 SC), 이슈 #62 할 일 체크.
 
 ## Dependencies & Execution Order
 
