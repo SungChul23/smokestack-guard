@@ -39,6 +39,7 @@ def token(**over) -> str:
         "token_use": "access",
         "client_id": CLIENT,
         "exp": int(time.time()) + 300,
+        "cognito:groups": ["members"],
     } | over
     return jwt.encode(claims, KEY, algorithm="RS256")
 
@@ -73,3 +74,9 @@ def test_wrong_claims_are_401(over):
 
 def test_health_is_public():
     assert client.get("/health").status_code == 200
+
+
+def test_non_member_is_403():
+    for over in ({"cognito:groups": ["other"]}, {"cognito:groups": None}):
+        r = get(token(**over))
+        assert r.status_code == 403 and r.json()["detail"]["code"] == "not_member"
