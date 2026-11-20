@@ -135,3 +135,43 @@ def test_when_the_key_term_is_missing_from_the_documents_nothing_is_forced(agent
 def test_law_only_ignores_the_word_stack_but_not_a_measurement_lookup():
     assert law_only("굴뚝 데이터에 공란이 많은 이유가 뭐야")
     assert not law_only("굴뚝 15번 어제 NOx 평균과 법 기준")
+
+
+# ── 원문 발췌의 "문서에 없는 말" 판정에서 서술어·의문어를 뺀다 (E2E 시험 결함 3) ──────────
+# 요약이 실패하거나 거부되었을 때의 안전망이다. 검색은 후보를 찾았는데
+# "넘으면·끄면·이행하면·누구·며칠"을
+# 핵심어로 세어 절반 넘게 "문서에 없다"로 보고 후보를 버렸다.
+@pytest.mark.parametrize(
+    ("question", "article"),
+    [
+        ("굴뚝이 허용기준을 넘으면 어떤 조치를 받나요?", "제33조"),
+        ("측정기기를 일부러 끄면 안 되나요?", "제32조"),
+        ("개선명령을 이행하면 누구에게 보고해야 하나요?", "제22조"),
+        ("개선계획서는 며칠 안에 내야 하나요?", "제21조"),
+        ("굴뚝이 허용기준을 넘으면 어떤 조치를 받는지 알려 주세요", "제33조"),  # "받는지·주세요"
+        ("허용기준 초과 시 조업정지가 되는지 알려 주세요", "조업정지"),  # "되는지"
+    ],
+)
+def test_extractive_fallback_finds_articles_despite_verbs_and_question_words(question, article):
+    from app.agent.evidence import default_agent
+
+    part = default_agent(None).answer(question)
+    assert part.status == "DONE"
+    assert article in part.answer
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "초과부과금은 어떻게 계산하나요?",  # 보관한 문서에 없는 주제
+        "허가 취소 요건이 뭐예요?",
+        "미국 EPA 배출 기준은 어떻게 돼요?",  # 서비스 범위 밖
+        "오늘 날씨 어때?",
+    ],
+)
+def test_extractive_fallback_still_refuses_topics_missing_from_the_documents(question):
+    from app.agent.evidence import default_agent
+
+    part = default_agent(None).answer(question)
+    assert part.status == "UNAVAILABLE"
+    assert "지어내지 않습니다" in (part.notice or "")
