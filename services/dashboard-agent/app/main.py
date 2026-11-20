@@ -4,8 +4,10 @@
 - 포트 8000, 상태 확인 GET /health
 - 모든 에이전트 경로는 /agent/ 아래 (ALB가 접두사를 떼지 않는다)
 - 모델은 서버 안에서 돌리지 않고 Bedrock을 API로 호출한다 (서버 메모리 2GB)
-- 로그인 필수: 운영 확인용(/health, /agent/health)만 공개.
-  새 라우트는 인자에 `user: CurrentUser`를 붙인다 (app/auth.py)
+- 공개: 운영 확인용(/health, /agent/health)
+- 그 밖: 새 라우트는 인자에 `user: CurrentUser`를 붙인다 (app/auth.py)
+  = 로그인 + 초대 코드를 통과한 회원(members)
+  계약: specs/a-platform/013-google-login-invite/contracts/auth-api.md
 """
 
 import os

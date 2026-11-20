@@ -73,3 +73,38 @@ def test_wrong_claims_are_401(over):
 
 def test_health_is_public():
     assert client.get("/health").status_code == 200
+
+
+# --- 서비스 자격 (013) ---------------------------------------------------------
+
+
+def test_me_reports_membership():
+    assert get(token()).json() == {"sub": "user-1", "member": False}
+    assert get(token(**{"cognito:groups": ["members"]})).json()["member"] is True
+
+
+def _member_only_client():
+    from fastapi import FastAPI
+
+    probe = FastAPI()
+
+    @probe.get("/probe")
+    def _probe(user: auth.CurrentUser) -> dict:
+        return {"sub": user["sub"]}
+
+    return TestClient(probe)
+
+
+def test_current_user_requires_members_group():
+    c = _member_only_client()
+    hdr = lambda t: {"Authorization": f"Bearer {t}"}  # noqa: E731
+    r = c.get("/probe", headers=hdr(token()))
+    assert r.status_code == 403 and r.json()["detail"]["code"] == "not_member"
+    assert c.get("/probe", headers=hdr(token(**{"cognito:groups": ["other"]}))).status_code == 403
+    assert c.get("/probe", headers=hdr(token(**{"cognito:groups": ["members"]}))).status_code == 200
+    assert c.get("/probe").status_code == 401
+
+
+def test_auth_disabled_counts_as_member(monkeypatch):
+    monkeypatch.setenv("AUTH_DISABLED", "1")
+    assert _member_only_client().get("/probe").status_code == 200

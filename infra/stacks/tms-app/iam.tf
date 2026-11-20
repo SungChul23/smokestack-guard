@@ -21,6 +21,11 @@ resource "aws_iam_role_policy_attachment" "app_ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+# tms-serving이 쓴 사용자 풀 ID (원격 상태 대신 SSM, 009와 같은 방식)
+data "aws_ssm_parameter" "cognito_user_pool_id" {
+  name = "/tms/app/config/cognito-user-pool-id"
+}
+
 data "aws_iam_policy_document" "app" {
   statement {
     sid       = "EcrLogin"
@@ -54,6 +59,30 @@ data "aws_iam_policy_document" "app" {
     sid       = "WriteContainerLogs"
     actions   = ["logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogStreams"]
     resources = [for g in aws_cloudwatch_log_group.app : "${g.arn}:*"]
+  }
+
+  # 초대 코드 통과 시 회원을 members 그룹에 넣는다 (013 research R7)
+  statement {
+    sid       = "AddMemberGroup"
+    actions   = ["cognito-idp:AdminAddUserToGroup"]
+    resources = ["arn:aws:cognito-idp:ap-northeast-2:${data.aws_caller_identity.current.account_id}:userpool/${data.aws_ssm_parameter.cognito_user_pool_id.insecure_value}"]
+  }
+
+  # SecureString(/tms/app/secret/*, 초대 코드) 복호화. AWS 관리형 키를 SSM 경유로만
+  statement {
+    sid       = "DecryptAppSecrets"
+    actions   = ["kms:Decrypt"]
+    resources = ["arn:aws:kms:ap-northeast-2:${data.aws_caller_identity.current.account_id}:key/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["ssm.ap-northeast-2.amazonaws.com"]
+    }
+    condition {
+      test     = "ForAnyValue:StringEquals"
+      variable = "kms:ResourceAliases"
+      values   = ["alias/aws/ssm"]
+    }
   }
 
   # 에이전트 LLM 호출. 쓰는 모델이 정해지면 좁힌다.

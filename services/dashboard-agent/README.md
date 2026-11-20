@@ -71,6 +71,7 @@ ruff check . && pytest -q
 uvicorn app.main:app --reload --port 8000
 ```
 
+<<<<<<< HEAD
 로컬 하루치 자료로 돌려 보려면(로그인 검증을 끄고 현재 시각을 고정한다):
 
 ```bash
@@ -79,3 +80,15 @@ AGENT_LOCAL_DAY_DIR=<public/data/day 경로> uvicorn app.main:app --port 8000
 ```
 
 `AUTH_DISABLED`는 운영 서버에 넣지 않는다.
+=======
+## 로그인·자격 (013)
+
+| 라우트 종류 | 붙이는 것 | 예 |
+|---|---|---|
+| 공개 | 없음 | `/health` |
+| 로그인만 | `user: LoggedInUser` | `/api/me`, `/api/invite` |
+| **기본** | `user: CurrentUser` (로그인 + 그룹 `members`) | 그 밖의 모든 라우트 |
+
+자격이 없으면 `403 {"detail": {"code": "not_member", …}}`. 로컬 개발은 `AUTH_DISABLED=1`(로그인·자격 모두 건너뜀, 운영 서버에는 넣지 않음).
+약속: `specs/a-platform/013-google-login-invite/contracts/auth-api.md`
+>>>>>>> origin/main

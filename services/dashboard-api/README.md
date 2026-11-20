@@ -12,3 +12,14 @@ pip install -e ".[dev]"
 ruff check . && pytest -q
 uvicorn app.main:app --reload --port 8000
 ```
+
+## 로그인·자격 (013)
+
+| 라우트 종류 | 붙이는 것 | 예 |
+|---|---|---|
+| 공개 | 없음 | `/health` |
+| 로그인만 | `user: LoggedInUser` | `/api/me`, `/api/invite` |
+| **기본** | `user: CurrentUser` (로그인 + 그룹 `members`) | 그 밖의 모든 라우트 |
+
+자격이 없으면 `403 {"detail": {"code": "not_member", …}}`. 로컬 개발은 `AUTH_DISABLED=1`(로그인·자격 모두 건너뜀, 운영 서버에는 넣지 않음).
+약속: `specs/a-platform/013-google-login-invite/contracts/auth-api.md`
