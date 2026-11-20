@@ -5,9 +5,9 @@ variable "domain_name" {
 }
 
 variable "rds_enabled" {
-  description = "DB와 배스천을 함께 켠다. false면 둘 다 지운다(DB는 마지막 스냅샷을 남김)"
+  description = "DB와 배스천을 함께 켠다. false면 둘 다 지운다(DB는 마지막 스냅샷을 남김). 대시보드 관측 적재(012)를 위해 2026-11-19부터 계속 켜 둔다"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "db_multi_az" {

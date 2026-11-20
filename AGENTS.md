@@ -66,7 +66,8 @@ infra/
 │   ├── tms-network/      # 서비스: VPC, 서브넷, NAT, 보안그룹
 │   ├── tms-serving/      # 서비스: 인증서, CloudFront + S3 화면, Cognito
 │   ├── tms-database/     # 서비스: RDS PostgreSQL + 배스천
-│   └── tms-app/          # 서비스: ECR, 서버 ASG, ALB, 배포 역할
+│   ├── tms-app/          # 서비스: ECR, 서버 ASG, ALB, 배포 역할
+│   └── tms-dashboard-load/  # 대시보드용 K-TMS 관측 RDS 적재: 30분·매일 예약 실행 + 상태 머신 + VPC Lambda (012)
 └── modules/
     ├── raw-archive/          # 원본 보존 버킷
     └── scheduled-collector/  # 주기 실행 함수 (Lambda + 역할 + 스케줄 + 로그 + 알람), 수집기·누락률 리포트가 함께 사용
@@ -75,7 +76,8 @@ services/
 ├── tms-missing-rate/     # 전날 슬롯 누락률 리포트 Lambda 코드
 ├── tms-eda/              # JSONL → Parquet 변환 Glue 스크립트 + 백필 명령
 ├── tms-silver/           # Silver Glue 진입 스크립트 + 계약 검사 Lambda + 일괄 실행 명령 (TW CEMS, K-TMS)
-└── dashboard-{api,agent,web}/  # 대시보드·에이전트 앱 (D)
+├── dashboard-{api,agent,web}/  # 대시보드·에이전트 앱 (D)
+└── dashboard-load/       # 관측 RDS 적재 Lambda + DB 마이그레이션 SQL + 사람 명령(migrate·load-ref·backfill) (A, 012)
 k_tms_synthetic/          # 평가·시연용 합성 생성기 (B, specs/b-collection/102)
 k_tms_synthetic_train/    # 학습용 합성 생성기 + AWS 적재 진입점 lambda_handler.py (B·A, 103·011)
 ```
@@ -99,6 +101,7 @@ smokestack-tms-raw-952900391026/
 │   ├── <테이블>/year=YYYY/month=MM/   # 예: tw_cems, tw_cems_ml_ready, ktms
 │   └── _runs/<테이블>/YYYY-MM.json    # 월 실행 기록
 ├── silver2/                      # bronze2로 만든 Silver. TW CEMS 공식. 구조는 silver/와 같다
+├── ref/sites/<버전>.csv           # D의 사업장 목록 (실제 사업장명·좌표 포함, 사람이 올림, 덮어쓰지 않음). RDS ref 표의 재료
 └── ops/                          # Terraform이 올리는 운영 파일 (Glue 스크립트, 패키지)
 ```
 
@@ -121,6 +124,7 @@ smokestack-tms-raw-952900391026/
   - Spark·pandas·Athena 모두 S3 경로가 아니라 카탈로그로 읽는다. `data/`에는 지난 버전 파일도 남아 있어 직접 읽으면 행이 중복된다.
   - 테이블은 Terraform이 아니라 잡의 DDL이 만든다(Iceberg가 커밋마다 카탈로그 값을 바꾸기 때문).
   - 읽는 법과 버전 고정: `specs/a-platform/008-ktms-silver-pipeline/contracts/ktms-tables.md`
+- **RDS(PostgreSQL)는 서비스용 복사본이다.** 정본은 S3 Silver다. 대시보드 관측(`obs`)·기준 정보(`ref`)는 `tms-dashboard-load`가 원본에서 C의 Silver 규칙으로 채우고, 언제든 `backfill`로 다시 만들 수 있다. 측정값이 없는 칸은 0이 아니라 null + 상태 번호로 둔다. (`specs/a-platform/012-dashboard-rds-load/`)
 
 ## Terraform 규칙
 

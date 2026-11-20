@@ -1,6 +1,6 @@
 # tms-database — RDS PostgreSQL + 배스천
 
-DB(PostgreSQL 16 + pgvector)와 배스천은 `rds_enabled` 하나로 **같이 켜지고 꺼진다**. 기본은 꺼짐.
+DB(PostgreSQL 16 + pgvector)와 배스천은 `rds_enabled` 하나로 **같이 켜지고 꺼진다**. 2026-11-19부터 **기본은 켜짐**(대시보드 관측 적재 012가 30분마다 쓰므로 계속 켜 둔다, 단일 AZ).
 설계: [specs/a-platform/009-service-infra](../../../specs/a-platform/009-service-infra/plan.md)
 
 ## 팀원 DB 접속 (DBeaver)
@@ -51,9 +51,9 @@ DB가 켜져 있을 때만 된다. AWS CLI 없이 DBeaver와 공용 키 파일(`
 ## A: 켜고 끄기
 
 ```powershell
-terraform apply -var rds_enabled=true                    # 개발 (단일 AZ)
-terraform apply -var rds_enabled=true -var db_multi_az=true   # 시연
-terraform apply                                          # 끄기: DB는 마지막 스냅샷(tms-db-final-<시각>)을 남기고 삭제
+terraform apply                                          # 기본: 켜짐, 단일 AZ
+terraform apply -var db_multi_az=true                    # 시연 (Multi-AZ)
+terraform apply -var rds_enabled=false                   # 끄기: DB는 마지막 스냅샷(tms-db-final-<시각>)을 남기고 삭제
 terraform apply -var rds_enabled=true -var db_restore_snapshot_id=tms-db-final-<시각>   # 스냅샷에서 되살리기
 ```
 

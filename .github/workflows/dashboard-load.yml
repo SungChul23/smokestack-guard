@@ -1,0 +1,54 @@
+name: dashboard-load
+
+# 대시보드 관측 RDS 적재(A, 012) 테스트. C의 규칙 코드나 008 범위 함수가 바뀌어도 돈다.
+on:
+  push:
+    paths:
+      - "services/dashboard-load/**"
+      - "src/smokestack_guard/silver/**"
+      - "services/tms-silver/ktms_pipeline.py"
+      - ".github/workflows/dashboard-load.yml"
+  pull_request:
+    paths:
+      - "services/dashboard-load/**"
+      - "src/smokestack_guard/silver/**"
+      - "services/tms-silver/ktms_pipeline.py"
+      - ".github/workflows/dashboard-load.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/dashboard-load
+    # UPSERT·요약·권한 테스트용 PostgreSQL 16 + pgvector (RDS와 같은 메이저 버전)
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_PG_PASSWORD: test
+    steps:
+      - uses: actions/checkout@v4
+
+      # Lambda 런타임(python3.12)과 같은 버전
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install "pandas>=2.2" numpy boto3 "pg8000==1.31.2" "scramp==1.4.6" pytest ruff
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: python -m pytest -q

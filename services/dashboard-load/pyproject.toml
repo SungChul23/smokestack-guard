@@ -1,0 +1,21 @@
+[project]
+name = "tms-dashboard-load"
+version = "0.1.0"
+description = "대시보드용 K-TMS 관측 RDS 적재 (spec 012)"
+requires-python = ">=3.11"
+dependencies = ["pandas>=2.2", "boto3", "pg8000==1.31.2", "scramp==1.4.6"]  # scramp 1.5는 pg8000 TLS 접속과 안 맞음
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[tool.setuptools]
+py-modules = []
+
+[tool.pytest.ini_options]
+# 루트 src/의 C 규칙 코드와 008의 범위 함수를 그대로 import한다 (Lambda에서는 레이어·zip으로 같은 파일)
+pythonpath = [".", "../../src", "../tms-silver", "../tms-silver/tests"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
