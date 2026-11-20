@@ -7,7 +7,7 @@
 ## Phase 1: Setup
 
 - [X] T001 PR #72(B의 v2 생성기) 머지 확인, 브랜치에 포함 (`git merge-base --is-ancestor 0ab1379 HEAD`).
-- [ ] T002 🧑 참조 통계를 `tms_synthetic_train_v2/_ref_stats/ref-1030-1110.csv`로 복사 (quickstart §1, research R2).
+- [X] T002 🧑 참조 통계를 `tms_synthetic_train_v2/_ref_stats/ref-1030-1110.csv`로 복사 (quickstart §1, research R2). → 2026-11-20 완료
 
 ## Phase 2: US1 - v2 적재 (P1) 🎯
 
@@ -39,12 +39,24 @@
 
 ## Phase 5: 적용·확인 (사람)
 
-- [ ] T016 🧑 `tms-synthetic` plan·apply(Lambda 코드·역할 정책·설명만) → 다음 슬롯이 v2 경로에 생기는지(SC-001).
-- [ ] T017 🧑 다시 채우기 7일씩 4번 + `check` 몇 날짜(SC-002).
-- [ ] T018 🧑 `tms-silver` SSM 수신 주소 등록 → plan·apply → 구독 확인 메일 📨 E.
-- [ ] T019 🧑 `run_ktms.py backfill --source synth --from 2026-10-30 --to <D−2>` → 계약 검사 → Athena `OTHER` 0개·모양 분포(SC-003).
+- [X] T016 🧑 `tms-synthetic` plan·apply(Lambda 코드·역할 정책·설명만) → 다음 슬롯이 v2 경로에 생기는지(SC-001). → 2026-11-20 완료. 첫 :10 실행부터 v2 경로, `gen-train-v2`
+- [X] T017 🧑 다시 채우기 7일씩 4번 + `check` 몇 날짜(SC-002). → 10/30~11/20 336·336·336·25(+정기 6) 슬롯, check 10/30·11/10·11/19 모두 48/48
+- [X] T018 🧑 `tms-silver` SSM 수신 주소 등록 → plan·apply → 구독 확인 메일 📨 E. → 2026-11-20 완료(수신 주소는 SSM `/tms/notice/training-snapshot-emails`, 구독 2)
+- [X] T019 🧑 `run_ktms.py backfill --source synth --from 2026-10-30 --to <D−2>` → 계약 검사 → Athena `OTHER` 0개·모양 분포(SC-003). → Silver 5번 + ML-ready 1번 모두 SUCCEEDED(약 20분), `OTHER` 0개, 합성 굴뚝 3,417
 - [ ] T020 🧑 알림 `dry_run` → 실제 발행 → 다음 날 05:00 메일(SC-004).
 - [ ] T021 📨 E에게 전환 공지(v2 변화, 첫 v2 스냅샷, v1은 시간 여행으로 남음), B·C에 경로 변경 공유.
+
+## 확인 결과 (2026-11-20, 학습 범위 10/31~11/18, 적격 행 기준 `label_entry_60m`)
+
+| 출처 | 물질 | 적격 행 | 양성 | 양성률 |
+|---|---|---|---|---|
+| 실측 | NOx | 1,218,797 | 5,078 | 0.417% |
+| 실측 | SOx | 529,900 | 1,634 | 0.308% |
+| 합성 v2 | NOx | 35,566 | 4,852 | 13.6% |
+| 합성 v2 | SOx | 11,042 | 1,569 | 14.2% |
+| 합계 | 전체 | 1,795,305 | 13,133 | 0.732% |
+
+하루 양성: 실측 약 353, 합성 약 338 → B의 v2 설계(실측 적격 양성과 1:1)와 맞음(v1은 1.5~1.8배). 합치면 양성률이 0.38% → 0.73%로 약 2배.
 
 ## Phase 6: Polish
 

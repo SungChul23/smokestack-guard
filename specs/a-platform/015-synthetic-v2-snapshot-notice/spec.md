@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-20
 
-**Status**: Draft
+**Status**: 운영 중 (2026-11-20 v2 전환·다시 채우기·Silver 재계산 완료, 알림 2026-11-21 05:00부터). 확인: SC-001·SC-002·SC-003(`OTHER` 0개), 양성 1:1(tasks 확인 결과). 남음: SC-004(첫 메일)
 
 **Input**: User description: "B의 합성 생성기 v2(PR #72, OTHER 세분화·양성 1:1·경로 tms_synthetic_train_v2/)로 AWS 합성 적재를 바꾸고, 10/30부터 다시 채워 Bronze에 쌓고, Silver 합성 표를 재계산한다. E가 매번 찾던 학습용 스냅샷 ID(Silver·ML-ready 2개)를 실측·합성 모두 매일 메일로 알려 준다."
 
