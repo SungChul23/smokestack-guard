@@ -1,6 +1,6 @@
 # Implementation Plan: 합성 데이터 v2 전환·재수집과 학습 스냅샷 알림
 
-**Branch**: `73-a-합성-데이터-v2-전환재수집1030silver-재계산학습-스냅샷-알림` | **Date**: 2026-11-21 | **Spec**: [spec.md](spec.md)
+**Branch**: `73-a-합성-데이터-v2-전환재수집1030silver-재계산학습-스냅샷-알림` | **Date**: 2026-11-20 | **Spec**: [spec.md](spec.md)
 
 **Input**: Feature specification from `specs/a-platform/015-synthetic-v2-snapshot-notice/spec.md`
 

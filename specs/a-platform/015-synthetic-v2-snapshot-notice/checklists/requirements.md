@@ -1,7 +1,7 @@
 # Specification Quality Checklist: 합성 데이터 v2 전환·재수집과 학습 스냅샷 알림
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-11-21
+**Created**: 2026-11-20
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -32,4 +32,4 @@
 ## Notes
 
 - S3 경로(`tms_synthetic_train_v2/`)·표 이름·모양 이름은 팀 계약(AGENTS.md 경로 규칙, B의 v2)이라 구현 세부가 아니라 범위로 적었다.
-- 사용자 결정(2026-11-21): 알림은 실측·합성 둘 다, Silver 합성 표는 같은 이름으로 다시 계산(덮어쓰기, v1은 이전 버전으로 남음), 새 이슈 #73.
+- 사용자 결정(2026-11-20): 알림은 실측·합성 둘 다, Silver 합성 표는 같은 이름으로 다시 계산(덮어쓰기, v1은 이전 버전으로 남음), 새 이슈 #73.

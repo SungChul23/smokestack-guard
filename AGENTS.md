@@ -95,7 +95,7 @@ smokestack-tms-raw-952900391026/
 ├── tms_synthetic_train_v2/       # 학습용 합성 K-TMS 원본, 생성기 v2 (합성 적재 Lambda만 쓴다). 실측과 같은 폴더 모양
 │   ├── _manifest/YYYY-MM-DD.jsonl   # 에피소드 태그 (테이블 아님)
 │   └── _ref_stats/<버전>.csv        # 참조 통계 (실제 굴뚝명 포함, 사람이 올림, 덮어쓰지 않음)
-├── tms_synthetic_train/          # 합성 v1 원본 (2026-11-21까지). 보존만, 쓰지 않음 (specs/a-platform/015-…)
+├── tms_synthetic_train/          # 합성 v1 원본 (2026-11-20 오전까지). 보존만, 쓰지 않음 (specs/a-platform/015-…)
 ├── bronze/<출처>/                # 원본 (예: bronze/tw_cems/historical/YYYY-MM.jsonl)
 ├── bronze2/<출처>/               # 다시 받은 원본 (예: bronze2/tw_cems/YYYY-MM.jsonl). bronze/는 그대로 둔다
 ├── silver/
@@ -114,7 +114,7 @@ smokestack-tms-raw-952900391026/
 - 테이블 이름은 `<출처>[_<용도>]`다.
   - 출처: `tw_cems`(대만 CEMS), `ktms`(국내 CleanSYS), `ktms_synth`(학습용 합성 K-TMS). 출처가 다르면 같은 테이블에 섞지 않는다.
   - 합성은 학습 보강용이다. 검증·평가 데이터에는 넣지 않는다(`data_source = 'ktms_synth'`로 거른다). (`specs/a-platform/011-synthetic-train-s3-ingest/`)
-  - 합성 Silver 표는 2026-11-21 생성기 v2 원본으로 10/30부터 다시 계산했다. v1은 같은 표의 이전 스냅샷과 v1 원본으로 남는다. 학습용 스냅샷은 매일 05:00 메일로 알린다 (`specs/a-platform/015-synthetic-v2-snapshot-notice/`)
+  - 합성 Silver 표는 2026-11-20 생성기 v2 원본으로 10/30부터 다시 계산했다. v1은 같은 표의 이전 스냅샷과 v1 원본으로 남는다. 학습용 스냅샷은 매일 05:00 메일로 알린다 (`specs/a-platform/015-synthetic-v2-snapshot-notice/`)
   - 용도: 없으면 정제 테이블, `_ml_ready`는 피처·라벨 테이블.
   - DB 이름의 `tms`는 프로젝트 접두어다. 출처는 테이블 이름 맨 앞으로 구분한다.
 - 파티션은 기본 `year=YYYY/month=MM`(출처의 현지 시각)이다. 다르게 하려면 그 테이블 계약에 적는다.

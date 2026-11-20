@@ -76,7 +76,7 @@ out/              커밋 금지: 생성 결과
 
 ## AWS 운영 (spec 011, A)
 
-AWS에서는 Kafka 없이 EventBridge Scheduler(매 :10·:40 KST)가 Lambda `tms-synthetic-train`(`lambda_handler.py`)을 깨워 원본 버킷 `tms_synthetic_train_v2/`(생성기 v2, 2026-11-21부터. v1 `tms_synthetic_train/`은 보존만)에 직접 쓴다. 생성은 이 폴더의 `synth_train`을 그대로 쓰고(파일 모드와 바이트가 같음), 설정은 `config/daily.yaml`이 배포 때 JSON으로 들어간다.
+AWS에서는 Kafka 없이 EventBridge Scheduler(매 :10·:40 KST)가 Lambda `tms-synthetic-train`(`lambda_handler.py`)을 깨워 원본 버킷 `tms_synthetic_train_v2/`(생성기 v2, 2026-11-20부터. v1 `tms_synthetic_train/`은 보존만)에 직접 쓴다. 생성은 이 폴더의 `synth_train`을 그대로 쓰고(파일 모드와 바이트가 같음), 설정은 `config/daily.yaml`이 배포 때 JSON으로 들어간다.
 
 - 이 폴더의 `synth_train`·`config/daily.yaml`을 고치면 다음 `terraform apply`(`infra/stacks/tms-synthetic`) 때 반영된다. 설정이나 참조 통계를 바꾸면 `generator_version`·`stats_version`을 올리고 011 data-model §5 기록표에 적용 날짜를 적는다.
 - 참조 통계는 `s3://smokestack-tms-raw-952900391026/tms_synthetic_train_v2/_ref_stats/<stats_version>.csv`에 한 번 올리고 덮어쓰지 않는다(경로는 `snapshot.TRAIN_ROOT`를 따른다).
