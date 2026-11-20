@@ -31,8 +31,7 @@ def messages_from_dir(src, root: str = snapshot.TRAIN_ROOT, max_bytes: int = 1_0
     dirs.sort(key = lambda d: d.name)
     msgs = []
     for d in dirs:
-        run_ts = datetime.strptime(d.name.removeprefix("run_ts="),
-                                   RUN_FMT).replace(tzinfo = timezone.utc)
+        run_ts = datetime.strptime(d.name.removeprefix("run_ts="), RUN_FMT).replace(tzinfo = timezone.utc)
         if (since is not None and run_ts <= since) or (until is not None and run_ts > until):
             continue
         raw = gzip.decompress((d / "snapshot.json.gz").read_bytes())

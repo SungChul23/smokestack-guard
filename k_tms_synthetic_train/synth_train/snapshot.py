@@ -16,7 +16,7 @@ ITEMS = ["nox", "sox", "tsp", "hcl", "co", "nh3", "hf"]
 
 # 합성 데이터를 저장하는 맨 위 폴더
 SYNTHETIC_ROOT = "tms_synthetic"
-TRAIN_ROOT = "tms_synthetic_train"
+TRAIN_ROOT = "tms_synthetic_train_v2"
 
 
 # 측정값 문자열: 소수점 둘쨰 자리.

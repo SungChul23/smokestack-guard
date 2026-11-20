@@ -14,7 +14,7 @@ REAL_FIELDS = {"area_nm", "fact_manage_nm", "stack_code", "mesure_dt"} | {
     f"{n}_{k}" for n in ITEM_NAMES for k in ("mesure_value", "exhst_perm_stdr_value")}
 VALUE_RE = re.compile(r"^\d+\.\d{2}$")                           # 측정값: 소수 둘째 자리
 LIMIT_RE = re.compile(r"^\d+(\.\d+)?$")                          # 허용기준: 숫자 문자열
-STACK_RE = re.compile(r"^SYN-T-\d{8}-(NOX|SOX)-[A-Z]+-\d{3}$")   # 합성 굴뚝 코드
+STACK_RE = re.compile(r"^SYN-T-\d{8}-(NOX|SOX)-[A-Z_]+-\d{3}$")   # 합성 굴뚝 코드
 DATE_RE = re.compile(r"^ingest_date=(\d{4}-\d{2}-\d{2})$")
 HOUR_RE = re.compile(r"^hour=(\d{2})$")
 RUN_RE = re.compile(r"^run_ts=(\d{8}T\d{6}Z)$")
@@ -165,7 +165,7 @@ def validate_out(out_dir, real_codes = frozenset(), offset_min: int = 70) -> lis
         if None in ratios:
             continue
         try:
-            got_shape = shapes.classify_shape([r / 100 for r in ratios])
+            got_shape = shapes.classify_shape([r / 100 for r in ratios], detail = True)
         except ValueError:                                
             _add(issues, "shape", f"{row['stack_code']}: 사건이 둘 이상이라 모양을 정할 수 없음")
             continue

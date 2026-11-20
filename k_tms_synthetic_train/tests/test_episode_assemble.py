@@ -10,7 +10,7 @@ import yaml
 import itertools
 
 CONFIG = Path(__file__).resolve().parent.parent / "config" / "daily.yaml"
-SHAPES = ["OTHER", "SPIKE", "EXCEED", "PLATEAU", "OVER", "GRADUAL"]
+SHAPES = ["FALLING", "SPIKE", "EXCEED", "PLATEAU", "OVER", "GRADUAL", "NEAR_HOLD", "IRREGULAR_RISE", "OSCILLATION", "NEAR_MISS"]
 REF = {"mean": 45.0, "std": 8.0, "phi": 0.8}                    # 시험용 참조 굴뚝 통계
 
 def load():
@@ -36,7 +36,7 @@ def test_assembled_matches_shape(shape):
         assert (curve[:start] < 90).all()          # 앞 정상 구간
         assert (curve[end:] < 90).all()            # 뒤 복귀 구간
         assert (curve >= 0).all()
-        assert shapes.classify_shape((curve / 100).tolist()) == shape
+        assert shapes.classify_shape((curve / 100).tolist(), detail = True) == shape
 
 # 같은 seed면 같은 에피소드
 @pytest.mark.parametrize("shape", SHAPES)
@@ -55,4 +55,4 @@ def test_bad_reference_is_retired():
     refs = itertools.cycle([hard, REF])
     curve, start, end = assemble_episode(
          "GRADUAL", np.random.default_rng(1), ranges, lambda traj: next(refs), ep, bg)
-    assert shapes.classify_shape((curve / 100).tolist()) == "GRADUAL"
+    assert shapes.classify_shape((curve / 100).tolist(), detail = True) == "GRADUAL"

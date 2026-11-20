@@ -48,21 +48,32 @@ def filter_trajectory(df: pd.DataFrame, first_value: float, cond: dict) -> pd.Da
 
 # 후보 중 한 줄을 무작위로 뽑음
 def pick_one(df: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
-    if df.empty:
-        raise ValueError("조건에 맞는 참조 굴뚝이 존재하지 않음. 조건 재확인")
-    return df.iloc[int(rng.integers(len(df)))]
+    if df.empty:                                                                # 후보가 하나도 없다면 에러로 알림
+        raise ValueError("조건에 맞는 참조 굴뚝이 존재하지 않음. 조건 재확인")    
+    return df.iloc[int(rng.integers(len(df)))]                                  # 0 이상 n 미만의 정수, int(...)로 일반 정수로 바꿔 iloc에 넣음
 
-# NOX+SOX 에피소드용: 같은 굴뚝의 NOX, SOX 한 쌍을 고름
+
+# NOX + SOX 변형용: 한 굴뚝에서 NOX와 SOX 둘 다 재는 참조 굴뚝을 하나 골라 그 굴뚝의 오르는 항목 통계와 정상인 다른 항목 통계를 한 쌍으로 돌려줌                                                                                                                                                             # NOX+SOX 에피소드용: 같은 굴뚝의 NOX, SOX 한 쌍을 고름
 def pick_pair(df: pd.DataFrame, rising_item: str, first_value: float, traj_cond: dict, normal_cond: dict, min_valid: int, rng: np.random.Generator) -> dict:
+    # 쓸 수 있는 줄만 남기고(usable), 그 중 NOX, SOX 둘 다 재는 굴뚝만 고름
     both = usable(df[df["items_measured"] == "NOX+SOX"], min_valid)
+    # 오르지 않는 쪽 항목 이름을 정함 (오르는게 NOX면 SOX, 아니면 NOX)
     other_item = "SOX" if rising_item == "NOX" else "NOX"
+    # 오르는 항목 후보: 첫 값 근처에서 시작하고 p99가 80미만인 굴뚝 (궤적 조건)
     rising_rows = filter_trajectory(both[both["item"] == rising_item], first_value, traj_cond)
+    # 다른 굴뚝 후보: 평소 평균 / 자기상관 범위에 드는 정상 굴뚝
     other_rows = filter_normal(both[both["item"] == other_item], normal_cond)
+    # 굴뚝을 구별하는 키. 이름과 코드를 함께 써야 같은 굴뚝인지 확실해짐
     key = ["fact_manage_nm", "stack_code"]
+    # 두 후보 목록의 키를 맞춰 합침. 양쪽 조건을 모두 만족하는 굴뚝만 남음 
     pairs = rising_rows[key].merge(other_rows[key], on = key)
+    # 남은 굴뚝 중 하나를 무작위로 고름. 없으면 pick_one이 에러를 냄
     chosen = pick_one(pairs, rng)
+    # 고른 굴뚝의 줄을 후보표에서 찾아 주는 함수
     def row_of(rows):
+        # 이름과 코드가 둘 다 고른 굴뚝과 같은 줄을 표시
         mask = (rows["fact_manage_nm"] == chosen["fact_manage_nm"]) & (rows["stack_code"] == chosen["stack_code"])
+        # 표시된 줄 중 첫 번째를 돌려줌
         return rows[mask].iloc[0]
-
+    # 오르는 항목의 통계 줄과 다른 항목의 통계 줄을 한 쌍으로 돌려줌
     return {"rising": row_of(rising_rows), "other": row_of(other_rows)}

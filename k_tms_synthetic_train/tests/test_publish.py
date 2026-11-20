@@ -29,20 +29,20 @@ def test_messages_from_dir(out, config):
     assert len(msgs) == 48
     keys = [m["key"] for m in msgs]
     assert keys == sorted(keys)
-    first_dir = sorted((out / "tms_synthetic_train").glob("ingest_date=*/hour=*/run_ts=*"), key=lambda d: d.name)[0]
+    first_dir = sorted((out / "tms_synthetic_train_v2").glob("ingest_date=*/hour=*/run_ts=*"), key=lambda d: d.name)[0]
     assert msgs[0]["key"].decode() == first_dir.name.removeprefix("run_ts=")
     assert msgs[0]["value"] == gzip.decompress((first_dir / "snapshot.json.gz").read_bytes())
     headers = dict(msgs[0]["headers"])
     info = json.loads(headers["info"])
     assert info["generator_version"] == config["run"]["generator_version"]
     assert info["stats_version"] == config["run"]["stats_version"]
-    assert headers["root"] == b"tms_synthetic_train"
+    assert headers["root"] == b"tms_synthetic_train_v2"
     assert headers["episode_id"] == b""
 
 # 메시지 크기가 한도를 넘으면 오류
 def test_message_too_large():
     with pytest.raises(ValueError):
-        publish.make_message(b"x" * 10, datetime(2026, 11, 16, tzinfo = timezone.utc), {}, "tms_synthetic_train", max_bytes = 5)
+        publish.make_message(b"x" * 10, datetime(2026, 11, 16, tzinfo = timezone.utc), {}, "tms_synthetic_train_v2", max_bytes = 5)
 
 # 발행하면 토픽, 순서대로 생산자에게 전달
 def test_publish_sends_in_order(out):

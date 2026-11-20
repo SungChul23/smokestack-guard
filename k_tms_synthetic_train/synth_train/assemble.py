@@ -33,7 +33,7 @@ def assemble_episode(shape, rng, ranges, ref, ep, background_max):
         if "perm_std" in r:
             curve = _quantize(curve, r["perm_std"])
         try:
-            got = shapes.classify_shape((curve / 100).tolist())
+            got = shapes.classify_shape((curve / 100).tolist(), detail = True)
         except ValueError:                               
             continue
         if got == shape:
