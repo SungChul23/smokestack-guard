@@ -59,3 +59,26 @@ def test_reentry_within_60minutes_is_same_event():
     assert len(events) == 1
     assert events[0]["entries"] == 2
     assert events[0]["rows"] == [1, 3]
+
+# 기본값은 기존 판정(OTHER), detail = True면 진입 전 모양으로 나뉨
+def test_classify_shape_detail_splits_other():
+    ratios = [0.5] * 8 + [0.84, 0.85, 0.84, 0.86] + [0.95] + [0.5] * 4
+    assert shapes.classify_shape(ratios) == "OTHER"
+    assert shapes.classify_shape(ratios, detail = True) == "NEAR_HOLD"
+
+# 사건이 없거나 둘 이상일 때의 규칙은 detail = True에서도 같음
+def test_classify_shape_detail_keeps_event_rules():
+    assert shapes.classify_shape([0.5] * 10, detail = True) is None
+    with pytest.raises(ValueError):
+        shapes.classify_shape([0.95, 0.5, 0.5, 0.5, 0.95], detail = True)
+
+# 사건이 없고 최고값 80~90%면 detail = True에서 NEAR_MISS, 기본은 None
+def test_classify_shape_detail_near_miss():
+    series = [0.5, 0.7, 0.85, 0.88, 0.75, 0.5]
+    assert shapes.classify_shape(series) is None
+    assert shapes.classify_shape(series, detail = True) == "NEAR_MISS"
+
+# 최고값이 80% 미만이면 사건이 없어도 NEAR_MISS가 아님
+def test_classify_shape_detail_float_is_none():
+    assert shapes.classify_shape([0.5, 0.6, 0.7, 0.6], detail = True) is None
+    

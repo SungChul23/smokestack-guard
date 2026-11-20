@@ -71,8 +71,8 @@ def test_write_messages_to_s3_equals_file_mode(out):
     s3 = FakeS3()
     write = lambda prefix, files: s3_sink.write_files_s3(s3, BUCKET, prefix, files)
     assert ingest_core.write_messages_to(msgs, write) == 48
-    base = out / "tms_synthetic_train"
-    want = {f"tms_synthetic_train/{p.relative_to(base).as_posix()}": p.read_bytes()
+    base = out / "tms_synthetic_train_v2"
+    want = {f"tms_synthetic_train_v2/{p.relative_to(base).as_posix()}": p.read_bytes()
             for p in base.rglob("*") if p.is_file()}
     got = {k: v for (b, k), v in s3.objects.items()}
     assert got == want

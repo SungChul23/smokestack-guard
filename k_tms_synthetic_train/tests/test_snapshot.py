@@ -136,7 +136,7 @@ def test_time_fields_follow_run_ts():
 # pool 모드: 에피소드 폴더 없이 학습용 루트 아래의 ingest_data부터 시작
 def test_prefix_pool_mode_has_no_episode_folder():
     got = snapshot.build_prefix(None, RUN_TS, root = snapshot.TRAIN_ROOT)
-    assert got == "tms_synthetic_train/ingest_date=2026-11-20/hour=00/run_ts=20261120T001000Z"
+    assert got == "tms_synthetic_train_v2/ingest_date=2026-11-20/hour=00/run_ts=20261120T001000Z"
 
 # 시험 모드: 기존처럼 에피소드 폴더가 있음
 def test_prefix_test_mode_keeps_episode_folder():
@@ -148,7 +148,7 @@ def test_make_files_poll_moded_meta():
     snap = snapshot.make_snapshot([sample_item()])
     files = snapshot.make_files(snap, None, RUN_TS, {"pool_id": "pool-1"}, root = snapshot.TRAIN_ROOT)
     meta = json.loads(files["snapshot.meta.json"])
-    assert meta["raw_key"] == "tms_synthetic_train/ingest_date=2026-11-20/hour=00/run_ts=20261120T001000Z/snapshot.json.gz"
+    assert meta["raw_key"] == "tms_synthetic_train_v2/ingest_date=2026-11-20/hour=00/run_ts=20261120T001000Z/snapshot.json.gz"
     assert "episode_id" not in meta["synthetic"]
     assert meta["synthetic"]["pool_id"] == "pool-1"
 

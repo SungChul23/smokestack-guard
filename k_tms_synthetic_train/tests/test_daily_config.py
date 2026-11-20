@@ -5,7 +5,8 @@ from pathlib import Path
 import yaml
 
 CONFIG = Path(__file__).parents[1] / "config" / "daily.yaml"
-SHAPES = {"OTHER", "SPIKE", "EXCEED", "PLATEAU", "OVER", "GRADUAL"}
+SHAPES = {"FALLING", "SPIKE", "EXCEED", "PLATEAU", "OVER", "GRADUAL",
+          "NEAR_HOLD", "IRREGULAR_RISE", "OSCILLATION", "NEAR_MISS"}
 
 def load():
     return yaml.safe_load(CONFIG.read_text(encoding = "utf-8"))
@@ -43,3 +44,24 @@ def test_snapshot_rules():
     snap = load()["snapshot"]
     assert snap["slot_min"] == 30
     assert snap["run_ts_offset_min"] == 70   
+
+# 하루 양성 행 = 에피소드 수 x 2 : 실측 적격 양성과 1:1 수준
+def test_daily_positives_match_real():
+    eps = load()["daily_episodes"]
+    def positives(c):
+        return sum(n * (5 if s == "OVER" else 2) for s, n in c.items())
+    assert 245 <= positives(eps["nox"]) <= 275
+    assert 75 <= positives(eps["sox"]) <= 95
+
+# 중간형 양성이 근접형보다 많아야 함
+def test_mid_positives_exceed_near():
+    eps = load()["daily_episodes"]["nox"]
+    mid = {"FALLING": 1.69, "NEAR_HOLD": 0.41, "IRREGULAR_RISE": 1.63, "OSCILLATION": 0.97,
+           "SPIKE": 0.66, "EXCEED": 1.64, "PLATEAU": 1.71, "OVER": 0.09, "GRADUAL": 0.71}
+    near = {"FALLING": 0.31, "NEAR_HOLD": 1.59, "IRREGULAR_RISE": 0.37, "OSCILLATION": 1.02,
+            "SPIKE": 0.0, "EXCEED": 0.36, "PLATEAU": 0.28, "OVER": 4.92, "GRADUAL": 1.29}
+    assert sum(eps[s] * mid.get(s, 0) for s in eps) > 1.3 * sum(eps[s] * near.get(s, 0) for s in eps)
+
+# 생성기 버전 
+def test_generator_version_is_v2():
+    assert load()["run"]["generator_version"] == "gen-train-v2"

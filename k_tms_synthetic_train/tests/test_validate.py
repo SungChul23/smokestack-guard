@@ -29,7 +29,7 @@ def checks(issues):
     return {i["check"] for i in issues}
 
 def run_dirs(out):
-    return sorted(p for p in (out / "tms_synthetic_train").glob("ingest_date=*/hour=*/run_ts=*") if p.is_dir())
+    return sorted(p for p in (out / "tms_synthetic_train_v2").glob("ingest_date=*/hour=*/run_ts=*") if p.is_dir())
 
 def manifest_rows(out, day):
     lines = (out / "manifest" / f"{day:%Y-%m-%d}.jsonl").read_text(encoding="utf-8").splitlines()
@@ -89,3 +89,8 @@ def test_duplicate_item(out):
         snap["response"]["header"]["totalCount"] = len(items)
     edit_snapshot(run_dirs(out)[24], corrupt)
     assert "duplicate" in checks(validate.validate_out(out))
+
+# 밑줄이 들어간 모양 이름도 합성 굴뚝 코드로 허용
+def test_stack_code_allows_underscore_shape():
+    assert validate.STACK_RE.match("SYN-T-20261115-NOX-IRREGULAR_RISE-001")
+    

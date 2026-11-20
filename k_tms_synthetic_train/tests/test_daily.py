@@ -14,7 +14,7 @@ def test_episode_counts(config, ref_df):
     got = Counter((e["item"], e["shape"]) for e in eps)
     want = {(item, shape): n
             for item, shapes in config["daily_episodes"].items()
-            for shape, n in shapes.items()}
+            for shape, n in shapes.items() if n > 0}
     assert got == want
     nox_slots = {e["start_slot"] for e in eps if e["item"] == "nox"}
     assert all(0 <= s < 48 for s in nox_slots)

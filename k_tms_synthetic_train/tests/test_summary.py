@@ -10,6 +10,8 @@ def test_summary_matches_config(config, ref_df, tmp_path):
     table = summary.summarize(tmp_path / "manifest")
     for item, shapes in config["daily_episodes"].items():
         for shape, count in shapes.items():
+            if count == 0:
+                continue
             assert table[("2026-11-16", item, shape)]["episodes"] == count
             assert table[("2026-11-16", item, shape)]["rows"] > 0
 
