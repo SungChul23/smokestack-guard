@@ -26,6 +26,9 @@ _PERIODS = (
     r"지난주|이번\s*주|지난달|이번\s*달|그저께|엊그제|새벽|오전|오후",
     r"\d+\s*시간",
 )
+_DAY_PART = re.compile(
+    r"(어제|어저께|어재|전일|오늘|금일|그저께|엊그제)\s*(?:새벽|오전|오후|아침|저녁|밤)"
+)
 _DATE = r"\d{4}[-./]\d{1,2}[-./]\d{1,2}|\d{1,2}월\s*\d{1,2}일|(?<![\d.])\d{1,2}/\d{1,2}(?![\d/])"
 _OTHER_AGENT = (
     r"법령|법적|조문|법\s*기준|(?<![가-힣])법(?![가-힣])|법률|과징금|규정|허용\s*기준\s*(?:설명|이|은|가|뭐)"
@@ -56,7 +59,9 @@ def complex_reasons(message: str) -> list[str]:
     found: list[str] = []
     if sum(1 for p in _OPERATIONS if re.search(p, text)) >= 2:
         found.append("집계 방식이 둘 이상")
-    families = sum(1 for p in _PERIODS if re.search(p, text))
+    # "어제 오전"은 기간 하나다(날과 시간대를 함께 말한 것). 둘로 세면 복합으로 보낸다.
+    one_period = _DAY_PART.sub(r"\1", text)
+    families = sum(1 for p in _PERIODS if re.search(p, one_period))
     spans = set(re.findall(r"(\d+)\s*시간", text))
     if families + len(set(re.findall(_DATE, text))) + max(len(spans) - 1, 0) >= 2:
         found.append("기간이 둘 이상")
@@ -117,22 +122,56 @@ _KNOWN_SPEECH = re.compile(
     r"나왔|들어와|그냥|진짜|한번|하나만|그러니까|알고|계속|중에|봐야|뽑아|어떻|어때|어떤|어땠|"
     r"확인|값|수치|숫자|좀|열두|어제자|번|필요|급해|빨리|하는데|해서|조회|보려|보고|그게|그거|"
     r"되나|됐|있나|굴뚝|결측|이유|공란|비어|시각|순위|전국|다시|같은|바꿔|바꾸|으로|에서|기준|그전|전날|전일|그날|"
-    r"밤|저녁|야간|심야|간밤|지난밤|밤새|날짜|그대로|해봐|주시|전으로|전은|전에|전의|조건|질문|번호|감사|것만|이면)"
+    r"밤|저녁|야간|심야|간밤|지난밤|밤새|날짜|그대로|해봐|주시|전으로|전은|전에|전의|조건|질문|번호|감사|것만|이면|"
+    # 순위·기준 시각을 묻는 말(규칙이 읽는다). '높은지·낮은지'(비교 질문)와 '낮춰서'는 통과시키지
+    # 않도록 '높은'·'낮은'은 낱말 전체일 때만이다. 범위(사업장·지역)가 있으면 아래
+    # unexplained_words가 순위 말을 아는 말로 보지 않는다.
+    r"가장|제일|상위|하위|언제|마지막|높은$|낮은$)"
 )
+# 사업장·굴뚝·지역을 짚은 질문에서는 순위 말을 아는 말로 보지 않는다(범위가 있는 복합일 수 있다).
+_RANK_WORDS = re.compile(r"^(?:가장|제일|상위|하위|높은$|낮은$)")
+# "왜 비어 있어?"의 "있어"는 결측을 묻는 말의 일부다. 결측 표현과 함께일 때만 아는 말로 본다
+# ("굴뚝 몇 개 있어?"의 "있어"는 아니다).
+_GAP_PHRASE = re.compile(r"비어|비었|빠져|빠진|비워")
+_GAP_TAIL = re.compile(r"^(?:있어|있는데|있는지|있나)")
+# 순위를 묻는 말로 인정하려면 줄 세울 대상도 있어야 한다.
+# ("가장 낮은 값으로"는 순위가 아니라 집계를 바꾸는 말이다)
+_RANK_NOUN = re.compile(r"순위|굴뚝|곳|사업장|상위|하위|몇\s*등|몇\s*위")
 _HANGUL_WORD = re.compile(r"[가-힣]{2,}")
 _FOREIGN_WORD = re.compile(r"[a-z]{3,}|[぀-ヿ㐀-鿿]+")
 _KNOWN_LATIN = {"nox", "sox", "avg", "mean", "max", "min", "sum", "ppm", "tms", "cems"}
+
+
+# 굴뚝 번호를 짚은 말. "굴뚝 5곳"의 5는 번호가 아니라 개수다(곳·개·위·등이 붙으면 뺀다).
+_CODE_MENTION = re.compile(r"\d+\s*번(?!째)|굴뚝\s*\d+(?!\d|\s*(?:곳|개|위|등))|\d+\s*호기")
+
+
+def _names_a_scope(text: str, resolver) -> bool:  # noqa: ANN001
+    """질문이 사업장·굴뚝 번호·지역을 짚었는가. 그러면 순위 말이 있어도 전국 순위 하나가 아니다."""
+    if resolver.parse_regions(text) or _CODE_MENTION.search(text):
+        return True
+    found = resolver.resolve(text)
+    exact_like = found.path in ("EXACT", "EXACT_REGION", "COLLISION", "NUMBER_AMBIGUOUS")
+    return found.outcome != "NONE" and (exact_like or found.coverage >= 0.5)
 
 
 def unexplained_words(message: str, resolver) -> list[str]:  # noqa: ANN001
     """사업장 이름도, 단일 흐름이 아는 말도 아닌 낱말. 남으면 질문에 더 묻는 것이 있을 수 있다."""
     from app.agent.names import canon
 
-    text = resolver.clean_mention(fold(message))
+    folded = fold(message)
+    text = resolver.clean_mention(folded)
     known = resolver.known_text
+    scoped = _names_a_scope(folded, resolver)
+    rank_ok = not scoped and _RANK_NOUN.search(folded) is not None
+    gap_phrase = _GAP_PHRASE.search(folded) is not None
     out: list[str] = []
     for word in _HANGUL_WORD.findall(text):
-        if canon(word) in known or _KNOWN_SPEECH.match(word):
+        if canon(word) in known:
+            continue
+        if gap_phrase and _GAP_TAIL.match(word):  # "왜 비어 있어?"의 "있어"
+            continue
+        if _KNOWN_SPEECH.match(word) and (rank_ok or not _RANK_WORDS.match(word)):
             continue
         out.append(word)
     for word in _FOREIGN_WORD.findall(text):
@@ -155,10 +194,12 @@ def looks_single(message: str) -> bool:
     return not complex_reasons(message)
 
 
-_DATA_SIGNAL = r"nox|sox|평균|최댓?값|최대|최소|순위|\d+\s*번|어제|오늘|지금"
+# 법령 질문의 "최대 1년", "최소 두 번"은 값 조회 신호가 아니다. 값 조회는 물질·집계·기간 말로 본다.
+_DATA_SIGNAL = r"nox|sox|평균|최댓?값|순위|\d+\s*번|어제|오늘|지금"
 _LAW_ONLY = (
     r"법|규정|의무|조항|조문|시행규칙|시행령|처벌|과징금|개선명령|조업정지|허용기준|기준값|근거|"
-    r"측정기기|관제센터|공란|결측|조치"
+    r"측정기기|관제센터|공란|결측|조치|"
+    r"과태료|벌칙|부과금|자가측정|운영기록|보관|계획서|며칠|개선\s*기간|개선\s*기한"
 )
 
 
