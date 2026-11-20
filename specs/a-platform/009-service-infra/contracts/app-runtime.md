@@ -17,6 +17,7 @@ D가 `services/dashboard-api/`, `services/dashboard-agent/`에서 앱을 만들 
 ## 로그인 (US3)
 
 - `/health`와 `/api/health`·`/api/db-check`·`/agent/health`(운영 확인용)만 공개다. **새 라우트는 모두 로그인 필수**로 만든다: 인자에 `user: CurrentUser`(`app/auth.py`).
+- **2026-11-20(013)부터** 로그인은 Google만이고, `CurrentUser`는 "로그인 + 초대 코드를 통과한 회원(그룹 `members`)"이다. 자격 전에 부르는 `/api/me`·`/api/invite`만 `LoggedInUser`. 자세한 약속: [013 contracts/auth-api.md](../../013-google-login-invite/contracts/auth-api.md)
 - 화면은 `Authorization: Bearer <Access 토큰>`을 붙여 부른다(`services/dashboard-web/src/api.ts`의 `apiGet`).
 - 로컬 개발에서 검증을 끄려면 `AUTH_DISABLED=1`. 운영 서버에는 넣지 않는다.
 
