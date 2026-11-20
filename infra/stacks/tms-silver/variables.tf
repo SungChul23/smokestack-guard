@@ -123,11 +123,10 @@ variable "ktms_synth_schedule_enabled" {
 # 학습 스냅샷 알림 (015)
 # ---------------------------------------------------------------------------
 
-variable "training_notice_emails" {
-  description = "학습 스냅샷 알림을 받을 이메일 목록. 저장소·tfvars에 쓰지 않고 TF_VAR_training_notice_emails='[\"…\"]'로만 넣는다. 비어 있으면 구독 없음"
-  type        = list(string)
-  default     = []
-  sensitive   = true
+variable "training_notice_emails_param" {
+  description = "학습 스냅샷 알림 수신 주소 목록을 담은 SSM 파라미터 이름(StringList, 쉼표 구분). 사람이 콘솔·CLI로 등록하고 저장소에는 주소를 쓰지 않는다"
+  type        = string
+  default     = "/tms/notice/training-snapshot-emails"
 }
 
 variable "training_notice_enabled" {

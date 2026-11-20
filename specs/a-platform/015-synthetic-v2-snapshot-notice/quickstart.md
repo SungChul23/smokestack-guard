@@ -33,9 +33,13 @@ aws lambda invoke --function-name tms-synthetic-train --cli-binary-format raw-in
 
 ## 4. Silver 원본 경로·알림 🪟
 
+먼저 수신 주소를 SSM에 한 번 등록한다(주소는 저장소에 쓰지 않음, 바꿀 때도 이 값만 고치고 apply).
+```bash
+aws ssm put-parameter --name /tms/notice/training-snapshot-emails --type StringList --value "<주소1>,<주소2>"
+```
+
 ```powershell
 cd infra/stacks/tms-silver
-$env:TF_VAR_training_notice_emails='["<E의 이메일>"]'
 terraform plan    # 합성 잡 인자·역할(v2 경로), 상태 머신 정의, 알림 Lambda·토픽·구독·스케줄
 terraform apply
 ```

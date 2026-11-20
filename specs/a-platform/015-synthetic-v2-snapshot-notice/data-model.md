@@ -42,6 +42,6 @@
 | 자원 | 이름 |
 |---|---|
 | SNS 토픽 | `tms-training-snapshots` |
-| 이메일 구독 | `var.training_notice_emails`(TF_VAR로만) |
+| 이메일 구독 | SSM `/tms/notice/training-snapshot-emails`(사람이 등록) 목록대로 |
 | Lambda | `tms-training-snapshot-notice` (+ 로그 그룹 14일) |
 | Scheduler | `tms-training-snapshot-notice`, `cron(0 5 * * ? *)` Asia/Seoul |

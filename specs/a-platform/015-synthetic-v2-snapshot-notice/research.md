@@ -35,10 +35,11 @@
 - **Alternatives**: 상태 머신 끝에 알림 단계(출처마다 두 통이 됨, 정의·테스트 변경 큼), Athena `$snapshots` 조회(검사 통과 여부를 모름).
 - **확정 범위 표기**: 검사 기록의 `range`(매일 실행은 최근 이틀) 대신, 학습에 쓸 범위 = 출처 첫날 ~ (실행일 − 2일)로 적는다(008 규칙). 첫날은 실측 `2026-10-30`, 합성 `2026-10-30`(설정값).
 
-## R6. 수신 주소는 Terraform 변수, 저장소에 없음
+## R6. 수신 주소는 SSM 파라미터 한 곳, 저장소에 없음
 
-- **Decision**: `variable "training_notice_emails"`(list(string), 기본 `[]`, `sensitive = true`)로 받아 `aws_sns_topic_subscription`(email)을 만든다. 값은 `TF_VAR_training_notice_emails='["…"]'`로만 넣는다(운영 알림 `TF_VAR_alert_email`과 같은 방식). 받는 사람이 확인 메일의 링크를 눌러야 구독된다.
-- 주소는 상태 파일에는 남는다(SNS 구독 속성). 비밀이 아니라 개인 정보라 저장소에만 쓰지 않으면 된다(AGENTS.md: 팀원 이메일을 저장소에 기록하지 않음).
+- **Decision**: 수신 주소 목록을 SSM `/tms/notice/training-snapshot-emails`(StringList)에 사람이 등록하고, Terraform이 apply 때 읽어 `aws_sns_topic_subscription`(email)을 맞춘다. 받는 사람이 확인 메일의 링크를 눌러야 구독된다.
+- **Rationale**: 저장소는 공개라 코드·tfvars에 개인 이메일을 쓸 수 없다(AGENTS.md). 처음에는 `TF_VAR`로 받게 했지만 apply마다 넣어야 하고 빠뜨리면 구독이 지워져 헷갈린다(사용자 의견, 2026-11-20). SSM 한 곳에 고정하면 apply할 때 따로 넣을 것이 없다.
+- 주소는 SSM과 상태 파일에 남는다(비밀이 아닌 개인 정보).
 
 ## R7. 메일 형식
 

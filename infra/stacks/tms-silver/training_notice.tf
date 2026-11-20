@@ -2,7 +2,8 @@
 #
 # 매일 05:00 KST Scheduler → Lambda tms-training-snapshot-notice → SNS tms-training-snapshots → 이메일
 # - 실행 기록(silver2/_runs/…)만 읽어 실측·합성의 계약 검사 통과 스냅샷(Silver·ML-ready)을 알린다. Athena 없음.
-# - 수신 주소는 var.training_notice_emails(TF_VAR로만, 저장소에 쓰지 않음). 받는 사람이 구독 확인을 눌러야 한다.
+# - 수신 주소는 SSM 파라미터 한 곳(var.training_notice_emails_param, StringList)에 사람이 등록한다. 저장소에 쓰지 않는다
+#   (공개 저장소, AGENTS.md 이메일 규칙). apply할 때마다 읽어 구독을 맞춘다. 받는 사람이 구독 확인을 눌러야 한다.
 # - VPC 밖, S3 읽기와 SNS 발행만.
 
 locals {
@@ -13,9 +14,16 @@ resource "aws_sns_topic" "training_snapshots" {
   name = "tms-training-snapshots"
 }
 
+# 수신 주소 목록. 바꿀 때는 SSM 값만 고치고 apply한다
+data "aws_ssm_parameter" "training_notice_emails" {
+  name = var.training_notice_emails_param
+}
+
 resource "aws_sns_topic_subscription" "training_snapshots_email" {
-  # 주소는 상태 파일에만 남는다(비밀은 아니지만 개인 정보라 저장소에는 쓰지 않는다)
-  for_each  = nonsensitive(toset(var.training_notice_emails))
+  # 주소는 SSM과 상태 파일에만 남는다(비밀은 아니지만 개인 정보라 저장소에는 쓰지 않는다)
+  for_each = toset([
+    for e in split(",", nonsensitive(data.aws_ssm_parameter.training_notice_emails.value)) : trimspace(e) if trimspace(e) != ""
+  ])
   topic_arn = aws_sns_topic.training_snapshots.arn
   protocol  = "email"
   endpoint  = each.value

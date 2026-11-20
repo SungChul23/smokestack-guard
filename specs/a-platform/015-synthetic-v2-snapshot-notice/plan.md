@@ -68,7 +68,7 @@ infra/stacks/tms-synthetic/variables.tf               # 설명
 infra/stacks/tms-silver/ktms_synth.tf                 # synth_source_prefix = tms_synthetic_train_v2
 infra/stacks/tms-silver/ktms_pipeline.asl.json        # 합성 source_prefix
 infra/stacks/tms-silver/training_notice.tf            # 새: 토픽·구독·Lambda·로그·스케줄·역할
-infra/stacks/tms-silver/variables.tf                  # training_notice_emails, training_notice_enabled
+infra/stacks/tms-silver/variables.tf                  # training_notice_emails_param(SSM 이름), training_notice_enabled
 services/tms-silver/lambda_training_snapshot_notice.py  # 새: 기록 고르기·본문·발행
 services/tms-silver/tests/test_training_notice.py     # 새
 services/tms-silver/tests/test_ktms_asl.py, test_glue_ktms_silver.py, test_ktms_pipeline.py  # 합성 경로 문자열
