@@ -36,11 +36,25 @@
 
 **아직 연결하지 않은 것(알려진 한계)**
 - 해석기: 정규식(`RuleExtractor`)만 쓴다. `BedrockExtractor`는 요청 모양만 시험했고 실제 호출은 하지 않았다. 정규식이 못 채우면 원문을 LLM에 보내는 합성 해석기는 아직 없다(314 D1).
-- 데이터: RDS(`obs.*`)는 연결 전이다. 시험용 메모리 자료와 로컬 하루치 파일(`AGENT_LOCAL_DAY_DIR`)만 읽는다.
-- 대화 상태: 서버 메모리(`InMemorySaver`)라 서버가 2대면 끊긴다. RDS 체크포인터로 바꿔야 한다.
+- 데이터: RDS(`ref`·`obs`) 읽기를 구현했다(`AGENT_DATA_SOURCE=rds`, spec 316). **실제 RDS에는 아직 접속하지 못했다**(서버 역할에 `rds-db:connect`가 필요하다). 그 밖에는 시험용 메모리 자료와 로컬 하루치 파일(`AGENT_LOCAL_DAY_DIR`)을 읽는다.
+- 대화 상태: 기본은 서버 메모리(`InMemorySaver`)라 서버가 2대면 끊긴다. `AGENT_CHECKPOINT=postgres`로 RDS(`app` 스키마)에 저장하게 구현했고 서버 2대 흉내 시험을 통과했다(spec 319). 실제 RDS에서는 아직 실행하지 못했다. 오래된 대화를 지우는 정리 정책은 없다.
 - 굴뚝 해석: 초성 줄임말·같은 이름의 다른 사업부는 못 가린다(카드로 묻거나 LLM 몫). 자세한 한계는 313 name-resolution.md. "지금·현재" 조회는 지원하지 않는다.
 - 전국 순위는 요청 때 전체 굴뚝을 훑는다(로컬 하루치 3,480곳에서 약 2.4초). 운영에서는 일일 요약 표(`obs.daily_stack_summary`)를 읽는 구현으로 바꾼다.
 - 예측 에이전트는 없다(E의 출력 형식 대기). 근거(법령 조문 검색)·일일 요약은 있다. 설계: [compound-plan.md](../../specs/d-analytics/314-front-interpretation-decisions/compound-plan.md)
+
+## 서버 환경 변수
+
+서버가 뜰 때 SSM `/tms/app/config/<이름>`(예: `agent-data-source`)이 `<이름 대문자, - 는 _>`로 들어간다.
+
+| 환경 변수 | 값 | 설명 |
+|---|---|---|
+| `AGENT_DATA_SOURCE` | `rds` | 관측을 RDS에서 읽는다. 없으면 `AGENT_LOCAL_DAY_DIR`(하루치 파일) 또는 빈 데이터 |
+| `AGENT_CHECKPOINT` | `postgres` | 대화 상태·재시도 응답을 RDS에 저장한다. 서버를 2대 이상 켜기 전에 필요하다. 기본 `memory` |
+| `AGENT_LLM_BACKEND` | `none` \| `bedrock` | 아래 "LLM 연결" 참고. 켜기 전까지 `none` |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` | 엔드포인트, `5432`, `tms`, `tms_app` | RDS 접속(IAM 인증, 비밀번호 없음). 사용자는 읽기 전용 `tms_app` |
+| `DB_SSLROOTCERT` | 인증서 묶음 경로 | 있으면 `verify-full`, 없으면 `require` |
+
+DB가 닫혀 있으면 질문은 500이 아니라 **503**과 안내 문구로 끝난다(접속 정보는 응답·로그에 남지 않는다). `/health`는 DB와 무관하게 200이다.
 
 ## LLM 연결 (해석기·계획기)
 
