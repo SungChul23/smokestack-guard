@@ -42,6 +42,8 @@ SOURCES = {
         "silver_runs": "silver2/_runs/ktms_synth",
         "first_day": date(2026, 10, 31),  # 학습 범위 통일: 실측 10/30은 오후부터라 둘 다 10/31부터 (2026-11-20 결정)
         "note": " — 학습(Train)에만, 검증·평가에는 넣지 않음",
+        # 생성기 v2로 다시 계산을 시작한 시각(UTC). 그 전 검사 기록은 v1 스냅샷이라 알리지 않는다 (2026-11-20)
+        "since": "2026-11-20T07:41:00+00:00",
     },
 }
 
@@ -49,6 +51,11 @@ SOURCES = {
 # ---------------------------------------------------------------------------
 # 기록 읽기
 # ---------------------------------------------------------------------------
+
+
+def _utc(iso: str) -> datetime:
+    t = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    return (t if t.tzinfo else t.replace(tzinfo=UTC)).astimezone(UTC)
 
 
 def _kst_date(iso: str) -> date:
@@ -110,7 +117,12 @@ def collect(s3, as_of: date) -> dict:
     checks = [c for c in list_records(s3, CHECK_PREFIX, since) if c.get("started_at")]
     out = {}
     for src, cfg in SOURCES.items():
-        mine = [c for c in checks if c.get("table") == cfg["ml_ready"] and _kst_date(c["started_at"]) <= as_of]
+        since_v = cfg.get("since")
+        mine = [
+            c for c in checks
+            if c.get("table") == cfg["ml_ready"] and _kst_date(c["started_at"]) <= as_of
+            and (since_v is None or _utc(c["started_at"]) >= _utc(since_v))
+        ]
         silver_runs = list_records(s3, cfg["silver_runs"], since - timedelta(days=1))
         by_day: dict[date, dict] = {}
         for c in sorted(mine, key=lambda c: c["started_at"]):
@@ -164,7 +176,7 @@ def build_message(sources: dict, as_of: date) -> tuple[str, str]:
             lines.append("")
             continue
         for i, r in enumerate(passed[:SHOW]):
-            tag = "[최신] " if i == 0 else "       "
+            tag = "[최신] " if i == 0 else "[이전] "
             lines.append(f"  {tag}{_md(r['run_date'])} 실행 · 확정 {_md(r['confirmed_from'])} ~ {_md(r['confirmed_to'])}")
             lines.append(f"         Silver   {r['silver_snapshot'] if r['silver_snapshot'] is not None else '(기록 없음)'}")
             lines.append(f"         ML-ready {r['ml_ready_snapshot']}")

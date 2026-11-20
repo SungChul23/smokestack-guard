@@ -11,6 +11,8 @@ from pathlib import Path
 
 import lambda_training_snapshot_notice as n
 
+n.SOURCES["ktms_synth"]["since"] = None  # 시험 날짜가 전환 전이라 끈다(전환 필터는 아래에서 따로)
+
 B = n.BUCKET
 
 
@@ -135,3 +137,13 @@ def test_as_of_input_and_no_email_in_code():
     src = Path(n.__file__).read_text(encoding="utf-8")
     assert not re.search(r"[\w.+-]+@[\w-]+\.[\w.]+", src)
     assert date(2026, 10, 31) == n.SOURCES["ktms_synth"]["first_day"]
+
+
+def test_synth_records_before_v2_switch_are_not_announced(monkeypatch):
+    monkeypatch.setitem(n.SOURCES["ktms_synth"], "since", "2026-11-20T07:41:00+00:00")
+    s3 = FakeS3()
+    add_day(s3, "ktms_synth", "2026-11-19", 1, 11)   # v1 (전환 전)
+    add_day(s3, "ktms_synth", "2026-11-20", 2, 12)   # 03:30 KST = 전환 전 → 제외
+    add_day(s3, "ktms_synth", "2026-11-21", 3, 13)   # v2
+    rows = n.run({"dry_run": True, "as_of": "2026-11-21"}, s3, publish=None, now=NOW)["sources"]["ktms_synth"]
+    assert [r["ml_ready_snapshot"] for r in rows] == [13]
