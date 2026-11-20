@@ -118,3 +118,20 @@ variable "ktms_synth_schedule_enabled" {
   type        = bool
   default     = true
 }
+
+# ---------------------------------------------------------------------------
+# 학습 스냅샷 알림 (015)
+# ---------------------------------------------------------------------------
+
+variable "training_notice_emails" {
+  description = "학습 스냅샷 알림을 받을 이메일 목록. 저장소·tfvars에 쓰지 않고 TF_VAR_training_notice_emails='[\"…\"]'로만 넣는다. 비어 있으면 구독 없음"
+  type        = list(string)
+  default     = []
+  sensitive   = true
+}
+
+variable "training_notice_enabled" {
+  description = "매일 05:00 KST 학습 스냅샷 알림 스케줄을 켤지 (spec 015)"
+  type        = bool
+  default     = true
+}
