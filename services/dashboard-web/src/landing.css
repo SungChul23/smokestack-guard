@@ -1,17 +1,18 @@
 /* 로그인 전 첫 화면 (013). D가 대시보드 디자인을 정하면 맞춰 바꿔도 된다.
-   움직임 줄이기 설정(prefers-reduced-motion)이면 애니메이션을 모두 끈다. */
+   기본은 다크, 오른쪽 위 버튼으로 라이트(.theme-light)로 바꾼다. */
 .landing {
-  --bg: #f4f6f5;
-  --panel: #ffffff;
-  --ink: #15211d;
-  --muted: #5b6b65;
-  --line: #dde3e0;
-  --accent: #0f7a5c;
+  --bg: #0b1210;
+  --panel: #121c19;
+  --ink: #e9f1ed;
+  --muted: #93a49d;
+  --line: #22312c;
+  --accent: #3fbf93;
   --warn: #e08a2c;
   --danger: #e04b35;
   --siren-blue: #3d7bff;
-  --chart-bg: #0f1a17;
-  --chart-grid: #233530;
+  --chart-bg: #0a110f;
+  --chart-grid: #1a2925;
+  color-scheme: dark;
   position: relative;
   min-height: 100vh;
   overflow-x: hidden;
@@ -24,18 +25,34 @@
   flex-direction: column;
   transition: background-color 0.6s ease;
 }
-@media (prefers-color-scheme: dark) {
-  .landing {
-    --bg: #0b1210;
-    --panel: #121c19;
-    --ink: #e9f1ed;
-    --muted: #93a49d;
-    --line: #22312c;
-    --accent: #3fbf93;
-    --chart-bg: #0a110f;
-    --chart-grid: #1a2925;
-  }
+.landing.theme-light {
+  --bg: #f4f6f5;
+  --panel: #ffffff;
+  --ink: #15211d;
+  --muted: #5b6b65;
+  --line: #dde3e0;
+  --accent: #0f7a5c;
+  --chart-bg: #0f1a17;
+  --chart-grid: #233530;
+  color-scheme: light;
 }
+
+/* 테마 전환 버튼 */
+.theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 85%, transparent);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.theme-toggle:hover { transform: rotate(-15deg); border-color: var(--accent); }
+.theme-toggle:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
 /* 배경의 옅은 격자 */
 .landing::before {
   content: "";
@@ -139,7 +156,7 @@
 }
 .card-live .live-dot { width: 6px; height: 6px; background: #fff; animation-name: live-white; }
 @keyframes live-white { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.8); } 100% { box-shadow: 0 0 0 6px transparent; } }
-@media (max-width: 520px) { .live-pill { padding: 7px 12px; gap: 7px; } .live-clock { font-size: 14px; } .live-tz { display: none; } }
+@media (max-width: 520px) { .theme-toggle { width: 36px; height: 36px; } .live-pill { padding: 7px 12px; gap: 7px; } .live-clock { font-size: 14px; } .live-tz { display: none; } }
 
 /* 본문 */
 .landing-main {
@@ -461,8 +478,10 @@
 }
 
 /* 들어올 때 아래에서 위로 차례로 */
-.reveal { opacity: 0; transform: translateY(14px); animation: reveal 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d, 0ms) forwards; }
-@keyframes reveal { to { opacity: 1; transform: none; } }
+/* 시작 상태는 키프레임(from)과 backwards 채움으로만 둔다. 요소 자체를 투명으로 두면
+   같은 요소에 사이렌 같은 다른 animation이 걸리는 순간 등장 애니메이션이 덮여 사라진다 (2026-11-20 버그) */
+.reveal { animation: reveal 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d, 0ms) backwards; }
+@keyframes reveal { from { opacity: 0; transform: translateY(14px); } }
 
 /* "움직임 줄이기"(Windows 애니메이션 효과 끔 등): 번쩍이는 사이렌·흔들림·등장 연출만 끄고,
    값이 바뀌는 그래프와 LIVE 표시, 두근거림은 유지한다 */
@@ -471,7 +490,7 @@
   .level-alarm .lc-zone, .alert-strip.alarm, .google-btn::before, .smoke,
   .mascot.alarm img, .mascot-bubble, .mascot-bubble::after { animation: none !important; }
   .preview.level-alarm { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
-  .reveal { animation: none; opacity: 1; transform: none; }
+  .reveal { animation: none; }
 }
 
 /* 빨간 칩 안의 경광등은 흰색·파랑으로 번쩍여야 보인다 */
