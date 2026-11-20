@@ -173,7 +173,7 @@ def build_message(sources: dict, as_of: date) -> tuple[str, str]:
         end = (date.fromisoformat(latest["confirmed_to"]) + timedelta(days=1)).isoformat()
         examples.append(
             f"  SELECT * FROM {cfg['ml_ready']} FOR VERSION AS OF {latest['ml_ready_snapshot']} "
-            f"WHERE ts_kst >= TIMESTAMP '{latest['confirmed_from']} 00:00:00' AND ts_kst < TIMESTAMP '{end} 00:00:00'"
+            f"WHERE measured_at >= TIMESTAMP '{latest['confirmed_from']} 00:00:00' AND measured_at < TIMESTAMP '{end} 00:00:00'"
         )
         lines.append("")
     if examples:

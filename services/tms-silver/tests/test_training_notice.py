@@ -81,7 +81,7 @@ def test_latest_first_with_silver_pair_and_confirmed_range():
     assert "[최신] 11-22 실행 · 확정 10-31 ~ 11-20" in body
     assert "FOR VERSION AS OF 203" in body and "FOR VERSION AS OF 403" in body
     assert "TIMESTAMP '2026-11-21 00:00:00'" in body
-    assert "ts_kst >= TIMESTAMP '2026-10-31 00:00:00'" in body
+    assert "measured_at >= TIMESTAMP '2026-10-31 00:00:00'" in body
     assert body.count("  [최신] ") == 2 and "11-19 실행" not in body  # 출처마다 최신 1, 최근 3회만
     assert "학습(Train)에만" in body
     assert out["subject"].startswith("[tms] 학습 스냅샷 2026-11-22")

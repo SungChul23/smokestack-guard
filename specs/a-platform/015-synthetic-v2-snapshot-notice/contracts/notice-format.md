@@ -41,8 +41,8 @@
   ...
 
 읽기 예시 (Athena · awswrangler)
-  SELECT * FROM tms_silver2.ktms_ml_ready FOR VERSION AS OF 8812001733456129001 WHERE ts_kst >= TIMESTAMP '2026-10-31 00:00:00' AND ts_kst < TIMESTAMP '2026-11-21 00:00:00'
-  SELECT * FROM tms_silver2.ktms_synth_ml_ready FOR VERSION AS OF <합성 ML-ready> WHERE ts_kst >= TIMESTAMP '2026-10-31 00:00:00' AND ts_kst < TIMESTAMP '2026-11-21 00:00:00'
+  SELECT * FROM tms_silver2.ktms_ml_ready FOR VERSION AS OF 8812001733456129001 WHERE measured_at >= TIMESTAMP '2026-10-31 00:00:00' AND measured_at < TIMESTAMP '2026-11-21 00:00:00'
+  SELECT * FROM tms_silver2.ktms_synth_ml_ready FOR VERSION AS OF <합성 ML-ready> WHERE measured_at >= TIMESTAMP '2026-10-31 00:00:00' AND measured_at < TIMESTAMP '2026-11-21 00:00:00'
 
 자세히: specs/a-platform/008-ktms-silver-pipeline/contracts/ktms-tables.md
 ```
