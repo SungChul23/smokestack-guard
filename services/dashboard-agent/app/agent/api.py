@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from app.agent.contract import ChatRequest, ChatResponse
 from app.agent.data import InMemoryDataSource, JsonDayDataSource
@@ -17,6 +18,7 @@ from app.agent.graph import sites_from
 from app.agent.hybrid import HybridExtractor
 from app.agent.names import SiteResolver
 from app.agent.planner import BedrockPlanner
+from app.agent.rds_data import DataSourceUnavailable
 from app.agent.service import AgentService
 from app.agent.slots import KST
 from app.agent.summarizer import GroundedSummarizer
@@ -64,16 +66,40 @@ def _llm(resolver: SiteResolver) -> tuple[object, object | None, str, object | N
 
 
 @lru_cache(maxsize=1)
-def _default_service() -> AgentService:
-    """환경 변수로 구성한다. 운영 데이터(RDS)는 아직 연결하지 않았다.
+def _rds_pool():
+    """RDS 접속 풀은 프로세스에서 하나만 만든다.
 
-    AGENT_LOCAL_DAY_DIR: 하루치 정적 자료 폴더(개발용). 없으면 빈 데이터로 뜬다.
+    서비스 조립이 실패해 다시 시도되더라도 풀(과 배경 스레드)이 요청마다 늘어나지 않게 한다.
+    """
+    from app.agent.rds_connect import make_pool
+
+    return make_pool()
+
+
+def _data_source() -> object:
+    """데이터 원본을 환경 변수로 고른다.
+
+    AGENT_DATA_SOURCE=rds: RDS(`ref`·`obs`)를 읽는다. 접속은 rds_connect.py(DB_HOST 등, IAM 인증)
+    그 밖: AGENT_LOCAL_DAY_DIR 이 있으면 하루치 정적 자료(개발용), 없으면 빈 데이터
+    """
+    if os.environ.get("AGENT_DATA_SOURCE") == "rds":
+        from app.agent.rds_data import RdsDataSource
+
+        return RdsDataSource(_rds_pool().connection)
+    day_dir = os.environ.get("AGENT_LOCAL_DAY_DIR")
+    return JsonDayDataSource(Path(day_dir)) if day_dir else InMemoryDataSource([], {})
+
+
+@lru_cache(maxsize=1)
+def _default_service() -> AgentService:
+    """환경 변수로 구성한다.
+
+    AGENT_DATA_SOURCE / AGENT_LOCAL_DAY_DIR: _data_source() 참고.
     AGENT_FIXED_NOW: 'YYYY-MM-DDTHH:MM' (KST). 보관 자료로 시험할 때 현재 시각을 고정한다.
     """
     from langgraph.checkpoint.memory import InMemorySaver
 
-    day_dir = os.environ.get("AGENT_LOCAL_DAY_DIR")
-    data = JsonDayDataSource(Path(day_dir)) if day_dir else InMemoryDataSource([], {})
+    data = _data_source()
     resolver = SiteResolver(sites_from(data))
     fixed = os.environ.get("AGENT_FIXED_NOW")
     clock = (
@@ -96,5 +122,13 @@ def _default_service() -> AgentService:
 
 @router.post("/agent/chat", response_model=ChatResponse)
 def chat(request: ChatRequest, user: CurrentUser) -> ChatResponse:
-    service = _service or _default_service()
-    return service.chat(request, user_sub=str(user["sub"]))
+    try:
+        # 서비스 조립도 안에서 한다: 조립 때 굴뚝 목록을 읽으므로 DB가 닫혀 있으면 여기서 실패한다.
+        service = _service or _default_service()
+        return service.chat(request, user_sub=str(user["sub"]))
+    except DataSourceUnavailable as error:
+        # 원인(접속 정보 등)은 응답에 싣지 않는다. 서버 로그에는 원인 체인이 남는다.
+        logging.getLogger(__name__).error("데이터 원본을 읽지 못했다: %r", error.__cause__)
+        raise HTTPException(
+            status_code=503, detail="데이터를 읽지 못했습니다. 잠시 후 다시 시도해 주세요."
+        ) from error
