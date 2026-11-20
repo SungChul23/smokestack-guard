@@ -6,6 +6,17 @@ import "./landing.css";
 
 const LEVEL_TEXT: Record<Level, string> = { ok: "정상", warn: "주의", alarm: "기준 초과" };
 
+type Theme = "dark" | "light";
+const THEME_KEY = "tms-theme"; // 화면 전체에서 같이 쓸 수 있게 이름을 고정한다
+
+function readTheme(): Theme {
+  try {
+    return window.localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
+  } catch {
+    return "dark";
+  }
+}
+
 function useKstClock() {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -21,6 +32,16 @@ export default function Landing({ onLogin }: { onLogin: () => void }) {
   const [value, setValue] = useState(0);
   const [eta, setEta] = useState<number | null>(null);
   const clock = useKstClock();
+  const [theme, setTheme] = useState<Theme>(readTheme);
+  const toggleTheme = () => {
+    const next: Theme = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    try {
+      window.localStorage.setItem(THEME_KEY, next);
+    } catch {
+      // 저장이 막혀도 이번 화면에서는 바뀐다
+    }
+  };
 
   const onLevel = useCallback((l: Level, v: number, e: number | null) => {
     setLevel(l);
@@ -29,7 +50,7 @@ export default function Landing({ onLogin }: { onLogin: () => void }) {
   }, []);
 
   return (
-    <div className={`landing level-${level}`}>
+    <div className={`landing level-${level}${theme === "light" ? " theme-light" : ""}`}>
       <div className="siren-bar" aria-hidden="true" />
 
       <header className="landing-top">
@@ -41,6 +62,14 @@ export default function Landing({ onLogin }: { onLogin: () => void }) {
           <span className="live-clock">{clock}</span>
           <span className="live-tz">KST</span>
         </span>
+        <button
+          className="theme-toggle"
+          onClick={toggleTheme}
+          aria-label={theme === "dark" ? "라이트 모드로 바꾸기" : "다크 모드로 바꾸기"}
+          title={theme === "dark" ? "라이트 모드" : "다크 모드"}
+        >
+          {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+        </button>
       </header>
 
       <main className="landing-main">
@@ -182,6 +211,23 @@ function GoogleG() {
       <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
       <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
       <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </svg>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />
     </svg>
   );
 }

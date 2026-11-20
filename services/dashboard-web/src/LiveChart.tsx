@@ -8,8 +8,8 @@ const W = 360;
 const H = 190;
 const PAD_X = 8;
 const PAD_Y = 10;
-const Y_MIN = 40;
-const Y_MAX = 116;
+const Y_MIN = 60; // 아래를 얕게: 초록 구간이 깊게 내려가지 않게
+const Y_MAX = 114;
 const TICK_MS = 380;
 const FORECAST = 5;
 
@@ -22,9 +22,9 @@ const clamp = (v: number) => Math.max(Y_MIN + 2, Math.min(Y_MAX - 2, v));
 
 function seed(): number[] {
   const out: number[] = [];
-  let v = 48;
+  let v = 70;
   for (let i = 0; i < N; i++) {
-    v = clamp(v + 0.55 + (Math.random() - 0.45) * 3);
+    v = clamp(v + 0.4 + (Math.random() - 0.5) * 2.4); // 끝이 약 85% → 첫 빨강까지 약 3초
     out.push(v);
   }
   return out;
@@ -51,7 +51,7 @@ export default function LiveChart({ onLevel }: { onLevel?: (level: Level, value:
         const last = prev[prev.length - 1];
         let next: number;
         if (phase.current === "rise") {
-          next = last + 1.9 + (Math.random() - 0.4) * 3.4;
+          next = last + 2.6 + (Math.random() - 0.4) * 2.8; // 칸당 약 2.8 ↑ → 78%에서 빨강까지 약 4초
           if (next >= 104) {
             phase.current = "alarm";
             hold.current = 11; // 사이렌·마스코트가 보일 시간 (약 4초)
@@ -61,7 +61,7 @@ export default function LiveChart({ onLevel }: { onLevel?: (level: Level, value:
           if (--hold.current <= 0) phase.current = "recover";
         } else {
           next = last - 4.2 + (Math.random() - 0.5) * 2.4;
-          if (next <= 62) phase.current = "rise";
+          if (next <= 78) phase.current = "rise";
         }
         return [...prev.slice(1), clamp(next)];
       });
@@ -102,11 +102,11 @@ export default function LiveChart({ onLevel }: { onLevel?: (level: Level, value:
       <rect x={xOf(N - 1)} y={PAD_Y} width={W - PAD_X - xOf(N - 1)} height={H - PAD_Y * 2} fill="rgba(255,255,255,0.03)" />
       <text x={xOf(N - 1) + 4} y={H - PAD_Y - 4} fontSize="9" fill="#7f9690">AI 예측</text>
 
-      {[50, 60, 70, 80].map((g) => (
+      {[70, 80].map((g) => (
         <line key={g} x1={PAD_X} x2={W - PAD_X} y1={yOf(g)} y2={yOf(g)} stroke="var(--chart-grid)" strokeWidth="1" />
       ))}
       <line x1={PAD_X} x2={W - PAD_X} y1={yOf(100)} y2={yOf(100)} stroke="#ef5a43" strokeWidth="1.5" strokeDasharray="5 4" />
-      <text x={W - PAD_X} y={yOf(100) - 5} textAnchor="end" fontSize="10" fill="#f08a78">배출허용기준 100%</text>
+      <text x={PAD_X + 2} y={yOf(100) - 5} fontSize="10" fill="#f08a78">배출허용기준 100%</text>
       <line x1={PAD_X} x2={W - PAD_X} y1={yOf(90)} y2={yOf(90)} stroke="#f0a14a" strokeWidth="1" strokeDasharray="2 4" />
       <text x={PAD_X + 2} y={yOf(90) + 12} fontSize="10" fill="#f0b46e">주의 90%</text>
 
