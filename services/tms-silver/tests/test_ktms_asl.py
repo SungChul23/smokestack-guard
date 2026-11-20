@@ -209,7 +209,7 @@ def test_notify_detailed_with_raw_fallback(states):
         (
             "ktms_synth",
             "SynthSource",
-            "tms_synthetic_train/",
+            "tms_synthetic_train_v2/",
             "tms_silver2.ktms_synth_ml_ready",
             "ktms_synth",
         ),

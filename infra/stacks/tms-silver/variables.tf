@@ -118,3 +118,19 @@ variable "ktms_synth_schedule_enabled" {
   type        = bool
   default     = true
 }
+
+# ---------------------------------------------------------------------------
+# 학습 스냅샷 알림 (015)
+# ---------------------------------------------------------------------------
+
+variable "training_notice_emails_param" {
+  description = "학습 스냅샷 알림 수신 주소 목록을 담은 SSM 파라미터 이름(StringList, 쉼표 구분). 사람이 콘솔·CLI로 등록하고 저장소에는 주소를 쓰지 않는다"
+  type        = string
+  default     = "/tms/notice/training-snapshot-emails"
+}
+
+variable "training_notice_enabled" {
+  description = "매일 05:00 KST 학습 스냅샷 알림 스케줄을 켤지 (spec 015)"
+  type        = bool
+  default     = true
+}

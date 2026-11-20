@@ -1,12 +1,13 @@
 # 학습용 합성 K-TMS: 008 잡·상태 머신을 source=ktms_synth로 재사용. specs/a-platform/011-synthetic-train-s3-ingest (US4)
 #
-# tms_synthetic_train/(합성 적재 Lambda가 씀, 읽기만) → tms_silver2.ktms_synth → tms_silver2.ktms_synth_ml_ready
+# tms_synthetic_train_v2/(합성 적재 Lambda가 씀, 읽기만) → tms_silver2.ktms_synth → tms_silver2.ktms_synth_ml_ready
+# 2026-11-20 생성기 v2로 원본 경로를 바꾸고 10/30부터 같은 표를 다시 계산했다(spec 015). v1 원본은 tms_synthetic_train/에 보존.
 # - 실측 권한 문장은 건드리지 않고 같은 역할에 합성 전용 인라인 정책을 하나씩 더한다.
 # - Silver 잡은 C의 read_bronze가 경로 인자를 받을 때만 합성 경로를 연다(ktms_pipeline.check_source_prefix).
 #   그 전에는 합성 실행이 Silver 단계에서 실패하므로 스케줄은 꺼 둔다(ktms_synth_schedule_enabled).
 
 locals {
-  synth_source_prefix   = "tms_synthetic_train"
+  synth_source_prefix   = "tms_synthetic_train_v2"
   synth_silver_table    = "silver2/ktms_synth"
   synth_silver_runs     = "silver2/_runs/ktms_synth"
   synth_ml_ready_table  = "silver2/ktms_synth_ml_ready"
