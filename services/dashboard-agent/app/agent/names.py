@@ -48,6 +48,13 @@ NOISE_WORDS = {
     "그럼", "그러면", "그리고", "지난", "시간", "배출", "측정", "사업장", "물질",
 }  # fmt: skip
 _PARTICLES = "의은는이가을를도에와과랑"
+# 문장 끝 구어체 꼬리("얼마야?", "알려줘요", "궁금해요")는 사업장 이름이 아니다.
+# 낱말 전체가 이 모양일 때만 뺀다.
+_NOISE_TAIL = re.compile(
+    r"(?:얼마|몇|뭐|뭔|어떻|어때)(?:야|죠|지|예요|에요|인가요|인지|이야|이에요|입니까|나요|니|임|인데|나)?"
+    r"|(?:알려|보여|확인해|조회해|말해|찾아|가르쳐)(?:줘|줘요|주세요|줄래|줄래요|주라|달라|봐|봐요)"
+    r"|궁금(?:해|해요|합니다|한데)"
+)
 
 
 def sido_key(text: str) -> str | None:
@@ -81,6 +88,11 @@ def canon(text: str) -> str:
         t = t.replace(word, replacement)
     t = re.sub(r"[a-z]{2,}", lambda m: letters_to_korean(m.group(0)), t)
     return re.sub(r"[^0-9a-z가-힣]", "", t)
+
+
+def _compact_name(text: str) -> str:
+    """이름 포함 여부 비교용: NFKC, 법인 표기·공백을 뺀 소문자(글자 읽기 변환 없음)."""
+    return re.sub(r"\s+", "", _MARKERS.sub(" ", unicodedata.normalize("NFKC", text))).lower()
 
 
 def bigrams(text: str) -> set[str]:
@@ -166,9 +178,45 @@ class SiteResolver:
         return self._known_text
 
     # ── 지역 ──────────────────────────────────────────────────────────
+    def _ensure_name_index(self) -> None:
+        if not hasattr(self, "_name_keys"):
+            by_key: dict[str, list[Site]] = defaultdict(list)
+            for s in self.sites:
+                by_key[_compact_name(s.business)].append(s)
+            self._sites_by_key = by_key
+            self._name_keys = sorted((k for k in by_key if len(k) >= 3), key=len, reverse=True)
+
+    def named_sites(self, text: str) -> list[Site]:
+        """질문 안에 이름 전체가 그대로 들어 있는 사업장(가장 긴 이름). 이름 밖의 말은 상관없다.
+
+        `resolve`는 질문 전체가 이름에 가까워야 자동으로 고르지만, 법령 질문처럼 이름 뒤에 긴 문장이
+        붙으면 이 함수로 이름만 찾는다. 같은 이름이 여러 곳이면 모두 돌려준다(고를 수 없다는 뜻)."""
+        self._ensure_name_index()
+        compact = _compact_name(text)
+        for key in self._name_keys:
+            if key in compact:
+                return list(self._sites_by_key[key])
+        return []
+
+    def _strip_site_names(self, folded: str) -> str:
+        """사업장 이름 전체가 질문 안에 있으면 그 부분을 뺀 글을 돌려준다(없으면 그대로).
+
+        이름 속 글자는 지역이 아니다: `대원화성㈜`의 "화성", `구미하수처리장`의 "구미"를
+        시·군으로 읽으면 그 사업장이 소재지가 달라 후보에서 빠진다.
+        지역 말이 이름 밖에도 있으면("화성 대원화성㈜") 남는다.
+        """
+        self._ensure_name_index()
+        compact = _compact_name(folded)
+        hit = False
+        for key in self._name_keys:
+            if key in compact:
+                compact = compact.replace(key, " ")
+                hit = True
+        return compact if hit else folded
+
     def parse_regions(self, text: str) -> list[RegionMention]:
         """질문에 나온 시도·시군 말을 찾는다. 같은 글자를 두 번 세지 않도록 긴 말부터 지운다."""
-        folded = unicodedata.normalize("NFKC", text)
+        folded = self._strip_site_names(unicodedata.normalize("NFKC", text))
         found: list[RegionMention] = []
         candidates: list[tuple[str, RegionMention]] = []
         for key, names in SIDO_KEYS.items():
@@ -221,6 +269,7 @@ class SiteResolver:
                 not bare
                 or lowered in NOISE_WORDS
                 or stripped.lower() in NOISE_WORDS
+                or _NOISE_TAIL.fullmatch(lowered)
                 or re.fullmatch(r"[?!.,~]*", bare)
                 or (not keep_numbers and re.fullmatch(r"[?!.,~\d]*", bare))
             ):

@@ -170,3 +170,77 @@ def test_request_words_are_not_read_as_a_name(resolver):
     assert resolver.clean_mention("어제 다라화학 굴뚝 3 NOx 평균 알려줘") == "다라화학"
     assert resolver.clean_mention("다라화학 굴뚝 알려줘") == "다라화학"
     assert resolver.clean_mention("11월 10일 다라화학 지난 3시간") == "다라화학"
+
+
+# ── 이름 속 지역 글자, 구어체 꼬리 (E2E 시험 결함 1·2) ─────────────────────────
+OVERLAP = [
+    Site("a1", "대원화성㈜", "경기도", "평택시", ("7",)),
+    Site("a2", "화성그린에너지", "경기도", "화성시", ("1",)),
+    Site("a3", "삼성전자㈜화성사업장", "경기도", "화성시", ("1",)),
+    Site("a4", "구미하수처리장", "경상북도", "칠곡군", ("1",)),
+    Site("a5", "구미시 자원회수시설", "경상북도", "구미시", ("1",)),
+    Site("a6", "㈜휴스틸 당진공장", "충청남도", "당진시", ("13",)),
+    Site("a7", "㈜휴스틸 포항공장", "경상북도", "포항시", ("2",)),
+]
+
+
+@pytest.fixture(scope="module")
+def overlap() -> SiteResolver:
+    return SiteResolver(OVERLAP)
+
+
+def test_a_region_word_inside_the_exact_name_is_not_read_as_a_region(overlap):
+    # 대원화성㈜는 평택시 소재다. 이름 속 "화성"을 지역으로 읽으면 후보에서 빠졌다.
+    found = overlap.resolve("대원화성㈜")
+    assert found.outcome == "AUTO" and ids(found) == ["a1"]
+    asked = overlap.resolve("어제 대원화성㈜ 굴뚝 7 NOx 최소 알려줘")
+    assert asked.outcome == "AUTO" and ids(asked) == ["a1"]
+    assert overlap.parse_regions("대원화성㈜") == []
+
+
+def test_another_site_named_in_the_same_region_word_is_still_found(overlap):
+    found = overlap.resolve("구미하수처리장")  # 칠곡군 소재인데 이름에 "구미"가 있다
+    assert found.outcome == "AUTO" and ids(found) == ["a4"]
+    other = overlap.resolve("구미시 자원회수시설")
+    assert other.outcome == "AUTO" and ids(other) == ["a5"]
+
+
+def test_real_region_words_are_still_read_as_regions(overlap):
+    assert [m.text for m in overlap.parse_regions("화성 NOx 평균")] == ["화성"]
+    assert [m.text for m in overlap.parse_regions("충북 동서식품")] == ["충북"]
+    assert {s.site_id for s in overlap.sites_in_region("화성 사업장")} == {"a2", "a3"}
+
+
+@pytest.mark.parametrize(
+    "tail", ["얼마야?", "얼마죠", "얼마예요?", "알려줘요", "궁금해요", "몇이야"]
+)
+def test_spoken_endings_are_not_part_of_the_business_name(overlap, tail):
+    text = f"어제 ㈜휴스틸 당진공장 13번 굴뚝 질소산화물 평균 {tail}"
+    assert overlap.clean_mention(text) == "(주)휴스틸 당진공장"  # NFKC로 ㈜ → (주)
+    found = overlap.resolve(text)
+    assert found.outcome == "AUTO" and ids(found) == ["a6"]
+
+
+def test_a_business_word_that_only_contains_an_ending_is_kept(overlap):
+    # 꼬리 말은 낱말 전체가 그 모양일 때만 뺀다.
+    assert overlap.clean_mention("나와에너지 알려줘") == "나와에너지"
+
+
+def test_named_sites_finds_a_name_inside_a_long_sentence(overlap):
+    law = "대원화성㈜ 굴뚝 7이 허용기준을 넘는다고 가정하면 개선명령 같은 어떤 조치를 받게 되나요?"
+    assert [s.site_id for s in overlap.named_sites(law)] == ["a1"]
+    # 이름 전체가 없으면 찾지 않는다(비슷한 글자만으로는 고르지 않는다)
+    assert overlap.named_sites("화성 사업장 NOx 평균") == []
+    assert overlap.named_sites("허용기준을 넘으면 어떤 조치를 받나요?") == []
+
+
+def test_named_sites_returns_every_site_that_shares_the_name(overlap):
+    # 같은 이름이 여럿이면 하나로 고를 수 없다는 뜻으로 모두 돌려준다
+    twin = SiteResolver(
+        [
+            Site("t1", "동서식품(주)", "충청북도", "청주시", ("1",)),
+            Site("t2", "동서식품(주)", "인천광역시", "서구", ("1",)),
+        ]
+    )
+    found = twin.named_sites("동서식품 굴뚝 1이 허용기준을 넘으면")
+    assert {s.site_id for s in found} == {"t1", "t2"}
