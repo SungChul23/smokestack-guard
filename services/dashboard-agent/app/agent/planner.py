@@ -42,6 +42,11 @@ PLAN_SYSTEM = """당신은 굴뚝 TMS(굴뚝 자동측정) 질문 처리 시스�
 - **답변 형식**(표로·3줄로·숫자만·간단히·요약해서)은 부분이 아니다.
   별도 부분을 만들지 말고 note에만 적는다.
 - 말하지 않은 집계(operation)는 추정해서 채우지 않고 비운다(순위의 기본 최댓값은 코드가 정한다).
+- **순위의 방향(order)은 집계(operation)와 따로다.** 낮은·적은 쪽부터 줄 세우면 order=asc, 높은·많은
+  쪽부터면 order=desc, 방향을 말하지 않았으면 order를 넣지 않는다.
+  예) "평균이 가장 낮은 굴뚝 5곳" → operation=mean, order=asc.
+  "최솟값이 가장 높은 굴뚝" → operation=min, order=desc.
+  "최댓값 상위 3곳" → operation=max, order=desc.
 - 굴뚝 번호를 **직접 둘 이상 나열**하면("357번과 341번") 굴뚝마다, 집계(평균·최댓값)가 둘이면
   집계마다 부분을 나눈다. 그러나 **범위나 "중에서 제일 ~"**("1번~5번 중에 제일 높은 거")는 굴뚝마다
   나누지 말고 한 부분으로 둔다(stack.code는 비운다. 어느 굴뚝인지는 코드가 사람에게 묻는다).
@@ -188,6 +193,7 @@ PLAN_TOOL = {
                                 },
                                 "metric": {"type": "string", "enum": ["value", "ratio", "derived"]},
                                 "top_n": {"type": "integer"},
+                                "order": {"type": "string", "enum": ["asc", "desc"]},
                                 "depends_on": {"type": "array", "items": {"type": "string"}},
                                 "unclear": {
                                     "type": "array",

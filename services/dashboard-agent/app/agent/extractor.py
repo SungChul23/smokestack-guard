@@ -17,7 +17,7 @@ from typing import Any, Protocol
 from app.agent.fold import fold
 from app.agent.names import SiteResolver, stack_code_from
 from app.agent.router import _KNOWN_SPEECH, unexplained_words
-from app.agent.slots import INTENTS, KST, norm_name
+from app.agent.slots import INTENTS, KST, norm_name, rank_order
 
 FOLLOWUP_MARKERS = ("그럼", "그러면", "그리고", "그건", "그것", "거기", "같은")
 # 앞 조회를 바꾸는 말투: 이런 말이 있으면 사업장 이름이 없어도 직전 조회의 후속으로 읽는다.
@@ -113,6 +113,8 @@ class RuleExtractor:
         out["intent"] = intent
         if intent == "rank" and re.search(r"낮|최소|최저", cue) and not out["operation"]:
             out["operation"] = "min"
+        if intent == "rank" and rank_order(cue):
+            out["order"] = rank_order(cue)  # "평균이 가장 낮은"처럼 집계와 방향이 따로인 질문
         follow = (
             message.strip().startswith(FOLLOWUP_MARKERS)
             or (len(message.strip()) <= 12 and not stack)

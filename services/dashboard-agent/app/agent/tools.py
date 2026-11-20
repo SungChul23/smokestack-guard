@@ -151,10 +151,12 @@ def rank_stacks(
     period: Period,
     top_n: int,
     site_ids: set[str] | None = None,
+    order: str | None = None,
 ) -> list[RankRow]:
     """전국 굴뚝을 기간 집계값으로 줄 세운다. 정상 숫자가 없는 굴뚝은 순위에서 뺀다.
 
-    '최솟값'이면 낮은 순, 그 밖에는 높은 순이다. 같은 값이면 굴뚝 키 순서로 고정한다.
+    방향은 `order`(asc=낮은 순, desc=높은 순)로 정한다. 없으면 '최솟값'일 때만 낮은 순이고
+    그 밖에는 높은 순이다. 같은 값이면 굴뚝 키 순서로 고정한다.
     운영(RDS)에서는 일일 요약 표를 읽는 구현으로 바꿀 자리다.
     """
     rows: list[RankRow] = []
@@ -167,7 +169,8 @@ def rank_stacks(
         rows.append(
             RankRow(stack, result.value, result.n_used, result.n_excluded, result.n_missing)
         )
-    rows.sort(key=lambda r: (r.value if operation == "min" else -r.value, r.stack.stack_key))
+    ascending = order == "asc" if order else operation == "min"
+    rows.sort(key=lambda r: (r.value if ascending else -r.value, r.stack.stack_key))
     return rows[:top_n]
 
 

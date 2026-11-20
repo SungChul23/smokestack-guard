@@ -110,7 +110,9 @@ def run_rank(
     label = POLLUTANT_LABEL[item]
     site_ids = set(command["site_ids"]) if command.get("site_ids") else None
     scope = f"{command['scope_label']} " if command.get("scope_label") else ""
-    rows = rank_stacks(data, item, operation, metric, period, top_n, site_ids)
+    order = command.get("order")
+    ascending = order == "asc" if order else operation == "min"
+    rows = rank_stacks(data, item, operation, metric, period, top_n, site_ids, order)
     if not rows:
         return Part(
             part_id="p1",
@@ -120,7 +122,7 @@ def run_rank(
             notice=f"{period.label}에 정상 숫자 관측이 있는 굴뚝이 없어 순위를 만들지 못했습니다.",
         ), False
     unit = "%" if metric == "ratio" else "ppm"
-    direction = "낮은" if operation == "min" else "높은"
+    direction = "낮은" if ascending else "높은"
     lines = [
         f"{scope}{label} {period.label} {OPERATION_LABEL[operation]} {direction} 순서 "
         f"상위 {len(rows)}곳"

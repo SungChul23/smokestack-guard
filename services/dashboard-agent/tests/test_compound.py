@@ -534,3 +534,35 @@ def test_more_than_four_parts_is_asked_to_split():
     raw = {"parts": [part(f"p{i}", pollutants=["nox"]) for i in range(1, 6)]}
     with pytest.raises(PlanError):
         parse_plan(raw, "어제 NOx 평균 오늘 NOx 평균 그리고 계속")
+
+
+# ── 계획기가 화면 조작을 범위 밖으로 직접 계획해도 같은 안내를 쓴다 (LLM 실측에서 발견) ──────
+def test_screen_request_planned_as_out_of_scope_gets_the_screen_note():
+    raw = {
+        "parts": [
+            {
+                "id": "p1",
+                "agent": "data",
+                "intent": "aggregate",
+                "stack": {"business": "가나에너지", "code": "1"},
+                "pollutants": ["nox"],
+                "time": {"kind": "yesterday"},
+                "operation": "mean",
+            },
+            {
+                "id": "p2",
+                "agent": "blocked",
+                "intent": "out_of_scope",
+                "note": "화면 조작 지도 이동",
+            },
+        ]
+    }
+    question = "가나에너지 굴뚝 1 어제 NOx 평균 알려주고 지도에서 그 굴뚝으로 이동해줘"
+    parts = parse_plan(raw, question)
+    assert parts[1].agent == "blocked" and parts[1].note == "화면 조작"
+
+
+def test_other_out_of_scope_notes_are_left_alone():
+    part = {"id": "p1", "agent": "blocked", "intent": "out_of_scope", "note": "외국 기준 문의"}
+    raw = {"parts": [part]}
+    assert parse_plan(raw, "미국 EPA의 NOx 배출 기준은 뭐야?")[0].note == "외국 기준 문의"

@@ -55,8 +55,31 @@ class Command(TypedDict, total=False):
     metric: str
     intent: str
     top_n: int
+    order: str  # 순위를 줄 세우는 방향: asc(낮은 순) | desc(높은 순). 없으면 집계가 min이면 asc
     site_ids: list[str]  # 순위를 볼 사업장 범위(지역 안 순위)
     scope_label: str  # 그 범위의 이름(답변 머리말)
+
+
+# 순위의 방향은 집계 방식("평균", "최솟값")과 따로 말한다: "평균이 가장 낮은", "최솟값이 가장 높은".
+_ORDER_LOW = re.compile(
+    r"(?:가장|제일|젤)\s*(?:낮|적|작)|(?:낮은|적은|작은)\s*(?:순|쪽|굴뚝|곳|사업장|값)|하위|꼴찌|바닥"
+)
+_ORDER_HIGH = re.compile(
+    r"(?:가장|제일|젤)\s*(?:높|많|크|큰)|(?:높은|많은|큰)\s*(?:순|쪽|굴뚝|곳|사업장|값)|상위"
+)
+
+
+def rank_order(text: str) -> str | None:
+    """순위 질문의 방향. 낮은 쪽만 말했으면 asc, 높은 쪽만 말했으면 desc, 말이 없거나 섞이면 None.
+
+    None이면 집계가 min일 때만 낮은 순이고 그 밖에는 높은 순이다(예전 동작)."""
+    low = _ORDER_LOW.search(text) is not None
+    high = _ORDER_HIGH.search(text) is not None
+    if low and not high:
+        return "asc"
+    if high and not low:
+        return "desc"
+    return None
 
 
 def norm_name(text: str | None) -> str:

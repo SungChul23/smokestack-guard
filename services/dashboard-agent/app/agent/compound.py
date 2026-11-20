@@ -34,6 +34,7 @@ from app.agent.slots import (
     MAX_TOP_N,
     REQUIRED,
     UnsupportedPeriod,
+    rank_order,
     resolve_period,
 )
 from app.agent.stack_facts import StackFacts, collect_stack_facts
@@ -122,6 +123,8 @@ class PlanPart:
     operation: str | None = None
     metric: str = "value"
     top_n: int | None = None
+    # 순위 방향: asc(낮은 순) | desc(높은 순). 집계 방식(operation)과 따로다
+    order: str | None = None
     depends_on: str | None = None  # 첫 번째 의존(실행 판단용)
     depends_all: list[str] = field(default_factory=list)  # 모든 의존(앞선 부분만)
     note: str = ""
@@ -282,6 +285,10 @@ def _parse_plan(raw: Any, message: str) -> list[PlanPart]:
         )
     parts: list[PlanPart] = []
     seen: set[str] = set()
+    # 순위 부분이 하나뿐이면 계획기가 방향(order)을 빠뜨려도 질문 글에서 읽는다.
+    rank_items = sum(
+        1 for it in raw["parts"] if isinstance(it, dict) and it.get("intent") == "rank"
+    )
     for index, item in enumerate(raw["parts"], 1):
         if not isinstance(item, dict):
             raise PlanError("질문을 부분으로 나누지 못했습니다. 하나씩 나눠서 질문해 주세요.")
@@ -292,6 +299,14 @@ def _parse_plan(raw: Any, message: str) -> list[PlanPart]:
                 continue
             agent, intent = "blocked", "out_of_scope"
             item = {**item, "note": SCREEN_NOTE}
+        elif (
+            agent == "blocked"
+            and intent == "out_of_scope"
+            and _SCREEN_CUE.search(fold(str(item.get("note") or "")))
+        ):
+            # 계획기가 화면 조작을 직접 범위 밖으로 두면서 note에 "화면 조작 지도 이동"처럼 적었다.
+            # 같은 "화면에서 직접 해 주세요" 안내를 쓰도록 note를 맞춘다.
+            item = {**item, "note": SCREEN_NOTE}
         if part_id in seen or intent not in AGENT_INTENTS.get(str(agent), set()):
             raise PlanError("질문을 부분으로 나누지 못했습니다. 하나씩 나눠서 질문해 주세요.")
         deps = _dependencies(item.get("depends_on"))
@@ -301,6 +316,9 @@ def _parse_plan(raw: Any, message: str) -> list[PlanPart]:
         seen.add(part_id)
         operation = item.get("operation")
         top_n = item.get("top_n")
+        order = item.get("order") if item.get("order") in ("asc", "desc") else None
+        if order is None and intent == "rank" and rank_items == 1:
+            order = rank_order(fold(message))
         parts.append(
             PlanPart(
                 id=part_id,
@@ -314,6 +332,7 @@ def _parse_plan(raw: Any, message: str) -> list[PlanPart]:
                 operation=operation if operation in OPERATIONS else None,
                 metric=item["metric"] if item.get("metric") in ("ratio", "derived") else "value",
                 top_n=top_n if isinstance(top_n, int) else None,
+                order=order,
                 depends_on=dep,
                 depends_all=deps,
                 note=str(item.get("note") or "")[:80],
@@ -696,6 +715,8 @@ def run_part(
             return _part(part, "NEEDS_INPUT", "빠진 정보: 집계 방식")
     else:
         command["top_n"] = max(1, min(part.top_n or DEFAULT_TOP_N, MAX_TOP_N))
+        if part.order:
+            command["order"] = part.order
         stack = part.stack or {}
         scope = stack.get("region") or (
             stack.get("business")

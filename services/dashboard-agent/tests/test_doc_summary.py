@@ -387,3 +387,39 @@ def test_more_ways_of_saying_a_prediction_was_given_get_the_not_ready_part():
         "예측 모델이 초과 가능성 높다고 하는데 처분이 나오나요",
     ):
         assert [p.agent for p in parse_plan(raw, text)] == ["evidence", "prediction"], text
+
+
+# ── 법령만 묻는 질문도 질문에 적힌 굴뚝을 버리지 않는다 (E2E 시험 결함 4) ──────────
+def test_a_law_only_question_keeps_the_stack_it_names(clock):
+    planner = FakePlanner([])
+    service, _ = service_with(planner, ok_summary(), clock)
+    reply = chat(service, "가나에너지 굴뚝 1이 허용기준을 넘으면 어떤 조치를 받나요?")
+    assert reply.trace.route == "COMPOUND" and planner.calls == []  # 법령 지름길, LLM 계획 없음
+    answer = reply.parts[0].answer
+    assert "가나에너지" in answer and "지정 기준 200 ppm" in answer
+
+
+def test_a_law_only_question_with_an_ambiguous_name_gets_general_rules_only(clock):
+    planner = FakePlanner([])
+    service, _ = service_with(planner, ok_summary(), clock)
+    reply = chat(service, "동서식품 굴뚝 1이 허용기준을 넘으면 어떤 조치를 받나요?")
+    assert reply.card is None  # 카드로 되묻지 않는다
+    assert "지정 기준" not in reply.parts[0].answer  # 같은 이름이 둘이라 굴뚝을 정하지 못했다
+
+
+def test_a_law_only_question_without_a_stack_is_unchanged(clock):
+    service, _ = service_with(FakePlanner([]), ok_summary(), clock)
+    reply = chat(service, "허용기준을 넘으면 어떤 조치를 받나요?")
+    assert "지정 기준" not in reply.parts[0].answer
+
+
+def test_a_long_law_sentence_after_the_name_still_attaches_the_stack_facts(clock):
+    planner = FakePlanner([])
+    service, _ = service_with(planner, ok_summary(), clock)
+    reply = chat(
+        service,
+        "가나에너지 굴뚝 1이 허용기준을 넘는다고 가정하면 "
+        "개선명령이나 조업정지 같은 어떤 조치를 받게 되나요?",
+    )
+    assert planner.calls == []
+    assert "지정 기준 200 ppm" in reply.parts[0].answer

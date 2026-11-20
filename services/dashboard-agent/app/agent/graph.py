@@ -31,7 +31,7 @@ from app.agent.extractor import Extractor
 from app.agent.fold import fold
 from app.agent.guard import BLOCKED_MESSAGE, SMALLTALK_REPLIES, TOO_LONG_MESSAGE, check_input
 from app.agent.handlers import run_aggregate, run_freshness, run_gap, run_rank
-from app.agent.names import Site, SiteResolver
+from app.agent.names import Site, SiteResolver, stack_code_from
 from app.agent.region import is_group_like
 from app.agent.router import (
     asks_all_stacks,
@@ -50,6 +50,7 @@ from app.agent.slots import (
     Command,
     UnsupportedPeriod,
     merge_command,
+    rank_order,
     resolve_period,
 )
 from app.agent.tools import DataSource, StackInfo
@@ -362,6 +363,11 @@ def build_graph(
             top_n = extracted.get("top_n") or command.get("top_n") or DEFAULT_TOP_N
             command["top_n"] = max(1, min(int(top_n), MAX_TOP_N))
             command["operation"] = extracted.get("operation") or command.get("operation") or "max"
+            order = (
+                extracted.get("order") or rank_order(fold(state["message"])) or command.get("order")
+            )
+            if order:
+                command["order"] = order
         selected = (state.get("context") or {}).get("selectedStackId")
         if (
             intent in ("aggregate", "gap")
@@ -609,6 +615,23 @@ def build_graph(
             f"유형={command.get('intent') or 'aggregate'}"
         )
 
+    def _law_stack(message: str) -> dict | None:
+        """법령 질문 속 사업장이 하나로 확실할 때만 굴뚝 정보를 준다(아니면 일반 규정만)."""
+        named = resolver.named_sites(message)  # 이름 전체가 질문에 들어 있는 사업장
+        if named:
+            sites = named
+        else:
+            found = resolver.resolve(message)
+            sites = list(found.sites) if found.outcome == "AUTO" else []
+        if len(sites) != 1:  # 같은 이름이 여럿이면 고를 수 없어 일반 규정만 안내한다
+            return None
+        site = sites[0]
+        return {
+            "business": site.business,
+            "site_id": site.site_id,
+            "code": stack_code_from(message, site),
+        }
+
     def route(state: State) -> dict:
         """단일/복합 판별. 복합 단서가 하나라도 있으면 단일 흐름으로 보내지 않는다."""
         reasons = complex_reasons(state["message"])
@@ -636,6 +659,8 @@ def build_graph(
                 agent="evidence",
                 intent="law",
                 note="",
+                # 질문에 굴뚝이 짚여 있으면 그 굴뚝의 기준·최근값을 법령과 함께 보여 준다
+                stack=_law_stack(state["message"]),
                 follows_last=alive and bool(_LAW_FOLLOW.match(state["message"])),
             )
             filled = fill_from_last([law], last["command"] if alive and last else None, data)
