@@ -352,7 +352,7 @@ def mapping_check(conn, day: date, now: datetime) -> list[dict]:
         conn.run(
             "UPDATE ops.unmapped_name u SET resolved_at = :now WHERE resolved_at IS NULL "
             "AND EXISTS (SELECT 1 FROM ref.site_name_map n "
-            "WHERE n.area_nm = u.area_nm AND n.fact_manage_nm = u.fact_manage_nm)",
+            "WHERE btrim(n.area_nm) = btrim(u.area_nm) AND btrim(n.fact_manage_nm) = btrim(u.fact_manage_nm))",  # 006
             now=now,
         )
         for t, items in (("A", [list(x) for x in unmapped]), ("B", silent), ("C", new_stacks)):

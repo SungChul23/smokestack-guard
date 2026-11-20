@@ -36,7 +36,7 @@ def _count(conn, sql, **kw):
 def test_migrations_apply_once_and_seed_status(pg):
     assert db.migrate(pg, MIGRATIONS) == []  # 두 번째는 건너뜀
     assert _count(pg, "SELECT count(*) FROM ref.status_code") == 9
-    assert _count(pg, "SELECT count(*) FROM ops.schema_migrations") == 5
+    assert _count(pg, "SELECT count(*) FROM ops.schema_migrations") == 6
 
 
 def test_split_sql_keeps_dollar_blocks():
@@ -137,6 +137,18 @@ def test_load_ref_is_idempotent_and_view_resolves_site(pg):
     assert _count(pg, "SELECT count(*) FROM ref.site") == 1
     db.add_stack_keys(pg, _rows([("001", "nox", "2026-11-18 10:00", 1.0, "ok")]), date(2026, 11, 18))
     assert pg.run("SELECT site_id FROM ref.v_stack")[0][0] == "112003"  # 관측에서 본 굴뚝이 이름으로 연결
+
+
+def test_view_links_name_with_trailing_space(pg):
+    """K-TMS 원본 이름 끝 공백이 있어도 사업장에 연결된다 (006, 2026-11-20 매핑 메일)."""
+    db.load_ref(pg, _sites(), "test-v1")
+    rows = load.prepare_rows(pd.DataFrame([{
+        "area_nm": "서울특별시", "fact_manage_nm": "가나다발전 ", "stack_code": "001", "item": "nox",
+        "value": 1.0, "limit": 100.0, "status": "ok", "ts_kst": pd.Timestamp("2026-11-18 10:00"), "ratio": 0.01}]))
+    db.upsert_measurements(pg, rows, "recent", NOW)
+    db.add_stack_keys(pg, rows, date(2026, 11, 18))
+    assert pg.run("SELECT stack_key, site_id FROM ref.v_stack") == [["서울특별시|가나다발전 |001", "112003"]]  # 키는 원본 그대로
+    assert db.mapping_check(pg, date(2026, 11, 18), NOW) == []
 
 
 def test_validate_sites_rejects_duplicate_id_and_holds_shared_names():
