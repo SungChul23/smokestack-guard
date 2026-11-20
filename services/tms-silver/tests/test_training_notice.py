@@ -73,14 +73,15 @@ def test_latest_first_with_silver_pair_and_confirmed_range():
     k = out["sources"]["ktms"]
     assert [r["run_date"] for r in k][:3] == ["2026-11-22", "2026-11-21", "2026-11-20"]
     assert (k[0]["silver_snapshot"], k[0]["ml_ready_snapshot"]) == (103, 203)
-    assert (k[0]["confirmed_from"], k[0]["confirmed_to"]) == ("2026-10-30", "2026-11-20")
+    assert (k[0]["confirmed_from"], k[0]["confirmed_to"]) == ("2026-10-31", "2026-11-20")
     s = out["sources"]["ktms_synth"][0]
     assert (s["silver_snapshot"], s["ml_ready_snapshot"]) == (303, 403)
     assert out["published"] is False
     body = out["body"]
-    assert "[최신] 11-22 실행 · 확정 10-30 ~ 11-20" in body
+    assert "[최신] 11-22 실행 · 확정 10-31 ~ 11-20" in body
     assert "FOR VERSION AS OF 203" in body and "FOR VERSION AS OF 403" in body
     assert "TIMESTAMP '2026-11-21 00:00:00'" in body
+    assert "ts_kst >= TIMESTAMP '2026-10-31 00:00:00'" in body
     assert body.count("  [최신] ") == 2 and "11-19 실행" not in body  # 출처마다 최신 1, 최근 3회만
     assert "학습(Train)에만" in body
     assert out["subject"].startswith("[tms] 학습 스냅샷 2026-11-22")
@@ -133,4 +134,4 @@ def test_as_of_input_and_no_email_in_code():
         "[tms] 학습 스냅샷 2026-11-20")
     src = Path(n.__file__).read_text(encoding="utf-8")
     assert not re.search(r"[\w.+-]+@[\w-]+\.[\w.]+", src)
-    assert date(2026, 10, 30) == n.SOURCES["ktms_synth"]["first_day"]
+    assert date(2026, 10, 31) == n.SOURCES["ktms_synth"]["first_day"]

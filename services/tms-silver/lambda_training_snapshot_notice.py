@@ -32,7 +32,7 @@ SOURCES = {
         "silver": "tms_silver2.ktms",
         "ml_ready": "tms_silver2.ktms_ml_ready",
         "silver_runs": "silver2/_runs/ktms",
-        "first_day": date(2026, 10, 30),
+        "first_day": date(2026, 10, 31),  # 학습 범위 통일: 실측 10/30은 오후부터라 둘 다 10/31부터 (2026-11-20 결정)
         "note": "",
     },
     "ktms_synth": {
@@ -40,7 +40,7 @@ SOURCES = {
         "silver": "tms_silver2.ktms_synth",
         "ml_ready": "tms_silver2.ktms_synth_ml_ready",
         "silver_runs": "silver2/_runs/ktms_synth",
-        "first_day": date(2026, 10, 30),
+        "first_day": date(2026, 10, 31),  # 학습 범위 통일: 실측 10/30은 오후부터라 둘 다 10/31부터 (2026-11-20 결정)
         "note": " — 학습(Train)에만, 검증·평가에는 넣지 않음",
     },
 }
@@ -173,7 +173,7 @@ def build_message(sources: dict, as_of: date) -> tuple[str, str]:
         end = (date.fromisoformat(latest["confirmed_to"]) + timedelta(days=1)).isoformat()
         examples.append(
             f"  SELECT * FROM {cfg['ml_ready']} FOR VERSION AS OF {latest['ml_ready_snapshot']} "
-            f"WHERE ts_kst < TIMESTAMP '{end} 00:00:00'"
+            f"WHERE ts_kst >= TIMESTAMP '{latest['confirmed_from']} 00:00:00' AND ts_kst < TIMESTAMP '{end} 00:00:00'"
         )
         lines.append("")
     if examples:
