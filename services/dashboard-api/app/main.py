@@ -13,24 +13,37 @@ import json
 import logging
 import os
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from app import invite
+from app import dashboard, invite
 from app.auth import LoggedInUser, is_member
+from app.db import DbUnavailable
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
 log = logging.getLogger("tms.api")
 
 app = FastAPI(title="tms dashboard api")
 
+app.add_middleware(GZipMiddleware, minimum_size=1000)  # 하루치 응답(약 3MB)을 줄여 보낸다
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[os.environ.get("APP_ORIGIN", "http://localhost:5173")],
     allow_methods=["*"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+
+@app.exception_handler(DbUnavailable)
+async def db_unavailable(_req: Request, e: DbUnavailable) -> JSONResponse:
+    detail = {"code": "db_unavailable", "message": str(e)}
+    return JSONResponse(status_code=503, content={"detail": detail})
+
+
+app.include_router(dashboard.router)  # 화면용 읽기 라우트·즐겨찾기 (로그인 회원만)
 
 
 @app.get("/health")

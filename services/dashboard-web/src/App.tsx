@@ -6,8 +6,9 @@
 // ApiError.code === "not_member"면 onNotMember()를 부른다.
 import { useCallback, useEffect, useState } from "react";
 import { hasAuthParams, useAuth } from "react-oidc-context";
-import { ApiError, apiGet } from "./api";
+import { apiGet } from "./api";
 import { cognitoLogoutUrl, signinArgs } from "./auth";
+import DashboardApp from "./dashboard/DashboardApp";
 import Invite from "./Invite";
 import Landing from "./Landing";
 
@@ -71,6 +72,11 @@ export default function App() {
     window.location.href = cognitoLogoutUrl();
   };
 
+  // 회원이면 새 관제 화면(전체 폭, 자체 머리·레일). 이메일·로그아웃은 그 안에 있다.
+  if (membership === "member") {
+    return <DashboardApp email={email} accessToken={accessToken} onLogout={() => void logout()} />;
+  }
+
   return (
     <Shell>
       <header style={{ display: "flex", justifyContent: "flex-end", gap: 12, alignItems: "center" }}>
@@ -79,7 +85,6 @@ export default function App() {
       </header>
       {membership === "checking" && <p style={{ textAlign: "center", paddingTop: 48 }}>확인 중…</p>}
       {membership === "not_member" && <Invite accessToken={accessToken} email={email} onJoined={() => void onJoined()} />}
-      {membership === "member" && <Dashboard accessToken={accessToken} onNotMember={() => setMembership("not_member")} />}
       {typeof membership === "object" && (
         <section style={{ textAlign: "center", paddingTop: 48 }}>
           <p style={{ color: "#666" }}>서버 연결 안 됨: {membership.error} (서버가 꺼져 있으면 정상)</p>
@@ -87,27 +92,6 @@ export default function App() {
         </section>
       )}
     </Shell>
-  );
-}
-
-function Dashboard({ accessToken, onNotMember }: { accessToken: string; onNotMember: () => void }) {
-  const [status, setStatus] = useState<string>("확인 중…");
-
-  useEffect(() => {
-    apiGet<{ sub: string }>(accessToken, "/api/me")
-      .then((r) => setStatus(`서버 인증 확인됨 (${r.sub.slice(0, 8)}…)`))
-      .catch((e: Error) => {
-        if (e instanceof ApiError && e.code === "not_member") onNotMember();
-        else setStatus(`서버 연결 안 됨: ${e.message}`);
-      });
-  }, [accessToken, onNotMember]);
-
-  return (
-    <section style={{ textAlign: "center", paddingTop: 48 }}>
-      <h1>smokestack-guard</h1>
-      <p>굴뚝 TMS 대시보드 준비 중</p>
-      <p style={{ color: "#666", fontSize: 14 }}>{status}</p>
-    </section>
   );
 }
 

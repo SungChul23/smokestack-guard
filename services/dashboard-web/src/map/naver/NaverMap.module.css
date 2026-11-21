@@ -1,0 +1,36 @@
+/* 지도 종류 선택(관제 / 일반 / 위성). 글자는 13px 아래로 내리지 않는다. */
+.kinds { display: inline-flex; gap: 0; border: 1px solid var(--line); border-radius: var(--r-pill); overflow: hidden; }
+.kind {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 4px 12px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.kind + .kind { border-left: 1px solid var(--line); }
+.kind[aria-pressed="true"] { color: var(--ink); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.kind:hover:not(:disabled) { color: var(--ink); }
+.kind:focus-visible { outline: 3px solid var(--accent); outline-offset: -2px; }
+.kind:disabled { cursor: default; opacity: 0.6; }
+
+/* 네이버 지도가 들어가는 자리: 캔버스 뒤에 깔린다 */
+.host { position: absolute; inset: 0; z-index: 0; }
+.hostHidden { display: none; }
+/* 네이버 모드의 핀 캔버스: 지도 조작(끌기·휠)을 가로막지 않는다. 마우스는 지도의 이벤트로 받는다 */
+.overlay { pointer-events: none; }
+
+/* 지도 위 안내(불러오는 중·실패 이유) */
+.note {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 2;
+  max-width: calc(100% - 20px);
+  padding: 4px 10px;
+  border-radius: var(--r-inner);
+  border: 1px solid var(--map-line);
+  background: var(--stage-bg);
+  color: var(--map-ink);
+  font-size: 14px;
+}
