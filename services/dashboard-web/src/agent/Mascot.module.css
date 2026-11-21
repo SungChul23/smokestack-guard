@@ -1,0 +1,51 @@
+/* 마스코트: 에이전트 열기 버튼 자체가 돌아다니는 캐릭터다. 바깥 층은 클릭을 통과시키고 캐릭터 몸체만 이벤트를 받는다. */
+.layer { position: fixed; inset: 0; z-index: 1100; pointer-events: none; overflow: hidden; }
+
+.mascot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--mascot-size, 76px);
+  height: var(--mascot-size, 76px);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  will-change: transform;
+}
+.mascot.dragging { cursor: grabbing; }
+.mascot:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 18px; }
+
+/* 안쪽 몸: 표면에 맞춰 돌고 좌우로 뒤집힌다(transform은 코드가 정한다) */
+.body { position: absolute; inset: 0; display: grid; place-items: center; transform-origin: 50% 50%; }
+.body img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.45));
+  transform-origin: 50% 100%;
+}
+
+/* 상태별 가벼운 움직임 */
+.mascot[data-mode="WALK"] .body img { animation: bob 0.46s ease-in-out infinite; }
+.mascot[data-mode="CLIMB"] .body img, .mascot[data-mode="HANG"] .body img { animation: bob 0.7s ease-in-out infinite; }
+.mascot[data-mode="FALL"] .body img { animation: fall 0.3s ease-in-out infinite alternate; }
+.mascot[data-mode="LAND"] .body img { animation: land 0.22s ease-out 1; }
+.mascot[data-mode="DRAG"] .body img { animation: dangle 0.5s ease-in-out infinite alternate; }
+@keyframes bob { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-4px) rotate(3deg); } }
+@keyframes fall { from { transform: scale(1, 1.05) rotate(-6deg); } to { transform: scale(1.04, 0.98) rotate(6deg); } }
+@keyframes land { 0% { transform: scale(1.18, 0.8); } 60% { transform: scale(0.94, 1.08); } 100% { transform: scale(1, 1); } }
+@keyframes dangle { from { transform: rotate(-8deg); } to { transform: rotate(8deg); } }
+
+/* 움직임을 줄이는 설정이면 제자리에 두고 애니메이션을 끈다 */
+@media (prefers-reduced-motion: reduce) {
+  .body img { animation: none !important; }
+}

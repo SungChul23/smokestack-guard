@@ -1,0 +1,11 @@
+.mark {
+  flex: none;
+  display: inline-block;
+  vertical-align: -2px;
+}
+.mark[data-level="gap"] { color: var(--gap-from); }
+.mark[data-level="ok"] { color: var(--lv-ok); }
+.mark[data-level="caution"] { color: var(--lv-caution); }
+.mark[data-level="warn"] { color: var(--lv-warn); }
+.mark[data-level="risk"] { color: var(--lv-risk); }
+.mark[data-level="exceed"] { color: var(--lv-exceed); }

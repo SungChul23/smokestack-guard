@@ -39,6 +39,11 @@ export function apiGet<T>(accessToken: string, path: string): Promise<T> {
   return request<T>(accessToken, path);
 }
 
+/** 본문 없는 쓰기(PUT·DELETE). 즐겨찾기처럼 경로만으로 뜻이 정해지는 요청에 쓴다 */
+export function apiSend<T>(accessToken: string, path: string, method: "PUT" | "DELETE"): Promise<T> {
+  return request<T>(accessToken, path, { method });
+}
+
 export function apiPost<T>(accessToken: string, path: string, body: unknown): Promise<T> {
   return request<T>(accessToken, path, { method: "POST", body: JSON.stringify(body) });
 }
