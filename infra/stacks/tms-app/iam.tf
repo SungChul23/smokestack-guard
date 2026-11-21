@@ -85,6 +85,15 @@ data "aws_iam_policy_document" "app" {
     }
   }
 
+  # API·에이전트 서버가 RDS에 tms_app 계정(IAM 인증)으로 접속한다 (012 data-model §7).
+  # 스냅샷에서 다시 만들면 리소스 ID가 바뀌므로 인스턴스 부분은 *로 두고 계정 이름으로 좁힌다
+  # (tms-dashboard-load의 ConnectAsLoader와 같은 방식).
+  statement {
+    sid       = "ConnectAsApp"
+    actions   = ["rds-db:connect"]
+    resources = ["arn:aws:rds-db:ap-northeast-2:${data.aws_caller_identity.current.account_id}:dbuser:*/tms_app"]
+  }
+
   # 에이전트 LLM 호출. 쓰는 모델이 정해지면 좁힌다.
   statement {
     sid       = "InvokeBedrock"
