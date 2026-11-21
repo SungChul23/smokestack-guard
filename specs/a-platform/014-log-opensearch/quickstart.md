@@ -28,8 +28,8 @@ cd infra/stacks/tms-log-search; terraform init; terraform plan; terraform apply 
 
 ```bash
 POOL=$(aws ssm get-parameter --name /tms/app/config/cognito-user-pool-id --query Parameter.Value --output text)
-aws cognito-idp list-user-pool-clients --user-pool-id $POOL --query "UserPoolClients[?starts_with(ClientName,'AWSElasticsearch')].ClientId" --output text
-# 콘솔: Cognito > 사용자 풀 tms-users > 앱 클라이언트 > AWSElasticsearch-… > 로그인 페이지 편집 > 자격 증명 공급자에 Google 체크 > 저장
+aws cognito-idp list-user-pool-clients --user-pool-id $POOL --query "UserPoolClients[?starts_with(ClientName,'AmazonOpenSearchService')].ClientId" --output text
+# 콘솔: Cognito > 사용자 풀 tms-users > 앱 클라이언트 > AmazonOpenSearchService-tms-logs-… > 로그인 페이지 편집 > 자격 증명 공급자에 Google 체크 > 저장
 # (CLI update-user-pool-client는 빠진 설정을 지우므로 콘솔을 권한다)
 ```
 그다음 같은 스택을 한 번 더 apply한다. 그 클라이언트를 찾아 "members → tms-logs-viewer" 역할 규칙이 붙는다(`terraform output dashboards_client_ids`가 비어 있지 않아야 함).

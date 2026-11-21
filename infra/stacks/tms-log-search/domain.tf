@@ -3,7 +3,7 @@
 # - t3.small.search 1대, gp3 10GB, 1-AZ, 공개 주소. 보안은 IAM 서명 + Cognito 로그인 + 세분화된 접근 제어(FGAC).
 # - FGAC 마스터 = 이 스택을 apply한 IAM 사용자(내부 사용자 DB 없음, 비밀번호 없음).
 # - Dashboards 로그인은 013의 Cognito 사용자 풀(Google + 초대 코드). members 그룹만 뷰어 역할을 받는다.
-# - OpenSearch가 사용자 풀에 자기 앱 클라이언트(AWSElasticsearch-…)를 만든다. 그 클라이언트에 Google을 더하는 것은
+# - OpenSearch가 사용자 풀에 자기 앱 클라이언트(AmazonOpenSearchService-tms-logs-…)를 만든다. 그 클라이언트에 Google을 더하는 것은
 #   사람이 한다(quickstart §4). 역할 규칙은 그 클라이언트를 찾아 두 번째 apply에서 자동으로 붙는다.
 
 data "aws_caller_identity" "current" {}
@@ -94,7 +94,7 @@ data "aws_cognito_user_pool_clients" "pool" {
 locals {
   dashboards_client_ids = [
     for i, name in data.aws_cognito_user_pool_clients.pool.client_names : data.aws_cognito_user_pool_clients.pool.client_ids[i]
-    if startswith(name, "AWSElasticsearch") || startswith(name, "AWSOpenSearch")
+    if startswith(name, "AmazonOpenSearchService-") || startswith(name, "AWSElasticsearch-")
   ]
 }
 

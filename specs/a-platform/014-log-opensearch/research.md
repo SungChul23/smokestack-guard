@@ -12,7 +12,7 @@
 
 - **Decision**: 도메인 `cognito_options`에 사용자 풀 `tms-users` + **새 자격 증명 풀** `tms-logs`를 연결한다. 자격 증명 풀의 역할 규칙으로 `cognito:groups`에 `members`가 있으면 역할 `tms-logs-viewer`, 아니면 권한 없는 역할을 준다. FGAC에서 `tms-logs-viewer` → `readall` + `opensearch_dashboards_user`(대시보드·검색 보기·저장된 객체 읽기).
 - **Rationale**: 로그인 체계를 하나로(Google + 초대 코드). 사용자 결정(2026-11-20): 팀원 전용 그룹은 두지 않고 `members` 전체.
-- **알려진 수동 단계**: OpenSearch가 Cognito 연결 때 사용자 풀에 **자기 앱 클라이언트**(`AWSElasticsearch-tms-logs-…`)를 만든다. 이 클라이언트는 기본 공급자가 `COGNITO`라 Google을 더해야 한다(`aws cognito-idp update-user-pool-client`, quickstart §4). Terraform 밖에서 생기는 자원이라 문서로 남긴다.
+- **알려진 수동 단계**: OpenSearch가 Cognito 연결 때 사용자 풀에 **자기 앱 클라이언트**(`AmazonOpenSearchService-tms-logs-…`, 2026-11-21 실제 확인)를 만든다. 이 클라이언트는 기본 공급자가 `COGNITO`라 Google을 더해야 한다(`aws cognito-idp update-user-pool-client`, quickstart §4). Terraform 밖에서 생기는 자원이라 문서로 남긴다.
 - **필요한 역할**: `AmazonOpenSearchServiceCognitoAccess` 관리형 정책을 가진 서비스 역할(도메인이 Cognito를 설정할 때 씀).
 
 ## R3. 전달: 구독 필터 → 라우터 Lambda → Firehose 3개 → OpenSearch, 실패분 S3 (2026-11-21 수정)
