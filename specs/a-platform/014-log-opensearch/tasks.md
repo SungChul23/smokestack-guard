@@ -54,9 +54,9 @@
 
 ## Phase 7: 적용·확인 (사람)
 
-- [ ] T027 🧑 `tms-log-search` plan·apply(도메인 15~30분).
-- [ ] T028 🧑 OpenSearch가 만든 Cognito 앱 클라이언트에 Google 추가(quickstart §4).
-- [ ] T029 🧑 `setup_opensearch.py --dry-run` → 실행.
+- [X] T027 🧑 `tms-log-search` plan·apply(도메인 15~30분). 2026-11-21 44개 생성, 앱 클라이언트 이름 수정 뒤 두 번째 apply.
+- [X] T028 🧑 OpenSearch가 만든 Cognito 앱 클라이언트에 Google 추가(quickstart §4). 실제 이름 `AmazonOpenSearchService-tms-logs-…`.
+- [X] T029 🧑 `setup_opensearch.py --dry-run` → 실행. 11단계 성공(20:15 KST), 저장 객체 9개 가져오기·필드 새로고침, `logs-app-*`·`logs-pipeline-*` 적재 확인.
 - [ ] T030 🧑 서버 앱 배포(T018·T023·T024가 main에 머지되면 CI).
 - [ ] T031 🧑 quickstart §6 시나리오 1~8 + 상태 머신 실행 결과가 `logs-pipeline-*`에 들어오는지.
 - [ ] T032 🧑 비용 확인: 하루 뒤 Cost Explorer에서 OpenSearch·Firehose 금액.
