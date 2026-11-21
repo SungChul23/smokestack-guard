@@ -1,12 +1,16 @@
 [project]
 name = "tms-dashboard-agent"
 version = "0.1.0"
-description = "에이전트 서버 (최소 앱, D·E가 이어서 개발). 계약: specs/a-platform/009-service-infra/contracts/app-runtime.md"
+description = "에이전트 서버 (D·E가 이어서 개발). 계약: specs/a-platform/009-service-infra/contracts/app-runtime.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
     "fastapi>=0.115,<1",
     "uvicorn[standard]>=0.32,<1",
     "pyjwt[crypto]>=2.9,<3",
+    "langgraph>=1.2,<2",
+    "boto3>=1.35,<2",  # AGENT_LLM_BACKEND=bedrock 일 때 Bedrock 호출, RDS IAM 토큰 발급
+    "psycopg[binary,pool]>=3.2,<4",  # AGENT_DATA_SOURCE=rds 일 때 RDS 읽기 (spec 316)
+    "langgraph-checkpoint-postgres>=3.2,<4",  # AGENT_CHECKPOINT=postgres (spec 319)
 ]
 
 [project.optional-dependencies]
@@ -17,7 +21,10 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["app"]
+packages = ["app", "app.agent"]
+
+[tool.setuptools.package-data]
+"app.agent" = ["corpus/*.json"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
