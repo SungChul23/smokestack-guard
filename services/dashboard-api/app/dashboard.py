@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 from app.auth import CurrentUser
 from app.db import get_conn
+from app.logging_mw import log_activity
 
 log = logging.getLogger("tms.api.dashboard")
 router = APIRouter(prefix="/api")
@@ -239,6 +240,7 @@ def add_favorite(target: str, user: CurrentUser, conn: Conn) -> Favorites:
         (user["sub"], _target(target)),
     )
     conn.commit()
+    log_activity("favorite_add", user["sub"], target=_target(target))  # 사용 현황 (A, 014)
     return favorites(user, conn)
 
 
@@ -249,4 +251,5 @@ def remove_favorite(target: str, user: CurrentUser, conn: Conn) -> Favorites:
         (user["sub"], _target(target)),
     )
     conn.commit()
+    log_activity("favorite_remove", user["sub"], target=_target(target))  # 사용 현황 (A, 014)
     return favorites(user, conn)

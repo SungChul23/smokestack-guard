@@ -19,14 +19,16 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from app import dashboard, invite
+from app import dashboard, invite, logging_mw
 from app.auth import LoggedInUser, is_member
 from app.db import DbUnavailable
+from app.logging_mw import log_activity
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
 log = logging.getLogger("tms.api")
 
 app = FastAPI(title="tms dashboard api")
+logging_mw.install(app)  # 요청마다 JSON 한 줄 (014)
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)  # 하루치 응답(약 3MB)을 줄여 보낸다
 app.add_middleware(
@@ -103,6 +105,7 @@ def db_check() -> dict:
 @app.get("/api/me")
 def me(user: LoggedInUser) -> dict:
     """로그인·자격 확인. 화면은 member가 false면 초대 코드 화면을 보여 준다 (013)."""
+    log_activity("session", user.get("sub"))  # 화면 진입 = 하루 접속자 (014)
     return {"sub": user.get("sub"), "member": is_member(user)}
 
 
@@ -124,13 +127,16 @@ def join(body: InviteRequest, user: LoggedInUser) -> dict:
         ok = invite.checker.check(sub, body.code)
     except invite.TooManyAttempts:
         log.info("invite sub=%s result=limited", sub)
+        log_activity("invite_limited", sub)
         raise _error(429, "too_many_attempts", "잠시 뒤 다시 시도") from None
     except invite.NotConfigured as e:
         log.warning("invite sub=%s result=not_configured reason=%s", sub, e)
         raise _error(503, "not_configured", "초대 코드 설정이 없다") from None
     if not ok:
         log.info("invite sub=%s result=invalid", sub)
+        log_activity("invite_fail", sub)
         raise _error(400, "invalid_code", "초대 코드가 맞지 않는다")
     invite.checker.add_to_members(user.get("username"))
     log.info("invite sub=%s result=ok", sub)
+    log_activity("invite_ok", sub)
     return {"member": True}

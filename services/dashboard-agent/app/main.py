@@ -15,9 +15,11 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import logging_mw
 from app.auth import CurrentUser
 
 app = FastAPI(title="tms dashboard agent")
+logging_mw.install(app)  # 요청마다 JSON 한 줄 (014). 질문은 log_activity("agent_question", sub)
 
 app.add_middleware(
     CORSMiddleware,
