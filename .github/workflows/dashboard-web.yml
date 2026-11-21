@@ -38,6 +38,7 @@ jobs:
           cache-dependency-path: services/dashboard-web/package-lock.json
 
       - run: npm ci
+      - run: npm test # 화면 시험(vitest). 깨지면 배포 전에 멈춘다
       - run: npm run build
         env:
           VITE_COGNITO_USER_POOL_ID: ap-northeast-2_ci
