@@ -1,0 +1,84 @@
+{
+  "type": "monitor",
+  "monitor_type": "query_level_monitor",
+  "name": "errors-burst",
+  "enabled": true,
+  "schedule": {
+    "period": {
+      "interval": 5,
+      "unit": "MINUTES"
+    }
+  },
+  "inputs": [
+    {
+      "search": {
+        "indices": [
+          "logs-app-*",
+          "logs-pipeline-*"
+        ],
+        "query": {
+          "size": 0,
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "range": {
+                    "@timestamp": {
+                      "gte": "{{period_end}}||-5m",
+                      "lte": "{{period_end}}",
+                      "format": "epoch_millis"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "level": "ERROR"
+                  }
+                }
+              ]
+            }
+          },
+          "aggs": {
+            "by_service": {
+              "terms": {
+                "field": "service",
+                "size": 5
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "name": "5분 오류 10회 이상",
+      "severity": "2",
+      "condition": {
+        "script": {
+          "source": "ctx.results[0].hits.total.value >= 10",
+          "lang": "painless"
+        }
+      },
+      "actions": [
+        {
+          "name": "운영 메일",
+          "destination_id": "tms-ops-sns",
+          "subject_template": {
+            "source": "[tms] 로그 오류 몰림 {{ctx.results.0.hits.total.value}}건 / 5분",
+            "lang": "mustache"
+          },
+          "message_template": {
+            "source": "최근 5분 ERROR {{ctx.results.0.hits.total.value}}건\n서비스별: {{#ctx.results.0.aggregations.by_service.buckets}}{{key}}={{doc_count}} {{/ctx.results.0.aggregations.by_service.buckets}}\n확인: OpenSearch Dashboards > 운영 상태",
+            "lang": "mustache"
+          },
+          "throttle_enabled": true,
+          "throttle": {
+            "value": 30,
+            "unit": "MINUTES"
+          }
+        }
+      ]
+    }
+  ]
+}

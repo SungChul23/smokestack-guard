@@ -1,0 +1,20 @@
+{
+  "cluster_permissions": [
+    "cluster_composite_ops",
+    "cluster_monitor"
+  ],
+  "index_permissions": [
+    {
+      "index_patterns": [
+        "logs-*",
+        "activity-*"
+      ],
+      "allowed_actions": [
+        "crud",
+        "create_index",
+        "manage"
+      ]
+    }
+  ],
+  "description": "Firehose가 로그 인덱스에만 쓴다 (014)"
+}

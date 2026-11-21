@@ -1,0 +1,37 @@
+name: log-search
+
+# 서비스 로그 수집·분석(A, 014): 라우터 Lambda와 OpenSearch 설정 스크립트 시험.
+on:
+  push:
+    paths:
+      - "services/log-search/**"
+      - ".github/workflows/log-search.yml"
+  pull_request:
+    paths:
+      - "services/log-search/**"
+      - ".github/workflows/log-search.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/log-search
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install pytest ruff boto3
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: pytest -q
