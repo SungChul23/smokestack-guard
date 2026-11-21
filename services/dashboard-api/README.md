@@ -23,3 +23,16 @@ uvicorn app.main:app --reload --port 8000
 
 자격이 없으면 `403 {"detail": {"code": "not_member", …}}`. 로컬 개발은 `AUTH_DISABLED=1`(로그인·자격 모두 건너뜀, 운영 서버에는 넣지 않음).
 약속: `specs/a-platform/013-google-login-invite/contracts/auth-api.md`
+
+## 화면용 읽기 라우트·즐겨찾기 (D, spec 318)
+
+모두 로그인한 회원만(`CurrentUser`). 응답 모양은 `services/dashboard-web/src/data/model.ts`와 같다.
+
+| 라우트 | 내용 |
+|---|---|
+| `GET /api/sites` | 사업장 목록(굴뚝 포함, 키 `"{사업장}:{굴뚝번호}"`). 10분 캐시 |
+| `GET /api/day` | 최신 시각 기준 30분 48칸의 굴뚝별 NOx·SOx 원문(숫자 문자열 또는 상태 문구)과 기준값. 적재가 30분마다라 최신 시각이 같으면 캐시. gzip 응답 |
+| `GET/PUT/DELETE /api/favorites[/{대상}]` | Cognito sub 기준 즐겨찾기(`app.user_favorite`) |
+
+- DB 계정은 기본 `tms_app`(IAM 인증). 서버 역할에 `rds-db:connect`가 필요하다. 권한이 열리기 전 임시 확인은 `DB_USER=tms_admin`(관리자 비밀 방식).
+- DB가 꺼져 있으면 `503 {"detail":{"code":"db_unavailable"}}`, 관측이 아직 없으면 `404 no_data`.
