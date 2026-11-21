@@ -2,7 +2,7 @@
 
 ## R1. 도메인: 공개 엔드포인트, t3.small.search 1대, 1-AZ, 세분화된 접근 제어(FGAC)
 
-- **Decision**: OpenSearch Service 도메인 `tms-logs`. `t3.small.search` × 1, gp3 10GB, 대기 모드 없음, AZ 1개, VPC 밖(공개 엔드포인트). FGAC 켬(내부 사용자 DB 끔, 마스터 = IAM 역할), HTTPS 강제(TLS 1.2), 저장 암호화·노드 간 암호화 켬. 엔진은 apply 시점 최신 OpenSearch 2.x(`aws opensearch list-versions`로 확인, 변수 `engine_version`).
+- **Decision**: OpenSearch Service 도메인 `tms-logs`. `t3.small.search` × 1, gp3 10GB, 대기 모드 없음, AZ 1개, VPC 밖(공개 엔드포인트). FGAC 켬(내부 사용자 DB 끔, 마스터 = IAM 역할), HTTPS 강제(TLS 1.2), 저장 암호화·노드 간 암호화 켬. 엔진은 `OpenSearch_2.19`(2026-11-21 서울에서 쓸 수 있는 최신 2.x, 변수 `engine_version`).
 - **Rationale**: 로그 저장소는 원본(CloudWatch)이 따로 있어 고가용성이 필요 없다. 공개 엔드포인트는 서브넷·보안그룹이 필요 없고, 팀원이 브라우저로 Dashboards에 들어올 수 있다. 보안은 IAM 서명 + Cognito 로그인 + FGAC 역할 매핑으로 지킨다.
 - **Alternatives**: VPC 도메인(Firehose VPC 전송 28일 약 $9 + 터널 필요), Serverless(최소 OCU로 월 $170+), EC2 자체 설치(메모리 4GB 이상 필요, 관리형보다 싸지 않음).
 - **비용**(서울 공식 가격표 2026-11-20): `t3.small.search` $0.056/h → 28일 $37.6, gp3 $0.1391/GB-월 → 10GB $1.3.
@@ -50,10 +50,24 @@
 - **Rationale**: 요구사항이 OpenSearch 모니터링이고, 운영 메일은 기존 토픽 하나로 모은다.
 - 기준 10회·5분은 변수로 두고 운영하며 조정.
 
-## R7. 비용 재계산용 로그 양
+## R7. 실제 로그 양 (2026-11-21 확인)
 
-- **Decision**: 지금 로그 그룹의 저장 바이트로 하루 양을 추정한다(quickstart §1 명령, 사람이 실행). 추정이 하루 100MB를 크게 넘으면 디스크(10GB)와 보관 기간을 다시 본다.
-- 기준 추정: Lambda 요약 로그(10분·30분 주기, 한 줄 요약) + 서버 2대 요청 로그. 하루 100MB 이하 예상 → 14일 1.4GB, 디스크 10GB 충분.
+| 로그 그룹 | 저장 바이트 (14일 보관) |
+|---|---|
+| `/aws/lambda/tms-collector` | 1,395,352 |
+| `/tms/app/api` | 1,064,518 |
+| `/tms/app/agent` | 1,046,494 |
+| `/aws/lambda/tms-synthetic-train` | 137,077 |
+| `/aws/lambda/tms-dashboard-load` | 82,275 |
+| `/aws/lambda/tms-ktms-ml-ready-check` | 17,946 |
+| `/aws/lambda/tms-missing-rate` | 9,898 |
+| `/aws/lambda/tms-training-snapshot-notice` | 1,469 |
+| **합계** | **약 3.8MB** |
+
+- 저장 바이트는 압축된 크기라 실제 수집량은 몇 배 크지만, 그래도 **하루 수 MB 수준**이다(가정했던 하루 100MB보다 훨씬 작음).
+- 그래서 디스크 10GB(도메인 최소에 가까움)·보관 14일로 충분하고, Firehose·CloudWatch 수집 비용은 28일 $1 미만이다. 비용은 사실상 **도메인 인스턴스($37.6) + 디스크($1.3) ≈ $39**.
+- 서버 요청 기록(JSON)을 더하면 서버 로그가 늘지만 화면 사용량(팀·시연자) 기준 하루 수십 MB를 넘지 않는다.
+- 대상에 `tms-training-snapshot-notice`(015)도 넣는다.
 
 ## R8. 나중의 법령 RAG
 

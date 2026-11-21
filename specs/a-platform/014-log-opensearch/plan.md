@@ -6,7 +6,7 @@
 
 ## Summary
 
-대상 로그 그룹 7개(서버 2, Lambda 5)에 구독 필터를 붙여 Firehose 3개(서버·파이프라인·활동)로 보내고, 공용 변환 Lambda가 CloudWatch 묶음을 줄 단위 문서로 풀어 서비스 이름·수준·JSON 필드를 붙인 뒤 OpenSearch 도메인 `tms-logs`(t3.small.search 1대, 공개 엔드포인트, FGAC)의 하루 단위 인덱스에 넣는다. 실패분은 새 로그 버킷에 둔다. Dashboards는 013 Cognito(Google + `members`)로 로그인한다. 인덱스 템플릿·보관(14일·28일)·역할 매핑·오류 알림·저장 대시보드는 저장소의 정의를 멱등 스크립트로 적용한다. 서버에는 요청 기록과 사용자 활동을 JSON 한 줄로 남기는 미들웨어를 더한다. 28일 약 $41.
+대상 로그 그룹 8개(서버 2, Lambda 6)에 구독 필터를 붙여 Firehose 3개(서버·파이프라인·활동)로 보내고, 공용 변환 Lambda가 CloudWatch 묶음을 줄 단위 문서로 풀어 서비스 이름·수준·JSON 필드를 붙인 뒤 OpenSearch 도메인 `tms-logs`(t3.small.search 1대, 공개 엔드포인트, FGAC)의 하루 단위 인덱스에 넣는다. 실패분은 새 로그 버킷에 둔다. Dashboards는 013 Cognito(Google + `members`)로 로그인한다. 인덱스 템플릿·보관(14일·28일)·역할 매핑·오류 알림·저장 대시보드는 저장소의 정의를 멱등 스크립트로 적용한다. 서버에는 요청 기록과 사용자 활동을 JSON 한 줄로 남기는 미들웨어를 더한다. 28일 약 $41.
 
 ## Technical Context
 
@@ -26,7 +26,7 @@
 
 **Constraints**: 비밀값 없음(IAM·Cognito). 수집 Lambda 실행·스케줄·저장 경로 변경 없음. 원본 버킷에 수명 주기 규칙 추가 없음(로그 실패분은 새 버킷). 28일 비용 $50 이하
 
-**Scale/Scope**: 하루 약 100MB 이하(§1에서 확인), 14일 보관 약 1.4GB, 디스크 10GB
+**Scale/Scope**: 실제 로그는 하루 수 MB(2026-11-21 확인, research R7), 14일 보관 수백 MB 이하, 디스크 10GB. 엔진 `OpenSearch_2.19`
 
 ## Constitution Check
 
