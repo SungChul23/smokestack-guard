@@ -1,0 +1,162 @@
+.app {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  background:
+    radial-gradient(900px 500px at 85% -10%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
+    var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+.skip {
+  position: absolute;
+  left: 8px;
+  top: -48px;
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--bg);
+  z-index: 10;
+}
+.skip:focus { top: 8px; }
+
+/* 왼쪽 레일: 내용만큼만 길게(화면 전체 높이가 아님). 스크롤해도 따라온다 */
+.rail {
+  position: sticky;
+  top: 12px;
+  align-self: start;
+  margin: 12px 0 0 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 6px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+}
+.brand { color: var(--accent); margin-bottom: 10px; display: grid; place-items: center; }
+.nav { display: flex; flex-direction: column; gap: 6px; }
+.railBtn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-pill);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: none;
+}
+.railBtn:hover { color: var(--ink); border-color: var(--line); }
+.railBtn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--r-pill);
+  background: var(--lv-warn);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+.spacer { height: 6px; }
+
+/* 본문 */
+.main { min-width: 0; display: flex; flex-direction: column; }
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px 28px 6px;
+}
+.title { margin: 0; font-size: 23px; letter-spacing: -0.01em; }
+.asof { color: var(--muted); font-size: 16px; font-variant-numeric: tabular-nums; }
+.account { margin-left: auto; color: var(--muted); font-size: 16px; }
+
+.content { padding: 8px 28px 24px; display: flex; flex-direction: column; gap: 18px; flex: 1; }
+
+.cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-card);
+}
+.cardLabel { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 16px; }
+.cardValue { margin-top: 6px; font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cardNote { color: var(--muted); font-size: 15px; margin-top: 2px; }
+
+.section {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 16px 18px;
+  min-height: 160px;
+  scroll-margin-top: 12px;
+}
+/* 지도(넓게) + 경고 목록(오른쪽)을 나란히. 좁은 화면에서는 세로로 */
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: 12px;
+  /* 높이는 지도 칸이 정한다(고정, 1.3배로 키움). 경고 목록은 이 높이에 맞춰 보이고 넘치면 안에서 스크롤한다.
+     목록이 길거나 짧아도 지도가 커지거나 작아지지 않는다. */
+  height: clamp(624px, 91vh, 988px); /* 예전(480~760px, 70vh)의 1.3배 */
+}
+.mapPane, .listPane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.mapPane > :not(h2), .listPane > :not(h2) { flex: 1; min-height: 0; }
+@media (max-width: 980px) {
+  .split { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .mapPane { height: 600px; }
+  .listPane { height: 600px; }
+}
+.section h2 { margin: 0 0 8px; font-size: 18px; }
+/* 화면에는 보이지 않고 화면 읽기 프로그램만 읽는 제목(지도 제목은 지도 줄 안에 있다) */
+.srOnly { position: absolute; width: 1px; height: 1px; margin: -1px !important; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.placeholder { color: var(--muted); font-size: 17px; }
+
+.footer {
+  padding: 12px 28px 18px;
+  color: var(--muted);
+  font-size: 15px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; }
+  .rail {
+    position: static;
+    align-self: stretch;
+    margin: 0;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+  }
+  .brand { margin: 0; }
+  .nav { flex-direction: row; }
+  .spacer { flex: 1; height: auto; }
+  .header, .content, .footer { padding-left: 14px; padding-right: 14px; }
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

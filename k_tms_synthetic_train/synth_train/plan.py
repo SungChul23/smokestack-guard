@@ -7,7 +7,7 @@ import numpy as np
 import yaml
 from synth_train import schedule
 
-VALID_ITEMS = {"nox", "sox"}
+VALID_ITEMS = {"nox", "sox"}              # 허용하는 성분 이름
 
 # config.yaml파일을 읽어 dict 형식으로 만듬
 def load_config(path) -> dict:              
@@ -25,19 +25,19 @@ def make_stack_code(episode_id: str, n: int) -> str:
 # 성분 목록이 비어 있지 않고, 모르는 성분이 없는지 확인
 def _check_items(owner: str, items: list) -> None:
     if not items:
-        raise ValueError(f"{owner}: 성분 목록이 비어 있음")
-    unknown = set(items) - VALID_ITEMS
+        raise ValueError(f"{owner}: 성분 목록이 비어 있음")                         # 빈 리스트는 False
+    unknown = set(items) - VALID_ITEMS                                        # 입력 성분중 허용 목록에 없는 것만 남김
     if unknown:
-        raise ValueError(f"{owner}: 모르는 성분 {sorted(unknown)}")
+        raise ValueError(f"{owner}: 모르는 성분 {sorted(unknown)}")                 # 에러 메시지 순서를 항상 같게 
 
 # 에피소드 ID 생성: 시나리오 + (변형) + (성분은 성분이 2개 이상일 때)
 def make_episode_id(base_id: str, variant, item: str, multi_item: bool) -> str:
-    parts = [base_id]
-    if variant:
-        parts.append(variant)
+    parts = [base_id]                                                   # 시나리오 ID로 시작
+    if variant:                                                                    # variant가 None이면 붙이지 않음
+        parts.append(variant)                                                      
     if multi_item:
-        parts.append(item.upper())
-    return "-".join(parts)
+        parts.append(item.upper())                                                 # 성분이 여러개일 때만 NOX/SOX를 붙여 서로 구분
+    return "-".join(parts)                                                         # -로 이음
 
 # 설정의 시나리오를 개별 에피소드로 펼침
 def expand_episodes(episodes_cfg: dict) -> list:

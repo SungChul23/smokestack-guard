@@ -73,7 +73,7 @@ def test_same_input_same_bytes(tmp_path):
 
 # 학습용 pool 경로는 허용하고 실측 경로느 계속 거부
 def test_check_prefix_allows_train_root_and_rejects_real():
-    writer.check_prefix("tms_synthetic_train/ingest_date=2026-11-20/hour=00/run_ts=X")
+    writer.check_prefix("tms_synthetic_train_v2/ingest_date=2026-11-20/hour=00/run_ts=X")
     with pytest.raises(ValueError):
         writer.check_prefix("tms_cleansys/ingest_date=2026-11-20/hour=00/run_ts=X")
 
@@ -85,3 +85,8 @@ def test_writes_pool_mode_files(tmp_path):
     writer.write_files(tmp_path, prefix, files)
     names = sorted(p.name for p in (tmp_path / prefix).iterdir())
     assert names == ["_SUCCESS", "manifest.json", "snapshot.json.gz", "snapshot.meta.json"]
+
+# 옛 v1 경로로는 쓸 수 없음
+def test_check_prefix_rejects_v1_root():
+    with pytest.raises(ValueError):
+        writer.check_prefix("tms_synthetic_train/ingest_date=2026-11-20/hour=00/run_ts=X")

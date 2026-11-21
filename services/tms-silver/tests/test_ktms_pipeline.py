@@ -111,7 +111,7 @@ def test_other_prefix_passes_when_c_adds_argument():
 
 def test_current_c_read_bronze_accepts_synthetic():
     # 6c3c408에서 C의 read_bronze에 prefix 인자가 생겨 합성 원본 경로도 통과한다
-    check_source_prefix("tms_synthetic_train/")
+    check_source_prefix("tms_synthetic_train_v2/")
 
 
 # ---------------------------------------------------------------------------

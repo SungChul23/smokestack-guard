@@ -17,13 +17,13 @@ def tree(root) -> dict:
 # 폴더 구조: 스냅샷 48개, 폴더마다 파일 4개, 에피소드 폴더 없음
 def test_folder_structure(config, ref_df, tmp_path):
     generate.generate_day(config, ref_df, D1, tmp_path)
-    run_dirs = [p for p in (tmp_path / "tms_synthetic_train").rglob("run_ts=*") if p.is_dir()]
+    run_dirs = [p for p in (tmp_path / "tms_synthetic_train_v2").rglob("run_ts=*") if p.is_dir()]
     assert len(run_dirs) == 48
     for d in run_dirs:
         assert sorted(f.name for f in d.iterdir()) == [
             "_SUCCESS", "manifest.json", "snapshot.json.gz", "snapshot.meta.json"
         ]
-    assert not list((tmp_path / "tms_synthetic_train").rglob("episode=*"))
+    assert not list((tmp_path / "tms_synthetic_train_v2").rglob("episode=*"))
 
 # manifest: 시작 날짜가 그날인 에피소드만, 필수 필드 존재
 def test_manifest_fields(config, ref_df, tmp_path):

@@ -1,0 +1,24 @@
+/* 지도 오른쪽 아래 방위. 안내 문구 줄 위에 두고 지도 조작을 가로막지 않는다. 글자는 13px 아래로 내리지 않는다. */
+.compass {
+  position: absolute;
+  right: 14px;
+  bottom: 44px;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(3, 18px);
+  grid-template-rows: repeat(3, 18px);
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  pointer-events: none;
+  color: var(--map-ink); /* 지도 전용 글자색(모드마다 바뀐다) */
+  font: 700 13px/1 var(--font-mono, ui-monospace, Consolas, monospace);
+  text-shadow: 0 0 4px var(--stage-bg), 0 0 8px var(--stage-bg);
+}
+.n { grid-column: 2; grid-row: 1; color: var(--accent); }
+.e { grid-column: 3; grid-row: 2; }
+.w { grid-column: 1; grid-row: 2; }
+.s { grid-column: 2; grid-row: 3; }
+.cross { grid-column: 2; grid-row: 2; width: 24px; height: 24px; overflow: visible; }
+.points { fill: var(--stage-bg); stroke: var(--map-ink); stroke-width: 1; stroke-linejoin: round; }
+.north { fill: var(--accent); stroke: none; }

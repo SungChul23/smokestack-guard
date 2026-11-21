@@ -1,7 +1,7 @@
 # 학습용 합성 데이터 하루 생성 설정 
 run:
   seed: 20261116
-  generator_version: gen-train-v1
+  generator_version: gen-train-v2
   stats_version: ref-1030-1110
 
 snapshot:
@@ -18,8 +18,8 @@ episode:
   return_max: 90
 
 daily_episodes:
-  nox: {OTHER: 125, SPIKE: 49, EXCEED: 11, PLATEAU: 11, OVER: 11, GRADUAL: 11}
-  sox: {OTHER: 24, SPIKE: 14, EXCEED: 7, PLATEAU: 4, OVER: 4, GRADUAL: 4}
+  nox: {FALLING: 8, NEAR_HOLD: 20, IRREGULAR_RISE: 28, OSCILLATION: 12, SPIKE: 27, EXCEED: 8, PLATEAU: 8, OVER: 4, GRADUAL: 6, NEAR_MISS: 0}
+  sox: {FALLING: 2, NEAR_HOLD: 4, IRREGULAR_RISE: 8, OSCILLATION: 2, SPIKE: 9, EXCEED: 4, PLATEAU: 4, OVER: 2, GRADUAL: 3, NEAR_MISS: 0}
 
 ref_selection:
   min_valid: 200
@@ -29,11 +29,15 @@ ref_selection:
 
 shape_ranges:
   GRADUAL: {group: low,  ramp_start: [50, 69], ramp_steps: [4, 7], step_rise: [3, 9], entry: [90, 99]}
-  SPIKE:   {group: low,  before: [40, 69], peak: [90, 105], peak_len: [1, 2], after: [40, 70]}
+  SPIKE:   {group: low,  before: [15, 69], peak: [90, 105], peak_len: [1, 2], after: [40, 70]}
   EXCEED:  {group: high, before: [50, 89], peak: [100, 130], exceed_len: [3, 6], after: [60, 95]}
   PLATEAU: {group: high, before: [50, 85], level: [90, 99], hold_len: [4, 8], after: [60, 89]}
   OVER:    {group: high, low: [82, 89], high: [90, 95], entries: [3, 5]}
-  OTHER:   {group: high, before: [70, 89], peak: [90, 99], high_len: [1, 3]}
+  FALLING:   {group: high, start: [86, 89], step_drop: [3, 5], peak: [90, 99], high_len: [1, 3], after: [70, 89]}
+  NEAR_HOLD: {group: high, base: [78, 88], wobble: [-3, 3], peak: [90, 99], high_len: [1, 3], after: [67, 89]}
+  IRREGULAR_RISE: {group: low, start: [41, 78], end: [72, 89], noise: [-6, 6], peak: [90, 99], high_len: [1, 3], after: [47, 89]}
+  OSCILLATION: {group: high, base: [71, 88], amp: [8, 12], peak: [90, 99], high_len: [1, 3], after: [59, 89]}
+  NEAR_MISS: {group: high, peak: [80, 89.9], start: [55, 79], ramp_steps: [3, 5], hold_len: [3, 6], fall_steps: [2, 3], step_drop: [3, 8], after: [55, 79]}
 
 paths:
   stats: data/ref_stats.csv

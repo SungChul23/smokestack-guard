@@ -76,3 +76,8 @@ output "ktms_schedule_state" {
   description = "매일 03:00 KST 스케줄 상태 (ENABLED/DISABLED)"
   value       = aws_scheduler_schedule.ktms_daily.state
 }
+
+output "training_snapshots_topic_arn" {
+  description = "학습 스냅샷 알림 SNS 토픽 (spec 015)"
+  value       = aws_sns_topic.training_snapshots.arn
+}

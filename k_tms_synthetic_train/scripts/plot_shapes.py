@@ -2,6 +2,10 @@
 - plot_shapes: 모양별 합성 곡선 샘플을 그려 눈으로 확인 (T020)
 '''
 from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT)) 
 
 import matplotlib
 matplotlib.use("Agg")
@@ -11,21 +15,22 @@ import yaml
 
 from synth_train.assemble import assemble_episode
 
-ROOT = Path(__file__).resolve().parent.parent
-SHAPES = ["OTHER", "SPIKE", "EXCEED", "PLATEAU", "OVER", "GRADUAL"]
-REF = {"mean": 45.0, "std": 8.0, "phi": 0.8}      # 시험용 참조 굴뚝 통계(%)
+SHAPES = ["FALLING", "NEAR_HOLD", "IRREGULAR_RISE", "OSCILLATION", "NEAR_MISS",
+          "SPIKE", "EXCEED", "PLATEAU", "FALLING", "GRADUAL"]
+REF = {"low": {"mean": 50.0, "std": 8.0, "phi": 0.8},      # 시험용 참조 굴뚝 통계(%)
+       "high": {"mean": 78.0, "std": 5.0, "phi": 0.8}}
 N = 6                                              # 모양당 곡선 수
 
 with open(ROOT / "config" / "daily.yaml", encoding="utf-8") as f:
     cfg = yaml.safe_load(f)
 
-fig, axes = plt.subplots(2, 3, figsize=(15, 8), sharey=True)
+fig, axes = plt.subplots(2, 5, figsize=(22, 9), sharey=True)
 rng = np.random.default_rng(11)
 for ax, shape in zip(axes.flat, SHAPES):
     ranges = cfg["shape_ranges"][shape]
     bg = cfg["ref_selection"]["groups"][ranges["group"]]["background_max"]
     for _ in range(N):
-        curve, start, end = assemble_episode(shape, rng, ranges, REF, cfg["episode"], bg)
+        curve, start, end = assemble_episode(shape, rng, ranges, REF[ranges["group"]], cfg["episode"], bg)
         ax.plot(curve, alpha=0.8)
     ax.axhline(90, color="red", linestyle="--", linewidth=0.8)
     ax.axhline(100, color="black", linestyle=":", linewidth=0.8)

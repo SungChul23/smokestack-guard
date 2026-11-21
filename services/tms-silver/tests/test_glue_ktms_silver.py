@@ -148,10 +148,10 @@ def test_synthetic_prefix_reads_only_that_prefix(iceberg_spark, fake_s3, tmp_pat
         BUCKET,
         _utc(2026, 11, 11, 1, 10),
         [stack_item(*A, "2026-11-11 10:00", nox="5")],
-        prefix="tms_synthetic_train/",
+        prefix="tms_synthetic_train_v2/",
     )
     glue_ktms_silver.main(
-        _args("tms_job.ktms_synthetic", tmp_path, "--source_prefix", "tms_synthetic_train/"),
+        _args("tms_job.ktms_synthetic", tmp_path, "--source_prefix", "tms_synthetic_train_v2/"),
         s3=fake_s3,
         now=RUN_AT.replace(minute=2),
     )

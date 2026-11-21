@@ -102,7 +102,10 @@ def test_bytes_match_file_mode(config, ref_df, local_day):
     assert set(local) == set(remote)
     assert all(hashlib.sha256(local[k]).digest() == hashlib.sha256(remote[k]).digest() for k in local)
     manifest = (local_day / "manifest" / "2026-11-16.jsonl").read_bytes()
-    assert s3.objects["tms_synthetic_train/_manifest/2026-11-16.jsonl"] == manifest
+    assert s3.objects[f"{lh.MANIFEST_PREFIX}/2026-11-16.jsonl"] == manifest
+    # v2 경로에만 쓴다 (spec 015, B의 v2는 tms_synthetic_train_v2/)
+    assert lh.TRAIN_ROOT == "tms_synthetic_train_v2"
+    assert all(k.startswith("tms_synthetic_train_v2/") for k in s3.objects)
 
 
 def test_no_kafka_imports_and_real_path_rejected():
