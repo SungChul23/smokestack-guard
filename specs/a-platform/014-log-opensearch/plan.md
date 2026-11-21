@@ -6,17 +6,17 @@
 
 ## Summary
 
-대상 로그 그룹 8개(서버 2, Lambda 6)에 구독 필터를 붙여 Firehose 3개(서버·파이프라인·활동)로 보내고, 공용 변환 Lambda가 CloudWatch 묶음을 줄 단위 문서로 풀어 서비스 이름·수준·JSON 필드를 붙인 뒤 OpenSearch 도메인 `tms-logs`(t3.small.search 1대, 공개 엔드포인트, FGAC)의 하루 단위 인덱스에 넣는다. 실패분은 새 로그 버킷에 둔다. Dashboards는 013 Cognito(Google + `members`)로 로그인한다. 인덱스 템플릿·보관(14일·28일)·역할 매핑·오류 알림·저장 대시보드는 저장소의 정의를 멱등 스크립트로 적용한다. 서버에는 요청 기록과 사용자 활동을 JSON 한 줄로 남기는 미들웨어를 더한다. 28일 약 $41.
+대상 로그 그룹 8개(서버 2, Lambda 6)에 구독 필터를 붙여 라우터 Lambda가 CloudWatch 묶음을 로그 한 줄씩 풀어 서비스 이름·수준·JSON 필드를 붙여 Firehose 3개(서버·파이프라인·활동)로 나눠 보내고(Firehose는 CloudWatch 묶음을 OpenSearch에 직접 못 넣음, research R3), Firehose가 OpenSearch 도메인 `tms-logs`(t3.small.search 1대, 공개 엔드포인트, FGAC)의 하루 단위 인덱스에 넣는다. 실패분은 새 로그 버킷에 둔다. Dashboards는 013 Cognito(Google + `members`)로 로그인한다. 인덱스 템플릿·보관(14일·28일)·역할 매핑·오류 알림·저장 대시보드는 저장소의 정의를 멱등 스크립트로 적용한다. 서버에는 요청 기록과 사용자 활동을 JSON 한 줄로 남기는 미들웨어를 더한다. 28일 약 $41.
 
 ## Technical Context
 
-**Language/Version**: Python 3.12(변환 Lambda, 서버), Python 3.11+(설정 스크립트) · Terraform `~> 1.15.0`, AWS provider `~> 6.0`
+**Language/Version**: Python 3.12(라우터 Lambda, 서버), Python 3.11+(설정 스크립트) · Terraform `~> 1.15.0`, AWS provider `~> 6.0`
 
 **Primary Dependencies**: 표준 라이브러리 + boto3/botocore(SigV4 서명). 새 외부 패키지 없음
 
 **Storage**: OpenSearch 인덱스(로그 사본), S3 `smokestack-tms-logs-952900391026`(전달 실패분, 28일). 원본은 CloudWatch Logs(바꾸지 않음)
 
-**Testing**: pytest — 변환 Lambda(묶음 풀기·JSON 펼치기·수준 추정·제어 메시지), 서버 미들웨어(필드·상태 확인 제외·개인 정보 없음), 설정 스크립트(dry-run 출력)
+**Testing**: pytest — 라우터 Lambda(묶음 풀기·JSON 펼치기·수준 추정·나누기·제어 메시지·부분 실패 재전송), 서버 미들웨어(필드·상태 확인 제외·개인 정보 없음), 설정 스크립트(dry-run 출력)
 
 **Target Platform**: OpenSearch Service, Data Firehose, Lambda, CloudWatch Logs 구독 필터, Cognito 자격 증명 풀
 
@@ -43,11 +43,10 @@
 
 | 주체 | 권한 | 리소스 |
 |---|---|---|
-| CloudWatch Logs → Firehose 역할 `tms-logs-cwl` | `firehose:PutRecord(Batch)` | Firehose 3개 |
+| 라우터 Lambda 역할 `tms-logs-router` | `firehose:PutRecordBatch` | Firehose 3개 |
 | Firehose 역할 `tms-logs-firehose` | `es:ESHttpPost/Put/Get`, `es:DescribeDomain*` | 도메인 `tms-logs` |
-| | `lambda:InvokeFunction` | 변환 Lambda |
 | | `s3:PutObject` 등 | 로그 버킷 |
-| 변환 Lambda 역할 | 기본 로그 권한만 | |
+| CloudWatch Logs·EventBridge → 라우터 | `lambda:InvokeFunction`(리소스 정책) | 라우터 Lambda |
 | Cognito 뷰어 역할 `tms-logs-viewer` | `es:ESHttp*` | 도메인 `tms-logs` (FGAC가 읽기로 좁힘) |
 | OpenSearch → SNS 역할 `tms-logs-sns` | `sns:Publish` | `tms-collector-alerts` |
 | OpenSearch Cognito 서비스 역할 | `AmazonOpenSearchServiceCognitoAccess` | |
@@ -71,9 +70,9 @@ specs/a-platform/014-log-opensearch/
 infra/stacks/tms-log-search/                 # 새 스택 (opensearch_enabled 스위치)
 ├── backend.tf  versions.tf  variables.tf  outputs.tf
 ├── domain.tf          # 도메인, 접근 정책, Cognito 연결, 자격 증명 풀·역할, 관리자·SNS 역할
-├── delivery.tf        # 로그 버킷, 변환 Lambda, Firehose 3개, 구독 필터·역할
+├── delivery.tf        # 로그 버킷, 라우터 Lambda, Firehose 3개, 구독 필터, EventBridge 규칙, 역할
 services/log-search/
-├── transform.py       # Firehose 변환 Lambda (CloudWatch 묶음 → 문서)
+├── router.py          # 라우터 Lambda (CloudWatch 묶음·Step Functions 이벤트 → 줄마다 문서 → Firehose 3개)
 ├── setup_opensearch.py  # 템플릿·ISM·역할 매핑·알림·저장 객체 (멱등, --dry-run)
 ├── opensearch/        # index-templates/*.json, ism/*.json, roles/*.json, monitors/*.json
 ├── dashboards/*.ndjson
@@ -93,7 +92,7 @@ AGENTS.md                                     # 스택·폴더·로그 버킷
 
 | 항목 | 필요한 이유 | 더 단순한 대안을 버린 이유 |
 |---|---|---|
-| 변환 Lambda | 서비스 이름·수준·JSON 필드 | Firehose 기본 메시지 추출은 로그 그룹 이름을 버림 |
+| 라우터 Lambda | 로그 한 줄 = 문서 하나, 서비스 이름·수준·JSON 필드, 묶음 나누기 | Firehose는 CloudWatch 묶음을 OpenSearch에 직접 못 넣음(AWS 문서), 변환 Lambda는 1:1이라 쪼갤 수 없음 |
 | Firehose 3개 | 묶음별 인덱스·보관 기간 | 하나로 모으면 보관 기간을 나눌 수 없음. 시간 요금이 없어 비용 차이 없음 |
 | 설정 스크립트 | OpenSearch 내부 설정은 REST API에만 있음 | Terraform OpenSearch provider는 도메인 생성과 같은 apply에서 순서 문제 |
 | Cognito 앱 클라이언트 수동 수정 | OpenSearch가 만드는 클라이언트 | Terraform으로 관리 불가(서비스가 만듦) |

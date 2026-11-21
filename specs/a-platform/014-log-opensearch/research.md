@@ -15,19 +15,21 @@
 - **알려진 수동 단계**: OpenSearch가 Cognito 연결 때 사용자 풀에 **자기 앱 클라이언트**(`AWSElasticsearch-tms-logs-…`)를 만든다. 이 클라이언트는 기본 공급자가 `COGNITO`라 Google을 더해야 한다(`aws cognito-idp update-user-pool-client`, quickstart §4). Terraform 밖에서 생기는 자원이라 문서로 남긴다.
 - **필요한 역할**: `AmazonOpenSearchServiceCognitoAccess` 관리형 정책을 가진 서비스 역할(도메인이 Cognito를 설정할 때 씀).
 
-## R3. 전달: 구독 필터 → Firehose 3개 → 변환 Lambda → OpenSearch, 실패분 S3
+## R3. 전달: 구독 필터 → 라우터 Lambda → Firehose 3개 → OpenSearch, 실패분 S3 (2026-11-21 수정)
 
+- **처음 안의 문제**: 구독 필터 → Firehose(변환 Lambda) → OpenSearch로 설계했으나, **Firehose는 CloudWatch Logs를 OpenSearch 대상으로 보내지 못한다**(AWS 문서). CloudWatch가 로그 여러 건을 Firehose 레코드 하나로 묶어 보내고, OpenSearch 대상은 레코드 하나 = 문서 하나라서다. 변환 Lambda는 레코드를 1:1로만 돌려줘 여러 문서로 쪼갤 수 없다. Firehose의 압축 풀기·메시지 추출 기능도 S3·Splunk용이다.
 - **Decision**:
-  - Firehose(Direct PUT) **3개**: `tms-logs-app`, `tms-logs-pipeline`, `tms-logs-activity` → 각각 인덱스 `logs-app`, `logs-pipeline`, `activity`(하루 단위 회전 → `logs-app-2026-11-20`).
-  - 구독 필터
-    - 서버 로그 그룹(`/tms/app/api`, `/tms/app/agent`): 패턴 없음 → `tms-logs-app`, 패턴 `{ $.log_type = "activity" }` → `tms-logs-activity` (로그 그룹당 구독 필터 2개 한도 안)
-    - Lambda 로그 그룹(`/aws/lambda/tms-collector`, `tms-missing-rate`, `tms-dashboard-load`, `tms-synthetic-train`, `tms-ktms-ml-ready-check`): 패턴 없음 → `tms-logs-pipeline`
-  - **변환 Lambda** `tms-logs-transform` 하나를 세 스트림이 같이 쓴다: CloudWatch 묶음(gzip)을 풀고 줄마다 문서로 만들며 `log_group`·`service`·`@timestamp`를 붙이고, JSON이면 필드로 펼치고, 수준(`level`)을 추정한다. 제어 메시지(CONTROL_MESSAGE)는 버린다.
-  - 실패분: 새 버킷 `smokestack-tms-logs-952900391026`(수명 주기 28일)에 `FailedDocumentsOnly`.
-- **Rationale**: Firehose의 기본 "메시지 추출"은 로그 그룹 이름을 버려 서비스 구분이 안 된다. 변환 Lambda가 서비스 이름을 붙인다. 묶음마다 인덱스·보관 기간을 다르게 하려면 스트림을 나누는 게 가장 단순하다(Firehose는 시간 요금이 없어 스트림 수가 비용에 영향 없음). 활동 기록은 서버 로그에도 한 번 더 들어가지만 양이 작아 허용한다.
-- **원본 버킷을 쓰지 않는 이유**: 원본 버킷은 수명 주기 규칙을 두지 않는 규칙(AGENTS.md)이다. 로그 실패분은 버려도 되는 운영 데이터라 따로 둔다.
-- **비용**: Firehose $0.036/GB(Direct PUT). 변환 Lambda는 무료 범위 안.
-- **수집 영향 없음**: 구독 필터는 로그 그룹에만 붙고 Lambda 실행·권한은 바꾸지 않는다(SC-008).
+  - 구독 필터의 대상을 **라우터 Lambda `tms-logs-router`**로 한다. 라우터가 CloudWatch 묶음(gzip)을 풀어 **로그 한 줄 = 레코드 하나**로 만들고, `log_group`·`service`·`@timestamp`·`level`·`json.*`를 붙여 알맞은 Firehose에 `PutRecordBatch`로 보낸다.
+    - 서버 그룹(`/tms/app/api`·`/tms/app/agent`): `json.log_type == "activity"`면 `tms-logs-activity`, 나머지는 `tms-logs-app` (구독 필터 하나로 나눔)
+    - Lambda 그룹 6개, Glue 오류 줄: `tms-logs-pipeline`
+  - Step Functions 실행 상태 이벤트(EventBridge, R9)도 같은 라우터가 받아 `tms-logs-pipeline`에 넣는다.
+  - Firehose 3개(Direct PUT, 변환 없음): `tms-logs-app` → `logs-app`, `tms-logs-pipeline` → `logs-pipeline`, `tms-logs-activity` → `activity`(하루 회전). 실패분은 새 버킷 `smokestack-tms-logs-952900391026`(수명 주기 28일)에 `FailedDocumentsOnly`.
+  - 제어 메시지(CONTROL_MESSAGE)는 버린다. `PutRecordBatch` 부분 실패는 다시 보내고, 그래도 실패하면 예외로 끝내 구독 필터가 재시도하게 한다.
+- **Rationale**: 요구사항(CloudWatch → Firehose → OpenSearch)을 지키면서 문서를 한 줄씩 만든다. 나누는 규칙이 라우터 한 곳에 있어 서버 그룹에 구독 필터를 두 개 걸 필요가 없다. 라우터 Lambda는 무료 범위 안.
+- **Alternatives**: CloudWatch Logs → OpenSearch 직접 구독(콘솔이 만드는 Lambda) — 요구사항의 Firehose가 빠지고 실패 보관이 없음. Firehose → S3 → 다른 적재 — 지연·구성 증가.
+- **비용**: Firehose $0.036/GB(Direct PUT, 레코드 5KB 단위 올림 — 로그 한 줄은 작아 GB당보다 레코드 수 영향이 커질 수 있으나 하루 수 MB·수만 줄 수준이라 28일 $1 미만). 라우터 Lambda 무료 범위.
+- **수집 영향 없음**: 구독 필터는 로그 그룹에만 붙고 수집 Lambda 코드·역할·스케줄을 바꾸지 않는다(SC-008).
+- 참고: [Send CloudWatch Logs to Firehose](https://docs.aws.amazon.com/firehose/latest/dev/writing-with-cloudwatch-logs.html)
 
 ## R4. 서버 요청·활동 기록 (구조화 로그)
 
@@ -68,6 +70,20 @@
 - 그래서 디스크 10GB(도메인 최소에 가까움)·보관 14일로 충분하고, Firehose·CloudWatch 수집 비용은 28일 $1 미만이다. 비용은 사실상 **도메인 인스턴스($37.6) + 디스크($1.3) ≈ $39**.
 - 서버 요청 기록(JSON)을 더하면 서버 로그가 늘지만 화면 사용량(팀·시연자) 기준 하루 수십 MB를 넘지 않는다.
 - 대상에 `tms-training-snapshot-notice`(015)도 넣는다.
+
+## R9. Step Functions 실행 결과와 Glue 오류도 모은다 (2026-11-21 결정)
+
+- **Decision**:
+  - Step Functions: EventBridge 규칙(`aws.states`, `Step Functions Execution Status Change`, 상태 `SUCCEEDED`·`FAILED`·`TIMED_OUT`·`ABORTED`, 상태 머신 `tms-silver2-ktms`·`tms-dashboard-load`) → 라우터 Lambda → Firehose `tms-logs-pipeline`. 라우터가 EventBridge 이벤트(JSON 한 건)를 문서로 바꾼다(`service = <상태 머신>`, `level = ERROR`(실패·시간 초과·중단) / `INFO`, `json.status`, `json.execution`, 시작·종료 시각).
+  - Glue: `/aws-glue/tms-silver`에 구독 필터 `?ERROR ?Exception ?Traceback` → `tms-logs-pipeline`.
+- **Rationale**: 상태 머신은 로그 설정이 없어 지금은 콘솔에서만 결과를 본다. 상태 머신 로그를 켜는 대신 실행 상태 이벤트를 받으면 정의를 바꾸지 않고 양도 하루 수십 건이다. Glue(Spark) 전체 로그는 양이 많고 쓸모가 적어 오류 줄만 받는다.
+- **Alternatives**: 상태 머신 `logging_configuration`(ALL) — 단계마다 로그가 생겨 양이 늘고 두 스택을 고쳐야 함.
+
+## R10. 사용자 활동 사건 확장 (2026-11-21 결정)
+
+- `session`(`/api/me`), `invite_ok`·`invite_fail`·`invite_limited`(`/api/invite`), `favorite_add`·`favorite_remove`(D의 `/api/favorites` PUT·DELETE), `agent_question`(D, 질문 기능 연결 때).
+- 서버가 확실히 아는 사건만 남긴다. 화면 클릭·페이지 이동은 GA4(요구사항 2) 몫.
+- 초대 코드 실패·차단은 무차별 시도 감시용 보안 지표다.
 
 ## R8. 나중의 법령 RAG
 

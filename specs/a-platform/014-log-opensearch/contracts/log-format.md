@@ -32,6 +32,9 @@ D가 에이전트·API 라우트를 만들 때 지키는 약속이다. 형식이
 |---|---|---|
 | `session` | `GET /api/me` (화면 진입) | A (013 라우트) |
 | `invite_ok` | `POST /api/invite` 통과 | A |
+| `invite_fail` | `POST /api/invite` 틀림 | A |
+| `invite_limited` | `POST /api/invite` 시도 제한 | A |
+| `favorite_add` · `favorite_remove` | `PUT`·`DELETE /api/favorites/{대상}` (`target` 필드에 대상 id) | A가 넣고 D에게 공유 |
 | `agent_question` | 에이전트 질문 라우트 | **D** |
 
 - **남기지 않는 것**: 이메일, 이름, 초대 코드 입력값, 질문 원문, 답변 원문.

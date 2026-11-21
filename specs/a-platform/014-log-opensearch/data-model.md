@@ -5,12 +5,12 @@
 | 인덱스 (하루 단위) | 들어오는 것 | 보관(ISM) | 쓰는 주체 |
 |---|---|---|---|
 | `logs-app-YYYY-MM-DD` | API·에이전트 서버 로그(요청 기록 포함) | 14일 | Firehose `tms-logs-app` |
-| `logs-pipeline-YYYY-MM-DD` | 수집·누락률·대시보드 적재·합성 적재·계약 검사 Lambda | 14일 | Firehose `tms-logs-pipeline` |
+| `logs-pipeline-YYYY-MM-DD` | 수집·누락률·대시보드 적재·합성 적재·계약 검사·학습 스냅샷 알림 Lambda, Step Functions 실행 결과(EventBridge), Glue 오류 줄 | 14일 | Firehose `tms-logs-pipeline` |
 | `activity-YYYY-MM-DD` | 사용자 활동(`log_type=activity`) | 28일 | Firehose `tms-logs-activity` |
 
 샤드 1, 복제 0(노드 1개). 나중의 `rag-law`는 ISM 대상이 아니다.
 
-## 공통 필드 (변환 Lambda가 붙임)
+## 공통 필드 (라우터 Lambda가 붙임)
 
 | 필드 | 형 | 뜻 |
 |---|---|---|
@@ -36,7 +36,8 @@
 
 | 필드 | 형 | 값 |
 |---|---|---|
-| `json.event` | keyword | `session`, `invite_ok`, `agent_question` |
+| `json.event` | keyword | `session`, `invite_ok`, `invite_fail`, `invite_limited`, `favorite_add`, `favorite_remove`, `agent_question` |
+| `json.target` | keyword | 즐겨찾기 대상 id(`favorite_*`만) |
 | `json.sub` | keyword | 회원 id |
 
 이메일·이름·초대 코드 입력값·질문 원문은 없다(FR-021).
@@ -61,5 +62,6 @@
 
 - 인덱스 패턴 3개: `logs-app-*`, `logs-pipeline-*`, `activity-*` (시간 필드 `@timestamp`)
 - 대시보드 `운영 상태`: 서비스별 로그 수, 시간대별 오류 수, 최근 오류 목록, 요청 상태 코드·응답 시간, 수집 Lambda 실행 요약
-- 대시보드 `사용 현황`: 하루 접속자(`json.sub` 고유 수, `event=session`), 초대 코드 통과 수, 에이전트 질문 수
+- 대시보드 `사용 현황`: 하루 접속자(`json.sub` 고유 수, `event=session`), 초대 코드 통과·실패·차단 수, 즐겨찾기 상위 대상, 에이전트 질문 수
+- 대시보드 `운영 상태`에 상태 머신 실행 결과(성공·실패) 표 추가
 - 모니터 `errors-burst`(5분 오류 ≥ 10 → SNS)

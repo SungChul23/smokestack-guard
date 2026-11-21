@@ -22,7 +22,7 @@ aws opensearch list-versions --region ap-northeast-2 --query "Versions[?starts_w
 ```powershell
 cd infra/stacks/tms-log-search; terraform init; terraform plan; terraform apply   # 도메인 생성 15~30분
 ```
-생기는 것: 도메인 `tms-logs`, 자격 증명 풀·역할, Firehose 3개, 변환 Lambda, 실패분 버킷, 구독 필터 7개(로그 그룹 7개, 서버 그룹은 2개씩).
+생기는 것: 도메인 `tms-logs`, 자격 증명 풀·역할, Firehose 3개, 라우터 Lambda, 실패분 버킷, 구독 필터 9개(서버 2·Lambda 6·Glue 1), EventBridge 규칙 1개.
 
 ## 4. Cognito 앱 클라이언트에 Google 더하기 (R2 수동 단계)
 
