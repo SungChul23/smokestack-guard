@@ -24,12 +24,17 @@ cd infra/stacks/tms-log-search; terraform init; terraform plan; terraform apply 
 ```
 생기는 것: 도메인 `tms-logs`, 자격 증명 풀·역할, Firehose 3개, 라우터 Lambda, 실패분 버킷, 구독 필터 9개(서버 2·Lambda 6·Glue 1), EventBridge 규칙 1개.
 
-## 4. Cognito 앱 클라이언트에 Google 더하기 (R2 수동 단계)
+## 4. Cognito 앱 클라이언트에 Google 더하기 (R2 수동 단계) → 한 번 더 apply
 
 ```bash
 POOL=$(aws ssm get-parameter --name /tms/app/config/cognito-user-pool-id --query Parameter.Value --output text)
 aws cognito-idp list-user-pool-clients --user-pool-id $POOL --query "UserPoolClients[?starts_with(ClientName,'AWSElasticsearch')].ClientId" --output text
-# 그 클라이언트의 현재 설정을 읽어 SupportedIdentityProviders에 Google을 더한다(명령은 tasks에서)
+# 콘솔: Cognito > 사용자 풀 tms-users > 앱 클라이언트 > AWSElasticsearch-… > 로그인 페이지 편집 > 자격 증명 공급자에 Google 체크 > 저장
+# (CLI update-user-pool-client는 빠진 설정을 지우므로 콘솔을 권한다)
+```
+그다음 같은 스택을 한 번 더 apply한다. 그 클라이언트를 찾아 "members → tms-logs-viewer" 역할 규칙이 붙는다(`terraform output dashboards_client_ids`가 비어 있지 않아야 함).
+```powershell
+cd infra/stacks/tms-log-search; terraform plan; terraform apply   # aws_cognito_identity_pool_roles_attachment 수정 1개
 ```
 
 ## 5. 초기 설정 (인덱스 템플릿·ISM·역할 매핑·알림·대시보드)
@@ -37,7 +42,7 @@ aws cognito-idp list-user-pool-clients --user-pool-id $POOL --query "UserPoolCli
 ```bash
 cd services/log-search
 python setup_opensearch.py --dry-run     # 적용할 것만 출력
-python setup_opensearch.py               # 멱등. 도메인을 다시 만들면 다시 실행
+python setup_opensearch.py               # 멱등. 도메인을 다시 만들면 다시 실행. 1번 apply를 한 IAM 사용자(도메인 마스터)로 실행
 ```
 
 ## 6. 확인 시나리오
