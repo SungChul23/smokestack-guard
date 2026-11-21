@@ -1,0 +1,20 @@
+[project]
+name = "tms-log-search"
+version = "0.1.0"
+description = "서비스 로그 수집·분석: 라우터 Lambda와 OpenSearch 설정 (spec 014)"
+requires-python = ">=3.11"
+dependencies = []  # Lambda는 표준 라이브러리 + boto3(런타임 내장), 설정 스크립트는 botocore로 서명
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "boto3"]
+
+[tool.setuptools]
+py-modules = []
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"

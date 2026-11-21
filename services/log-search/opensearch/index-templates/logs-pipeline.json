@@ -1,0 +1,86 @@
+{
+  "index_patterns": [
+    "logs-pipeline-*"
+  ],
+  "priority": 100,
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0
+    },
+    "mappings": {
+      "dynamic_templates": [
+        {
+          "json_strings": {
+            "path_match": "json.*",
+            "match_mapping_type": "string",
+            "mapping": {
+              "type": "keyword",
+              "ignore_above": 1024
+            }
+          }
+        }
+      ],
+      "properties": {
+        "@timestamp": {
+          "type": "date"
+        },
+        "log_group": {
+          "type": "keyword"
+        },
+        "log_stream": {
+          "type": "keyword"
+        },
+        "service": {
+          "type": "keyword"
+        },
+        "level": {
+          "type": "keyword"
+        },
+        "message": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "json": {
+          "type": "object",
+          "dynamic": true,
+          "properties": {
+            "log_type": {
+              "type": "keyword"
+            },
+            "status": {
+              "type": "keyword"
+            },
+            "duration_ms": {
+              "type": "float"
+            },
+            "path": {
+              "type": "keyword"
+            },
+            "method": {
+              "type": "keyword"
+            },
+            "sub": {
+              "type": "keyword"
+            },
+            "event": {
+              "type": "keyword"
+            },
+            "target": {
+              "type": "keyword"
+            }
+          }
+        }
+      }
+    }
+  },
+  "_meta": {
+    "spec": "014",
+    "doc": "specs/a-platform/014-log-opensearch/data-model.md"
+  }
+}

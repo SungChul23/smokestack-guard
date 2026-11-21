@@ -1,0 +1,38 @@
+{
+  "policy": {
+    "description": "운영 로그 14일 보관 (014)",
+    "default_state": "hot",
+    "states": [
+      {
+        "name": "hot",
+        "actions": [],
+        "transitions": [
+          {
+            "state_name": "delete",
+            "conditions": {
+              "min_index_age": "14d"
+            }
+          }
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [
+          {
+            "delete": {}
+          }
+        ],
+        "transitions": []
+      }
+    ],
+    "ism_template": [
+      {
+        "index_patterns": [
+          "logs-app-*",
+          "logs-pipeline-*"
+        ],
+        "priority": 100
+      }
+    ]
+  }
+}
