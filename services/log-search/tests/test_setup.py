@@ -32,7 +32,7 @@ def test_plan_order_and_role_mappings():
     assert kinds.index("ISM") > kinds.index("PUT") and kinds[-1] == "MONITOR" and "CHANNEL" in kinds
     maps = {p.rsplit("/", 1)[-1]: b["backend_roles"] for _, k, p, b in steps if "rolesmapping" in p}
     assert maps["firehose_writer"] == ["arn:aws:iam::123456789012:role/tms-logs-firehose"]
-    assert maps["readall"] == maps["opensearch_dashboards_user"] == ["arn:aws:iam::123456789012:role/tms-logs-viewer"]
+    assert maps["readall"] == maps["opensearch_dashboards_user"] == maps["reports_full_access"] == ["arn:aws:iam::123456789012:role/tms-logs-viewer"]
     channel = next(b for _, k, _, b in steps if k == "CHANNEL")
     assert channel["config"]["sns"]["topic_arn"].endswith(":tms-collector-alerts")
     monitor = next(b for _, k, _, b in steps if k == "MONITOR")
