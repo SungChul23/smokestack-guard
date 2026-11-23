@@ -8,6 +8,11 @@
 
 data "aws_caller_identity" "current" {}
 
+# RAG 지식 기반 역할(016, tms-rag 스택). 아직 없으면 빈 목록
+data "aws_iam_roles" "rag_kb" {
+  name_regex = "^tms-rag-kb$"
+}
+
 data "aws_ssm_parameter" "cognito_user_pool_id" {
   name = "/tms/app/config/cognito-user-pool-id"
 }
@@ -223,20 +228,39 @@ resource "aws_opensearch_domain" "logs" {
     role_arn         = aws_iam_role.opensearch_cognito[0].arn
   }
 
-  # 인증 없는 요청은 FGAC가 막는다. 여기서는 우리 주체만 도메인을 부를 수 있게 한다
+  # 인증 없는 요청은 FGAC가 막는다. 여기서는 우리 주체만 도메인을 부를 수 있게 한다.
+  # tms-rag-kb(016 RAG 지식 기반)는 tms-rag 스택이 만든다. 이름으로 찾고 없으면 빠진다(apply 순서 무관).
+  # 그 역할이 할 수 있는 일은 FGAC 역할 rag_kb_writer(rag-docs*만)가 정한다.
   access_policies = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect = "Allow"
-      Principal = { AWS = [
+      Principal = { AWS = concat([
         data.aws_caller_identity.current.arn,
         aws_iam_role.firehose[0].arn,
         aws_iam_role.viewer[0].arn,
-      ] }
+      ], sort(tolist(data.aws_iam_roles.rag_kb.arns))) }
       Action   = "es:ESHttp*"
       Resource = "${local.domain_arn}/*"
     }]
   })
 
   depends_on = [aws_iam_role_policy_attachment.opensearch_cognito]
+}
+
+# ---------------------------------------------------------------------------
+# 선택 플러그인: 한국어 형태소 분석기 nori (016 RAG 인덱스 rag-docs의 본문 검색)
+# 이 도메인 유형에는 nori가 기본으로 없다. 연결하면 블루/그린 배포가 한 번 돈다(수십 분, 서비스 유지).
+# ---------------------------------------------------------------------------
+
+resource "aws_opensearch_package_association" "nori" {
+  count       = var.opensearch_enabled && var.nori_package_id != "" ? 1 : 0
+  package_id  = var.nori_package_id
+  domain_name = aws_opensearch_domain.logs[0].domain_name
+
+  # 블루/그린 배포라 기본 10분으로는 모자란다(2026-11-23 첫 apply가 10분에 시간 초과)
+  timeouts {
+    create = "90m"
+    delete = "90m"
+  }
 }

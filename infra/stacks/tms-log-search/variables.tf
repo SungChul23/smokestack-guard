@@ -66,3 +66,9 @@ variable "logs_bucket_name" {
   type        = string
   default     = "smokestack-tms-logs-952900391026"
 }
+
+variable "nori_package_id" {
+  description = "한국어 형태소 분석기 analysis-nori 선택 플러그인 패키지 ID(엔진 버전마다 다름, 2.19 = G5688189). RAG 인덱스 rag-docs(016)의 본문 분석기. 빈 문자열이면 연결하지 않는다. 엔진 버전을 올리면 그 버전의 ID로 바꾼다"
+  type        = string
+  default     = "G5688189"
+}
