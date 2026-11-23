@@ -14,7 +14,7 @@ Step Functions 실행 결과(EventBridge) ────────┼─▶ rout
 | `router.py` | 라우터 Lambda. Firehose는 CloudWatch 묶음을 OpenSearch에 직접 못 넣어 여기서 한 줄 = 레코드 하나로 나눈다 |
 | `setup_opensearch.py` | 도메인 안 설정(인덱스 템플릿, 보관 14·28일, 역할 매핑, 알림 채널·모니터). 멱등, `--dry-run` |
 | `opensearch/` | 위 설정의 정의 파일 |
-| `dashboards/*.ndjson` | Dashboards 저장 객체(인덱스 패턴, 저장된 검색). 화면에서 가져온다 |
+| `dashboards/*.ndjson` | Dashboards 저장 객체. `ops`·`usage`: 인덱스 패턴·저장 검색, `boards`: 차트 15개와 대시보드 "운영 현황"·"사용 현황"(인덱스 패턴을 넣지 않아 다시 가져와도 필드 목록이 지워지지 않는다). 화면에서 가져온다 |
 
 ## 처음 만들 때 (A)
 
