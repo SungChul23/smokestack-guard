@@ -1,0 +1,4 @@
+# PDF 원본·업로드 폴더는 저장소에 넣지 않는다 (A의 PC와 S3에만)
+*.pdf
+*.metadata.json
+upload/

@@ -1,0 +1,21 @@
+[project]
+name = "tms-rag-docs"
+version = "0.1.0"
+description = "RAG 근거 문서: 메타데이터 생성·검사, 업로드 구성, 로컬 질문 도구 (spec 016)"
+requires-python = ">=3.11"
+# pypdf: PDF 쪽수 확인·별표 8 자르기(로컬 전용), pyyaml: 시험 질문 묶음, boto3: 질문 도구
+dependencies = ["boto3", "pypdf", "pyyaml"]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[tool.setuptools]
+py-modules = []
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
