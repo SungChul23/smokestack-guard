@@ -1,0 +1,9 @@
+{
+  "description": "대시보드 PDF·PNG 보고서 만들기·내려받기 (014). 이 도메인에는 기본 reports_full_access 역할이 없어 직접 만든다. 로그 데이터 권한은 없다",
+  "cluster_permissions": [
+    "cluster_composite_ops_ro",
+    "cluster:admin/opendistro/reports/*"
+  ],
+  "index_permissions": [],
+  "tenant_permissions": []
+}
