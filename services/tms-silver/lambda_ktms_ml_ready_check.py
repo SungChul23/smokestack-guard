@@ -410,8 +410,9 @@ def run(event: dict, s3, query, bucket: str, request_id: str, account: str, now=
     out["subject"], out["message"] = format_alert(out, account)
     out["block"] = out["result"] == "violation" and p["mode"] == "block"
     del out["violation_list"]  # 상태 머신 출력 한도(256KB) 안에 두기 위해 목록은 기록에만 둔다
-    # 로그 키는 row_count: 같은 OpenSearch 인덱스에서 관측 적재 Lambda가 rows를 묶음({read, …})으로 써서
-    # 숫자 rows는 타입 충돌로 거부된다(014). 반환값·실행 기록의 rows는 그대로 둔다.
+    # 로그 키는 row_count: 같은 OpenSearch 인덱스에서 관측 적재 Lambda가
+    # rows를 묶음({read, …})으로 써서 숫자 rows는 타입 충돌로 거부된다(014).
+    # 반환값·실행 기록의 rows는 그대로 둔다.
     summary = {k: out[k] for k in ("result", "table", "range", "violations", "run_record")}
     summary["row_count"] = out["rows"]
     print(json.dumps(summary, ensure_ascii=False))
