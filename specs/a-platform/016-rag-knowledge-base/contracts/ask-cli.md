@@ -13,7 +13,7 @@ python ask.py "…" --json                                   # 원자료 JSON
 ```
 
 - 검색 방식: 혼합(HYBRID). 기본 거르기 없음(시험이 구판도 보게).
-- 답변 모델: `--model` 또는 `RAG_ANSWER_MODEL`(기본 Claude Sonnet 4.5 추론 프로필 ARN).
+- 답변 모델: `--model` 또는 `RAG_ANSWER_MODEL`(기본 Claude Haiku 4.5 추론 프로필). 별칭 `haiku`(Haiku 4.5)·`sonnet`(Sonnet 4.5), 그 밖의 값은 추론 프로필 ID로 본다.
 
 ## 출력 (조각)
 
