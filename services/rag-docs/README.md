@@ -12,6 +12,8 @@ PC의 PDF 39개 ─ trim_pdf(별표 8) · stage_upload ─▶ 업로드 폴더 l
 | 파일 | 하는 일 |
 |---|---|
 | `docs_catalog.csv` | 문서 39개의 확인된 메타데이터 원장. 사람이 고치고 PR로 리뷰한다. 빈 칸 = 확인 안 됨 |
+| `missing_fields.csv` | `make_metadata.py`가 쓰는 문서별 빠진 항목(확인 안 된 칸). 공공누리 유형·원본 주소는 원장 밖(이번 범위 아님) |
+| `catalog.py` | 원장 형식·허용 값·메타데이터 변환 규칙(다른 스크립트가 함께 씀) |
 | `parsing_prompt.md` | 지식 기반 파서 지시문(머리글 제거, 표 유지) |
 | `trim_pdf.py` | PDF 쪽 범위 자르기(시행규칙 별표 8 → 현행 21~55쪽) |
 | `stage_upload.py` | 원장대로 업로드 폴더(`laws/`·`handbook/`)를 구성하고 `aws s3 sync` 명령을 출력 |
