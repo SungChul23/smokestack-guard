@@ -1,0 +1,17 @@
+{
+  "description": "Bedrock 지식 기반이 rag-docs에 쓰고 검색한다 (016). 로그 인덱스 권한 없음",
+  "cluster_permissions": ["cluster_composite_ops", "cluster_monitor"],
+  "index_permissions": [
+    {
+      "index_patterns": ["rag-docs*"],
+      "allowed_actions": [
+        "crud",
+        "create_index",
+        "indices:admin/mapping/put",
+        "indices:admin/get",
+        "indices:data/read/search"
+      ]
+    }
+  ],
+  "tenant_permissions": []
+}

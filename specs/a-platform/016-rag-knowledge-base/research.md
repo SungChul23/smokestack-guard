@@ -7,6 +7,8 @@
 - **Alternatives**: OpenSearch Serverless(최소 월 $170+), RDS pgvector(지식 기반은 Aurora만 지원, 일반 RDS는 직접 구현 필요), S3 Vectors(싸지만 한국어 키워드 혼합 검색이 없음), 직접 구현(Lambda로 추출·조각·임베딩 — 먼저 관리형으로 품질을 본 뒤 필요하면 같은 인덱스로 옮김).
 - **조건(AWS 문서)**: 도메인 접근 정책이 지식 기반 역할을 허용, FGAC 역할에 그 역할 ARN을 백엔드 역할로 매핑, 인덱스를 미리 만듦, 지식 기반 역할 IAM에 `es:ESHttp*`·`es:DescribeDomain`.
 
+- **nori(2026-11-23 정정)**: OpenSearch Service에서 nori는 기본 포함이 아니라 **선택 플러그인**(`analysis-nori`, 2.19 패키지 `G5688189`)이다. 도메인에 연결해야 하고 연결 때 블루/그린 배포가 한 번 돈다. 내장 `cjk`(두 글자 자르기) 대안도 있었으나 법령 용어 키워드 정확도와, 나중에 바꾸면 인덱스 재생성·전체 재동기화(파서 비용 반복)가 들어 지금 nori로 결정.
+
 ## R2. Terraform으로 지식 기반까지 만든다
 
 - **Decision**: `aws_bedrockagent_knowledge_base`(storage `OPENSEARCH_MANAGED_CLUSTER`, `opensearch_managed_cluster_configuration`)와 `aws_bedrockagent_data_source`(파싱 `BEDROCK_FOUNDATION_MODEL` + `parsing_prompt`, 조각 설정)를 새 스택에 둔다. 잠금 provider 6.73.0 바이너리에 해당 스키마가 있음을 확인(2026-11-23).

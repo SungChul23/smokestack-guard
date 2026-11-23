@@ -29,6 +29,7 @@
 }
 ```
 
+- **nori는 선택 플러그인이다**: 이 도메인에 기본으로 없어 `analysis-nori` 패키지(2.19 = `G5688189`)를 `tms-log-search`의 `aws_opensearch_package_association`으로 연결한다(블루/그린 배포 1회). 연결 전에는 인덱스 생성이 `failed to find tokenizer under name [nori_tokenizer]`로 실패한다(2026-11-23 확인).
 - 복제본 0: 노드 1대(014와 같음).
 - 메타데이터 키(`law_name` 등)는 지식 기반이 최상위 필드로 쓰고 동적 매핑된다(글자 = text + keyword). 거르기는 지식 기반 필터가 처리.
 - 지식 기반 설정의 필드 이름: 벡터 `bedrock-vector`, 본문 `bedrock-text`, 메타데이터 `bedrock-metadata`.
