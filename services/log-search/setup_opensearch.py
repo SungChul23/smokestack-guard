@@ -9,8 +9,8 @@
   1. 인덱스 템플릿 3개 (opensearch/index-templates)
   2. 보관 정책 ISM 2개 (opensearch/ism) — 이미 있으면 seq_no로 갱신
   3. 역할 firehose_writer (opensearch/roles)
-  4. 역할 매핑: firehose_writer ← Firehose 역할, readall·opensearch_dashboards_user·reports_full_access ← 뷰어 역할
-     (reports_full_access: 대시보드 PDF·PNG 보고서. 로그 데이터 권한은 늘지 않는다)
+  4. 역할 매핑: firehose_writer ← Firehose 역할, readall·opensearch_dashboards_user·reports_writer ← 뷰어 역할
+     (reports_writer: 대시보드 PDF·PNG 보고서. 이 도메인에는 기본 reports_full_access가 없어 opensearch/roles에서 만든다)
      (관리자 all_access는 도메인 마스터 = Terraform을 apply한 IAM 사용자라 따로 매핑하지 않음)
   5. 알림 채널(SNS 운영 토픽) + 모니터 errors-burst (opensearch/monitors)
   6. (사람) Dashboards 저장 객체: dashboards/*.ndjson을 Dashboards > Stack Management > Saved objects > Import
@@ -62,7 +62,7 @@ def plan(account: str) -> list[tuple[str, str, str, dict | None]]:
         "firehose_writer": [role_arn(account, "firehose")],
         "readall": [role_arn(account, "viewer")],
         "opensearch_dashboards_user": [role_arn(account, "viewer")],
-        "reports_full_access": [role_arn(account, "viewer")],
+        "reports_writer": [role_arn(account, "viewer")],
     }
     for role, arns in mappings.items():
         steps.append((f"역할 매핑 {role}", "PUT", f"/_plugins/_security/api/rolesmapping/{role}",
