@@ -76,8 +76,8 @@
 
 **목표**: 서버 역할이 Retrieve할 수 있고 D가 연결 안내를 받는다. **독립 확인**: 서버 역할로 같은 질문 → 같은 조각.
 
-- [ ] T035 [US4] `infra/stacks/tms-rag/agent_access.tf`(`count = var.rag_kb_enabled && var.agent_retrieve_enabled ? 1 : 0`): `data "aws_iam_role"` `tms-app-server`에 인라인 정책 `tms-rag-retrieve` — `bedrock:Retrieve`·`bedrock:RetrieveAndGenerate`(이 지식 기반 ARN), 답변 모델 추론 프로필·기반 모델 `bedrock:InvokeModel`. SSM `/tms/app/config/rag-knowledge-base-id`(String, 값 = 지식 기반 ID — 비밀 아님) (contracts/agent-connection.md).
-- [ ] T036 🧑 [US4] apply `-var rag_kb_enabled=true -var agent_retrieve_enabled=true` → 서버(SSM 세션)에서 `aws bedrock-agent-runtime retrieve`로 쉬움 질문 1개 → 로컬 결과와 같은지.
+- [X] T035 [US4] (2026-11-24: Retrieve만 — RetrieveAndGenerate는 이름표를 모델에 넘기지 않아 쓰지 않음, InvokeModel은 tms-app 서버 정책에 이미 있음. 스위치 기본 true) `infra/stacks/tms-rag/agent_access.tf`(`count = var.rag_kb_enabled && var.agent_retrieve_enabled ? 1 : 0`): `data "aws_iam_role"` `tms-app-server`에 인라인 정책 `tms-rag-retrieve` — `bedrock:Retrieve`·`bedrock:RetrieveAndGenerate`(이 지식 기반 ARN), 답변 모델 추론 프로필·기반 모델 `bedrock:InvokeModel`. SSM `/tms/app/config/rag-knowledge-base-id`(String, 값 = 지식 기반 ID — 비밀 아님) (contracts/agent-connection.md).
+- [X] T036 🧑 [US4] (2026-11-24 apply 2개 추가, tms-agent 서버 SSM 세션에서 "과태료 부과기준" → 1위 air-decree_appx-15, 로컬과 같음) apply `-var rag_kb_enabled=true -var agent_retrieve_enabled=true` → 서버(SSM 세션)에서 `aws bedrock-agent-runtime retrieve`로 쉬움 질문 1개 → 로컬 결과와 같은지.
 - [ ] T037 📨 [US4] D에게 `contracts/agent-connection.md` 공유(#66 댓글): ID 위치, 권한, 호출 예, 인용 규칙(구판·간접 표시, 부과금 숫자), 효력 상태 필터.
 
 ## Phase 7: Polish
