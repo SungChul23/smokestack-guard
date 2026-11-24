@@ -80,6 +80,8 @@ aws s3 cp s3://smokestack-tms-raw-952900391026/silver2/_runs/ktms_ml_ready_check
 
 - `tms_silver2.tw_cems_ml_ready`와 컬럼 이름·순서·타입이 같다. 합치기만 하면 된다(합본 테이블은 만들지 않음).
 - `stack_code` 형식이 다르다. K-TMS는 `시도|사업장|굴뚝`이고, 대만은 대만 ID다. 출처를 구분하려면 합칠 때 출처 컬럼을 붙인다.
+- **Silver와 ML-ready를 `stack_code`만으로 조인하지 않는다.** Silver `tms_silver2.ktms`의 `stack_code`는 굴뚝 번호만이고, ML-ready는 `지역|사업장|굴뚝번호`다. Silver 쪽을 ML-ready와 맞추려면 `area_nm|fact_manage_nm|stack_code`로 만들어 쓴다.
+- **굴뚝 키 한계(알려진 제약)**: K-TMS에는 안정 식별자가 없다. 같은 지역·사업장명·번호의 다른 굴뚝은 값이 다르면 `ambiguous`로 표시되어 학습에서 빠지고, 사업장명이 바뀌면 이력이 끊긴다. 굴뚝 단위 분석·이력 비교 결과를 읽을 때 감안한다.
 - `measured_at`은 각 출처의 현지 벽시계 시각이다(K-TMS는 KST, 대만은 대만 시각).
 - 단위: K-TMS의 NOx·SOx는 ppm으로 본다. 산소 보정은 하지 않는다.
 
