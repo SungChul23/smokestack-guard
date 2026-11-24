@@ -42,16 +42,18 @@
 - [X] T019 [US2] `services/rag-docs/check_metadata.py`: `--dest <업로드 폴더>` — T018 규칙, 실패마다 `파일: 이유` 한 줄, 끝에 `통과 N/M`, 실패 있으면 종료 코드 1.
 - [X] T020 [P] [US2] `services/rag-docs/tests/test_stage_upload.py`: 원본 두 폴더 + 원장 → `laws/`·`handbook/`로 복사, 별표 8 원본(55쪽)은 복사하지 않음, 원장에 있는데 원본이 없으면 오류, 대상 폴더의 원장 밖 파일은 지우라고 경고.
 - [X] T021 [US2] `services/rag-docs/stage_upload.py`: `--src <폴더>… --dest <업로드 폴더>` — 원장대로 복사(별표 8 현행은 T014 결과를 그대로 둠), 끝에 실행할 `aws s3 sync … --exclude "*" --include "*.pdf" --include "*.metadata.json" --delete --dryrun` 명령을 출력(직접 올리지 않음).
-- [ ] T022 🧑 [US2] 로컬 실행: `trim_pdf.py`(별표 8 → 21~55쪽) → `stage_upload.py` → `make_metadata.py` → `check_metadata.py` 39/39 → `missing_fields.csv` 확인 (quickstart §3).
+- [X] T022 🧑 [US2] 로컬 실행: `trim_pdf.py`(별표 8 → 21~55쪽) → `stage_upload.py` → `make_metadata.py` → `check_metadata.py` 39/39 → `missing_fields.csv` 확인 (quickstart §3).
 
 ## Phase 4: US1 - 올리면 질문으로 찾을 수 있다 (P1)
 
 **목표**: 39개가 색인되고 질문에 출처가 붙은 조각이 나온다. **독립 확인**: 동기화 통계 실패 0, "굴뚝 자동측정기기 부착대상" 1위가 시행령 별표 3.
 
-- [ ] T023 [P] [US1] `services/rag-docs/parsing_prompt.md`: 모델 파서 지시문(한국어 법령 PDF 쪽 그림 → 글자): 쪽 머리글·바닥글·쪽 번호(`법제처 N 국가법령정보센터 <법령명>` 등) 빼기, 표는 마크다운 표(병합 칸은 값을 칸마다 반복, 칸 순서 유지), 조문 번호·항·호·목·별표 번호·"(제○조 관련)"·개정표시 `<개정 …>` 그대로, 글자 겹침(같은 글자 두 번)은 한 번으로, 내용을 고치거나 요약·번역하지 않음, 빈 쪽은 빈 출력 (research R4).
-- [ ] T024 [US1] `infra/stacks/tms-rag/knowledge_base.tf`(`count = var.rag_kb_enabled ? 1 : 0`): `aws_bedrockagent_knowledge_base` `tms-rag-docs` — 역할 `tms-rag-kb`, 벡터 임베딩 `embedding_model_arn`(Titan V2, `embedding_model_configuration.bedrock_embedding_model_configuration.dimensions = 1024`, `embedding_data_type = "FLOAT32"`), 저장소 `OPENSEARCH_MANAGED_CLUSTER`(도메인 ARN·엔드포인트 data 조회, 인덱스 `rag-docs`, 필드 `bedrock-vector`·`bedrock-text`·`bedrock-metadata`).
-- [ ] T025 [US1] 같은 파일: 데이터 소스 2개 — `laws`(포함 접두어 `laws/`, 계층 조각 부모 1500·자식 300·겹침 60), `handbook`(포함 접두어 `handbook/`, 의미 단위 최대 300·버퍼 0·백분위 95). 둘 다 파싱 `BEDROCK_FOUNDATION_MODEL`(`model_arn` = 계정·리전으로 조립한 `var.parser_profile_id` 추론 프로필 ARN, `parsing_prompt_string = file(…/services/rag-docs/parsing_prompt.md)`), `data_deletion_policy = "DELETE"`(버킷에서 지우면 조각도 지움, FR-012). `outputs.tf`에 ID.
-- [ ] T026 [US1] `terraform fmt -recursive`·`validate`(tms-rag, tms-log-search) — AI가 실행해 결과 기록.
+- [X] T023 [P] [US1] `services/rag-docs/parsing_prompt.md`: 모델 파서 지시문(한국어 법령 PDF 쪽 그림 → 글자): 쪽 머리글·바닥글·쪽 번호(`법제처 N 국가법령정보센터 <법령명>` 등) 빼기, 표는 마크다운 표(병합 칸은 값을 칸마다 반복, 칸 순서 유지), 조문 번호·항·호·목·별표 번호·"(제○조 관련)"·개정표시 `<개정 …>` 그대로, 글자 겹침(같은 글자 두 번)은 한 번으로, 내용을 고치거나 요약·번역하지 않음, 빈 쪽은 빈 출력 (research R4).
+- [X] T024 [US1] `infra/stacks/tms-rag/knowledge_base.tf`(`count = var.rag_kb_enabled ? 1 : 0`): `aws_bedrockagent_knowledge_base` `tms-rag-docs` — 역할 `tms-rag-kb`, 벡터 임베딩 `embedding_model_arn`(Titan V2, `embedding_model_configuration.bedrock_embedding_model_configuration.dimensions = 1024`, `embedding_data_type = "FLOAT32"`), 저장소 `OPENSEARCH_MANAGED_CLUSTER`(도메인 ARN·엔드포인트 data 조회, 인덱스 `rag-docs`, 필드 `bedrock-vector`·`bedrock-text`·`bedrock-metadata`).
+- [X] T025 [US1] 같은 파일: 데이터 소스 2개 — `laws`(포함 접두어 `laws/`, 계층 조각 부모 1500·자식 300·겹침 60), `handbook`(포함 접두어 `handbook/`, 의미 단위 최대 300·버퍼 0·백분위 95). 둘 다 파싱 `BEDROCK_FOUNDATION_MODEL`(`model_arn` = 계정·리전으로 조립한 `var.parser_profile_id` 추론 프로필 ARN(지시문은 영어로 쓰고 한국어 글자는 그대로 두라고 지시), `parsing_prompt_string = file(…/services/rag-docs/parsing_prompt.md)`), `data_deletion_policy = "DELETE"`(버킷에서 지우면 조각도 지움, FR-012). `outputs.tf`에 ID.
+- [X] T026 [US1] `terraform fmt -recursive`·`validate`(tms-rag, tms-log-search) — AI가 실행해 결과 기록.
+- [X] T027a [US1] 파서 교체: 3개 첫 동기화(Haiku 4.5)에서 별표 36 표 칸 밀림·오타 → 한 쪽 직접 비교로 Sonnet 4.6 채택(research R4a), `parser_profile_id` 기본값 변경.
+- [X] T027b [US1] 파싱을 로컬로(research R4b): `services/rag-docs/pdf_to_md.py`(쪽별 Sonnet 4.6·검사·재시도·캐시), `make_metadata.py --format md`(source_pdf), `check_metadata`·`check_chunks --local` md 지원, 데이터 소스 파싱 설정 제거·파서 권한 제거. 3개 시험 통과(정답 행 4/4).
 - [ ] T027 🧑 [US1] `aws s3 sync`(어려운 문서 3개만: 시행규칙 별표 36, 별표 8 현행, 관제센터 별표 1 + 메타데이터) → `tms-rag` apply `-var rag_kb_enabled=true`(파서 모델이 허용 목록에 없다는 오류면 변수만 바꿔 다시) → laws 동기화 → Dev Tools로 조각 10개: 표가 마크다운 표인지, 머리글 없는지, 메타데이터 키가 필드로 있는지 기록 (quickstart §4·§5, research R4).
 - [ ] T028 🧑 [US1] 나머지 업로드(`--dryrun` 확인 뒤) → laws·handbook 동기화 → 통계 scanned 38/1·indexed 38/1·failed 0(SC-001), 비용 메모(Cost Explorer Bedrock 다음 날).
 
@@ -59,16 +61,16 @@
 
 **목표**: `ask.py`와 시험 묶음. **독립 확인**: 질문 하나 10초 안 조각 5개, `run_eval.py` 통과율 표.
 
-- [ ] T029 [P] [US3] `services/rag-docs/tests/test_ask.py`: 가짜 `bedrock-agent-runtime`(retrieve·retrieve_and_generate 응답 고정) — 출력 줄 형식(순위·점수·법령명·part·시행일·효력 상태·파일·쪽·본문 200자, contracts/ask-cli.md), `--status`가 `in` 필터로 들어감, `--top` 1~20 범위, `--answer` 근거 목록, `--json`, 오류 4종 메시지·종료 코드(ID 없음 2, 자격 증명 없음 2, AccessDenied 3, ResourceNotFound 3).
-- [ ] T030 [US3] `services/rag-docs/ask.py`: contracts/ask-cli.md 그대로. 검색 `HYBRID`, 지식 기반 ID `--kb`/`RAG_KB_ID`, 답변 모델 `--model`/`RAG_ANSWER_MODEL`(기본 Claude Haiku 4.5 추론 프로필, 별칭 `haiku`·`sonnet`, 계정·리전으로 ARN 조립), 쪽 번호는 결과 메타데이터 `x-amz-bedrock-kb-document-page-number`가 있으면 표시.
-- [ ] T031 [US3] `services/rag-docs/eval_questions.yaml`: **15개 = 쉬움 5·중간 5·어려움 5**, 형식 data-model §5(`id`, `level`, `question`, `expect_doc_ids`, 선택 `forbid_doc_ids`, `check`). 구성:
+- [X] T029 [P] [US3] `services/rag-docs/tests/test_ask.py`: 가짜 `bedrock-agent-runtime`(retrieve·retrieve_and_generate 응답 고정) — 출력 줄 형식(순위·점수·법령명·part·시행일·효력 상태·파일·쪽·본문 200자, contracts/ask-cli.md), `--status`가 `in` 필터로 들어감, `--top` 1~20 범위, `--answer` 근거 목록, `--json`, 오류 4종 메시지·종료 코드(ID 없음 2, 자격 증명 없음 2, AccessDenied 3, ResourceNotFound 3).
+- [X] T030 [US3] `services/rag-docs/ask.py`: contracts/ask-cli.md 그대로. 검색 `HYBRID`, 지식 기반 ID `--kb`/`RAG_KB_ID`, 답변 모델 `--model`/`RAG_ANSWER_MODEL`(기본 Claude Haiku 4.5 추론 프로필, 별칭 `haiku`·`sonnet`, 계정·리전으로 ARN 조립), 쪽 번호는 결과 메타데이터 `x-amz-bedrock-kb-document-page-number`가 있으면 표시.
+- [X] T031 [US3] `services/rag-docs/eval_questions.yaml`: **15개 = 쉬움 5·중간 5·어려움 5**, 형식 data-model §5(`id`, `level`, `question`, `expect_doc_ids`, 선택 `forbid_doc_ids`, `check`). 구성:
   - 쉬움(질문 단어가 제목·조문에 그대로): 과태료 부과기준(시행령 별표 15) / 굴뚝 자동측정기기 부착대상(시행령 별표 3) / 행정처분기준(시행규칙 별표 36) / 사업장 1~5종 분류기준(시행령 별표 1의3) / 관제센터 규정의 실시간 공개(관제센터 본문 제9조·별표 2)
   - 중간(말 바꿈·같은 번호 구분·표 안 값): 발전소 NOx 배출 기준(시행규칙 별표 8, forbid 시행령 별표 8) / 기본부과금 농도별 부과계수(시행령 별표 8, forbid 시행규칙 별표 8) / 측정기기 운영·관리기준(시행규칙 별표 9, forbid 시행령 별표 9) / 30분 평균치 정의(관제센터 본문 제2조) / 현행 대기 초과배출부과금 산정지수(산정지수 고시, forbid 업무편람)
   - 어려움(여러 문서 잇기·구판 구분·간접 문서·편람 Q&A): 실시간 공개자료에서 기준초과 인정 시간(관제센터 별표 2 + 시행규칙 별표 8) / 무효자료가 생기면 대체자료를 어떻게 만드나(관제센터 별표 1) / 굴뚝 자동측정기기 정도검사는 어떤 법에 따라 어떻게(시험검사법·형식승인 고시) / 측정기기를 고장 난 채 두면 몇 차에 어떤 처분(시행규칙 별표 36 + 법 본문) / 업무편람 질의·회신 중 TMS 부착 관련 사례(업무편람)
   - `doc_id`는 T015 원장 값과 같게.
-- [ ] T032 [P] [US3] `services/rag-docs/tests/test_run_eval.py`: 가짜 retrieve 결과로 — 기대 문서가 5위 안이면 통과, forbid가 1위면 실패, 난이도별·전체 통과율, 같은 번호 별표 질문(`check`에 "같은 번호") 통과율, 결과 md 표 형식.
-- [ ] T033 [US3] `services/rag-docs/run_eval.py`: `--kb`, `--only`, `--top`(기본 5) — 질문마다 Retrieve → 통과/실패, 기대 문서 순위, 1위 문서 → `eval_results/<YYYY-MM-DD>.md`(질문 표 + 난이도별 통과율 + 전체 통과율).
-- [ ] T034 🧑 [US3] `ask.py`로 quickstart §6 질문 2개 + `--answer` 1개 → `run_eval.py` 실행 → 결과 파일 커밋. 기준: 전체 ≥ 80%, 같은 번호 별표·현행 산정지수 100%(SC-003), 답변 인용(SC-004)은 `--answer`(Haiku 4.5)로 5개 표본 확인, Haiku가 틀린 어려운 질문은 `--model sonnet`으로 다시 돌려 차이를 기록(D에게 답변 모델 근거). 못 미치면 원인(조각·파서 지시문·메타데이터) 메모 후 조정.
+- [X] T032 [P] [US3] `services/rag-docs/tests/test_run_eval.py`: 가짜 retrieve 결과로 — 기대 문서가 5위 안이면 통과, forbid가 1위면 실패, 난이도별·전체 통과율, 같은 번호 별표 질문(`check`에 "같은 번호") 통과율, 결과 md 표 형식.
+- [X] T033 [US3] `services/rag-docs/run_eval.py`: `--kb`, `--only`, `--top`(기본 5) — 질문마다 Retrieve → 통과/실패, 기대 문서 순위, 1위 문서 → `eval_results/<YYYY-MM-DD>.md`(질문 표 + 난이도별 통과율 + 전체 통과율).
+- [ ] T034 🧑 [US3] (2026-11-24 `run_eval.py` 15/15, `eval_results/2026-11-24.md`. 답변 인용 표본·sonnet 비교 남음. 시험에서 바꾼 것: 검색 HYBRID 고정, 문서 지목 필터, 답변은 Retrieve + 이름표 머리말 + Converse — `rag_query.py`) `ask.py`로 quickstart §6 질문 2개 + `--answer` 1개 → `run_eval.py` 실행 → 결과 파일 커밋. 기준: 전체 ≥ 80%, 같은 번호 별표·현행 산정지수 100%(SC-003), 답변 인용(SC-004)은 `--answer`(Haiku 4.5)로 5개 표본 확인, Haiku가 틀린 어려운 질문은 `--model sonnet`으로 다시 돌려 차이를 기록(D에게 답변 모델 근거). 못 미치면 원인(조각·파서 지시문·메타데이터) 메모 후 조정.
 
 ## Phase 6: US4 - 에이전트가 같은 지식 기반을 부른다 (P2)
 

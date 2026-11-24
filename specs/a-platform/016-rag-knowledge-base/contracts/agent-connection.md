@@ -33,6 +33,12 @@ for r in resp["retrievalResults"]:
     score = r["score"]
 ```
 
+## 꼭 지킬 것 (2026-11-24 콘솔·로컬 시험)
+
+1. `overrideSearchType: "HYBRID"`를 항상 넘긴다. 빼면 벡터만으로 찾아 같은 번호 별표 질문이 틀린다.
+2. 현행 문서만 찾는 검색(`effective_status in [현행]`)과 필터 없는 검색을 함께 하고 번갈아 합친다(현행 우선). 질문이 문서를 지목하면 이름표 필터를 건다. 규칙은 `services/rag-docs/rag_query.py`의 `find_targets`·`retrieve`(지목마다 따로 검색해 번갈아 합침)를 그대로 쓰거나 옮긴다.
+3. 답변 모델에는 조각 본문만이 아니라 이름표 머리말(`rag_query.context_block`: 법령명·별표 제목·시행일·효력·caveat)을 붙여 넘긴다. `RetrieveAndGenerate`의 기본 방식은 이름표를 넘기지 않아 출처 구분·인용이 빠진다.
+
 ## 인용 규칙 (프롬프트에 넣을 것)
 
 - 근거마다 `법령명 + 조문/별표 + 시행일`을 붙인다. 예: `대기환경보전법 시행규칙 별표 8 (2026-11-12 시행)`.

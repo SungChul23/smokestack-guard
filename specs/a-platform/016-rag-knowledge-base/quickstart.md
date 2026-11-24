@@ -4,8 +4,9 @@
 
 ## 0. 준비
 
-- 원본 PDF: `C:\Users\성철\Desktop\smokestack_rag`(15), `C:\Users\성철\Desktop\smokestack_rag_추가`(24)
-- 업로드 폴더(새로 만듦): `C:\Users\성철\Desktop\smokestack_rag_upload\{laws,handbook}`
+- 원본 PDF: `E:\study_DE\rag_docs\base`(15), `E:\study_DE\rag_docs\extra`(24) — WSL `/mnt/e/study_DE/rag_docs/…`
+- 업로드 폴더: `E:\study_DE\rag_docs\upload\{laws,handbook}` (스크립트가 채움)
+- 경로는 영문으로 둔다: 터미널 인코딩에 따라 `/mnt/c/Users/<한글 이름>` 경로를 입력할 때 "경로 없음"이 났다(2026-11-23). 저장소 안에는 두지 않는다(PDF 커밋 방지)
 - WSL: `cd services/rag-docs && uv venv && uv pip install -r requirements.txt` (boto3, pypdf, pyyaml, pytest)
 
 ## 1. 인프라 1단계 (버킷·역할)
