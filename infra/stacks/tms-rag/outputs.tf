@@ -17,3 +17,8 @@ output "data_source_ids" {
   description = "동기화(start-ingestion-job)에 쓰는 데이터 소스 ID: laws, handbook"
   value       = { for k, v in aws_bedrockagent_data_source.docs : k => v.data_source_id }
 }
+
+output "agent_kb_id_parameter" {
+  description = "에이전트 서버가 지식 기반 ID를 읽는 SSM 파라미터 이름. agent_retrieve_enabled=false면 null"
+  value       = one(aws_ssm_parameter.kb_id[*].name)
+}

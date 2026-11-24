@@ -1,15 +1,15 @@
 # RAG 문서 지식 기반 (spec 016). 적용 순서는 specs/a-platform/016-rag-knowledge-base/quickstart.md
 
 variable "rag_kb_enabled" {
-  description = "지식 기반·데이터 소스를 만든다. 인덱스 rag-docs와 FGAC 매핑(setup_opensearch.py)이 먼저 있어야 한다(도메인을 새로 만들 땐 처음 apply만 false). 끄면 지식 기반이 지워지고 다시 켜면 전체 재동기화(파서 비용)가 든다. 2026-11-23 생성 뒤 기본 true"
+  description = "지식 기반·데이터 소스를 만든다. 인덱스 rag-docs와 FGAC 매핑(setup_opensearch.py)이 먼저 있어야 한다(도메인을 새로 만들 땐 처음 apply만 false). 끄면 지식 기반이 지워지고 다시 켜면 전체 재동기화(임베딩만, 1센트 안팎)가 필요하다. 2026-11-23 생성 뒤 기본 true"
   type        = bool
   default     = true
 }
 
 variable "agent_retrieve_enabled" {
-  description = "에이전트 서버 역할(tms-app-server)에 이 지식 기반 Retrieve 권한을 주고 ID를 SSM에 둔다. rag_kb_enabled가 true일 때만"
+  description = "에이전트 서버 역할(tms-app-server)에 이 지식 기반 Retrieve 권한을 주고 ID를 SSM(/tms/app/config/rag-knowledge-base-id)에 둔다. rag_kb_enabled가 true일 때만. tms-app 스택(서버 역할)이 먼저 있어야 한다. 2026-11-24 기본 true"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "embedding_model_id" {
