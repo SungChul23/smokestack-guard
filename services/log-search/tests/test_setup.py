@@ -94,3 +94,17 @@ def test_index_step_never_overwrites_existing_index():
     c = FakeClient(exists=False)
     assert s.apply_step(c, "INDEX", "/rag-docs", body).startswith("생성")
     assert c.calls == [("HEAD", "/rag-docs"), ("PUT", "/rag-docs")]
+
+
+def test_rag_role_can_read_mapping():
+    # 지식 기반은 만들 때 인덱스 매핑을 읽어 필드를 검사한다(2026-11-23 indices:admin/mappings/get 없이 거부됨)
+    role = s.load(HERE / "opensearch/roles/rag_kb_writer.json")
+    acts = set(role["index_permissions"][0]["allowed_actions"])
+    # AWS 문서 권장 목록 전부 + 매핑 조회 (2026-11-23 indices:admin/get 빠져 동기화가 권한 실패)
+    aws_index = {"indices:admin/get", "indices:data/read/msearch", "indices:data/read/search",
+                 "indices:data/write/index", "indices:data/write/update", "indices:data/write/delete",
+                 "indices:data/write/delete/byquery", "indices:data/write/bulk*",
+                 "indices:admin/mapping/put", "indices:data/read/mget*"}
+    assert aws_index | {"indices:admin/mappings/get"} <= acts
+    assert {"indices:data/read/msearch", "indices:data/write/bulk*",
+            "indices:data/read/mget*"} <= set(role["cluster_permissions"])
