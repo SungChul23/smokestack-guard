@@ -8,4 +8,12 @@ output "kb_role_arn" {
   value       = aws_iam_role.kb.arn
 }
 
-# 지식 기반·데이터 소스 ID는 knowledge_base.tf에서 더한다 (tasks T025)
+output "knowledge_base_id" {
+  description = "지식 기반 ID (ask.py --kb / RAG_KB_ID). rag_kb_enabled=false면 null"
+  value       = one(aws_bedrockagent_knowledge_base.docs[*].id)
+}
+
+output "data_source_ids" {
+  description = "동기화(start-ingestion-job)에 쓰는 데이터 소스 ID: laws, handbook"
+  value       = { for k, v in aws_bedrockagent_data_source.docs : k => v.data_source_id }
+}

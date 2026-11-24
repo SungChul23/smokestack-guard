@@ -1,6 +1,6 @@
 # Bedrock 지식 기반 서비스 역할 (spec 016, research R5)
 #
-# - 문서 버킷 읽기, 임베딩·파서 모델 호출, OpenSearch 도메인 HTTP.
+# - 문서 버킷 읽기, 임베딩 모델 호출, OpenSearch 도메인 HTTP. (파싱은 로컬에서 하므로 파서 모델 권한 없음)
 # - 도메인 접근 정책(tms-log-search)은 이 역할을 이름으로 찾아 허용한다.
 # - 도메인 안에서 무엇을 할 수 있는지는 FGAC 역할 rag_kb_writer(rag-docs*만)가 정한다(setup_opensearch.py).
 
@@ -9,9 +9,7 @@ locals {
   kb_role     = "tms-rag-kb"
   domain_arn  = "arn:aws:es:${local.region}:${local.account_id}:domain/${var.opensearch_domain_name}"
   embed_arn   = "arn:aws:bedrock:${local.region}::foundation-model/${var.embedding_model_id}"
-  parser_arn  = "arn:aws:bedrock:${local.region}:${local.account_id}:inference-profile/${var.parser_profile_id}"
   answer_arn  = "arn:aws:bedrock:${local.region}:${local.account_id}:inference-profile/${var.answer_profile_id}"
-  parser_base = replace(var.parser_profile_id, "/^(global|apac|us|eu|jp|au)\\./", "")
   answer_base = replace(var.answer_profile_id, "/^(global|apac|us|eu|jp|au)\\./", "")
 }
 
@@ -38,7 +36,7 @@ data "aws_iam_policy_document" "kb_assume" {
 resource "aws_iam_role" "kb" {
   name = local.kb_role
   # IAM 설명은 ASCII만 허용된다(한글 불가)
-  description        = "Bedrock knowledge base tms-rag-docs (016): read docs bucket, embedding/parser models, OpenSearch rag-docs"
+  description        = "Bedrock knowledge base tms-rag-docs (016): read docs bucket, embedding model, OpenSearch rag-docs"
   assume_role_policy = data.aws_iam_policy_document.kb_assume.json
 }
 
@@ -67,16 +65,6 @@ data "aws_iam_policy_document" "kb" {
     sid       = "Embed"
     actions   = ["bedrock:InvokeModel"]
     resources = [local.embed_arn]
-  }
-  # 파서는 추론 프로필(global.)로 부른다. 프로필이 다른 리전의 기반 모델로 보낼 수 있어 기반 모델은 리전 무관으로 허용
-  statement {
-    sid     = "Parse"
-    actions = ["bedrock:InvokeModel", "bedrock:GetInferenceProfile"]
-    resources = [
-      local.parser_arn,
-      "arn:aws:bedrock:*::foundation-model/${local.parser_base}",
-      "arn:aws:bedrock:::foundation-model/${local.parser_base}",
-    ]
   }
   statement {
     sid = "VectorStore"

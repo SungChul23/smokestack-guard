@@ -1,9 +1,9 @@
 # RAG 문서 지식 기반 (spec 016). 적용 순서는 specs/a-platform/016-rag-knowledge-base/quickstart.md
 
 variable "rag_kb_enabled" {
-  description = "지식 기반·데이터 소스를 만든다. 인덱스 rag-docs와 FGAC 매핑(setup_opensearch.py)이 먼저 있어야 한다. 처음 apply는 false"
+  description = "지식 기반·데이터 소스를 만든다. 인덱스 rag-docs와 FGAC 매핑(setup_opensearch.py)이 먼저 있어야 한다(도메인을 새로 만들 땐 처음 apply만 false). 끄면 지식 기반이 지워지고 다시 켜면 전체 재동기화(파서 비용)가 든다. 2026-11-23 생성 뒤 기본 true"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "agent_retrieve_enabled" {
@@ -24,14 +24,8 @@ variable "embedding_dimensions" {
   default     = 1024
 }
 
-variable "parser_profile_id" {
-  description = "PDF를 읽는 파서 모델의 추론 프로필 ID(서울은 Claude를 추론 프로필로만 부른다). 지식 기반 파싱 허용 목록에 없다는 오류가 나면 허용 목록의 다른 Claude로 바꾼다. Haiku 5.5(약 1/10 가격)는 사례가 쌓인 뒤 비교"
-  type        = string
-  default     = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
-}
-
 variable "answer_profile_id" {
-  description = "RetrieveAndGenerate 답변 모델의 추론 프로필 ID(로컬 시험 --answer 기본값, 에이전트 권한). 비교용 Sonnet은 ask.py --model sonnet"
+  description = "RetrieveAndGenerate 답변 모델의 추론 프로필 ID(로컬 시험 --answer 기본값, 에이전트 권한). 비교용 Sonnet 4.6은 ask.py --model sonnet"
   type        = string
   default     = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 }
