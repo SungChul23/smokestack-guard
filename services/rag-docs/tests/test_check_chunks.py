@@ -50,3 +50,9 @@ def test_golden_ignores_spaces_and_blank_cells():
 def test_golden_file_is_valid():
     g = cc.load_golden(cc.HERE / "golden_rows.yaml")
     assert "air-rule_appx-36" in g and all(len(r["cells"]) >= 4 for r in g["air-rule_appx-36"])
+
+
+def test_model_note_is_flagged():
+    hits = [{"doc_id": "hb", "bedrock-text": "본문 The image appears to be blank or contains no visible text."}]
+    r = cc.evaluate(hits, {})["hb"]
+    assert r.model_note == 1 and not r.ok

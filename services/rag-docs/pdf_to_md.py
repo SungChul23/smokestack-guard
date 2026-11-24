@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -33,8 +34,17 @@ PRICE_IN, PRICE_OUT = 3.0, 15.0
 PAGE_MARK = "<!-- 쪽 {n} -->"
 
 
+def clean_page(text: str) -> str:
+    """빈 쪽에서 모델이 본문 대신 남긴 영어 설명("The image appears to be blank…")은 빈 쪽으로 둔다."""
+    if cc.MODEL_NOTE.search(text) and not re.search(r"[가-힣]", text):
+        return ""
+    return text
+
+
 def page_problems(text: str) -> list[str]:
     probs = [f"칸: {r}" for r in cc.misaligned_rows(text)]
+    if cc.MODEL_NOTE.search(text):
+        probs.append("모델 메모 잔존")
     if "국가법령정보센터" in text:
         probs.append("머리글 잔존")
     probs += [f"겹친 글자: {m.group(0)}" for m in cc.DOUBLED.finditer(text)]
@@ -118,8 +128,9 @@ def assemble(pages: list[dict]) -> str:
     parts = []
     for p in sorted(pages, key=lambda x: x["page"]):
         parts.append(PAGE_MARK.format(n=p["page"]))
-        if p["text"]:
-            parts.append(p["text"])
+        text = clean_page(p["text"])
+        if text:
+            parts.append(text)
     return "\n\n".join(parts) + "\n"
 
 

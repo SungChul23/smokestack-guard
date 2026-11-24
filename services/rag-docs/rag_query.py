@@ -189,7 +189,8 @@ SYSTEM_PROMPT = """너는 굴뚝 원격감시(TMS)·대기환경 법령 안내 �
 
 규칙:
 - 근거마다 머리말(법령명·별표/본문·시행일·효력)이 있다. 같은 번호의 별표라도 법령(시행령/시행규칙/고시)이 다르면 다른 문서다.
-- 답의 각 문장 끝에 근거 번호를 [1]처럼 붙이고, 답 마지막 "출처" 줄에 쓴 번호마다 머리말의 법령명·별표·시행일을 적는다.
+- 답의 각 문장 끝에 근거 번호를 [1]처럼 붙인다. 번호는 [근거]에 붙은 번호를 그대로 쓰고 바꾸지 않는다. 본문에서 법령을 말할 때는 머리말의 법령명·별표·시행일을 쓴다.
+- 답 끝에 "출처" 목록을 따로 쓰지 않는다(도구가 근거 목록을 붙인다).
 - 효력이 "구판"인 근거(업무편람 2024.12)는 "구판 업무편람에 따르면"이라고 밝히고, 현행 법령 근거와 다르면 현행 법령을 따른다.
 - 머리말 주의에 "부과금 숫자 인용 금지"가 있으면 그 근거의 금액·지수 숫자는 쓰지 않는다.
 - 근거에 없는 숫자·조문은 만들지 않는다. 질문의 일부를 근거에서 찾지 못하면 그 부분만 "근거 문서에서 찾지 못했다"고 말하고 나머지는 답한다."""
@@ -213,7 +214,7 @@ def resolve_model(name: str | None) -> str:
     return MODELS.get(name, name)
 
 
-def answer(br, result: Result, model: str | None = None, max_tokens: int = 1500) -> dict:
+def answer(br, result: Result, model: str | None = None, max_tokens: int = 3000) -> dict:
     """Converse로 답변. 반환: {"text", "model", "tokens_in", "tokens_out"}"""
     mid = resolve_model(model)
     user = f"[근거]\n{context_block(result.hits)}\n\n[질문]\n{result.question}"

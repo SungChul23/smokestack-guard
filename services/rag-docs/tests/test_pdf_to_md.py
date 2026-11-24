@@ -70,3 +70,11 @@ def test_md_metadata_and_checks(tmp_path: Path, catalog_path: Path, capsys):
     assert chk.main(["--dest", str(dest)]) == 0 and "통과 2/2" in capsys.readouterr().out
     reports = cc.evaluate(cc.local_hits(dest), {})
     assert set(reports) == {ROWS[0]["doc_id"], ROWS[1]["doc_id"]} and all(r.ok for r in reports.values())
+
+
+def test_blank_page_model_note_becomes_empty_page():
+    """빈 쪽에서 모델이 남긴 영어 설명은 빈 쪽으로 (2026-11-24 편람 10쪽)."""
+    note = "The image appears to be blank or contains no visible text content."
+    out = p2m.assemble([{"page": 1, "text": note}, {"page": 2, "text": "본문"}])
+    assert "The image" not in out and "<!-- 쪽 1 -->" in out and "본문" in out
+    assert p2m.page_problems("본문 " + note) == ["모델 메모 잔존"]  # 한글과 섞이면 검사에 걸림

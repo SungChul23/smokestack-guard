@@ -31,6 +31,8 @@ REGION = "ap-northeast-2"
 DOMAIN = "tms-logs"
 INDEX = "rag-docs"
 DOUBLED = re.compile(r"(?:([가-힣])\1){2,}")  # 같은 한글이 두 번씩 2글자 이상 이어짐(굴굴뚝뚝)
+# 변환 모델이 본문 대신 남긴 영어 설명(빈 쪽에서 "The image appears to be blank…", 2026-11-24 편람 10쪽)
+MODEL_NOTE = re.compile(r"The image (?:appears|is|contains)|I cannot (?:transcribe|detect|read)|no visible text", re.IGNORECASE)
 
 
 @dataclass
@@ -42,10 +44,11 @@ class Report:
     header_left: int = 0
     doubled: list[str] = field(default_factory=list)
     golden_fail: list[str] = field(default_factory=list)
+    model_note: int = 0
 
     @property
     def ok(self) -> bool:
-        return not (self.misaligned or self.header_left or self.doubled or self.golden_fail)
+        return not (self.misaligned or self.header_left or self.doubled or self.golden_fail or self.model_note)
 
 
 def table_blocks(text: str) -> list[list[str]]:
@@ -132,6 +135,7 @@ def evaluate(hits: list[dict], golden: dict[str, list[dict]]) -> dict[str, Repor
                     r.misaligned.append(row)
             if "국가법령정보센터" in t:
                 r.header_left += 1
+            r.model_note += bool(MODEL_NOTE.search(t))
             for m in DOUBLED.finditer(t):
                 r.doubled.append(m.group(0))
         for g in golden.get(doc, []):
@@ -204,7 +208,8 @@ def main(argv: list[str] | None = None) -> int:
         mark = "OK " if r.ok else "!! "
         bad += not r.ok
         print(f"{mark}{doc:<32} 조각 {r.chunks:4}  표 행 {r.table_rows:4}  칸 어긋남 {len(r.misaligned):3}"
-              f"  머리글 {r.header_left}  겹친 글자 {len(r.doubled)}  정답 실패 {len(r.golden_fail)}")
+              f"  머리글 {r.header_left}  겹친 글자 {len(r.doubled)}  정답 실패 {len(r.golden_fail)}"
+              + (f"  모델 메모 {r.model_note}" if r.model_note else ""))
         for row in r.misaligned[: a.show]:
             print(f"      칸: {row}")
         for g in r.golden_fail:
