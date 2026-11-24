@@ -1,0 +1,77 @@
+# 시험 질문 15개 (spec 016 US3, data-model §5) — 쉬움 5 · 중간 5 · 어려움 5
+# 통과 = 상위 N(기본 5) 안에 expect_doc_ids 중 하나(expect_all: true면 전부)가 있고, forbid_doc_ids가 1위가 아님.
+# doc_id는 docs_catalog.csv 값. 콘솔 시험(2026-11-24) 질문 3개를 e03·m02·h02로 넣었다.
+
+# --- 쉬움: 질문 단어가 문서 제목·조문에 그대로 있음 ---
+- id: e01
+  level: 쉬움
+  question: 대기환경보전법 과태료 부과기준은 어디에 정해져 있나?
+  expect_doc_ids: [air-decree_appx-15]
+- id: e02
+  level: 쉬움
+  question: 굴뚝 자동측정기기를 부착해야 하는 배출시설은?
+  expect_doc_ids: [air-decree_appx-03]
+- id: e03
+  level: 쉬움
+  question: 방지시설의 기계·기구류 고장을 정당한 사유 없이 방치하면 2차 위반 시 행정처분은?
+  expect_doc_ids: [air-rule_appx-36]
+- id: e04
+  level: 쉬움
+  question: 대기 배출 사업장을 1종부터 5종까지 나누는 기준은?
+  expect_doc_ids: [air-decree_appx-01-3]
+- id: e05
+  level: 쉬움
+  question: 관제센터는 굴뚝 측정자료를 실시간으로 어떻게 공개하나?
+  expect_doc_ids: [tms-center_appx-02, tms-center]
+
+# --- 중간: 말 바꿈 · 같은 번호 별표 구분 · 표 안 값 ---
+- id: m01
+  level: 중간
+  question: 발전소에서 나오는 질소산화물은 몇 ppm까지 배출할 수 있나?
+  expect_doc_ids: [air-rule_appx-08]
+  forbid_doc_ids: [air-decree_appx-08]
+  check: 같은 번호 별표 구분
+- id: m02
+  level: 중간
+  question: 시행령 별표 8과 시행규칙 별표 8은 각각 무엇을 정하고 있어?
+  expect_doc_ids: [air-decree_appx-08, air-rule_appx-08]
+  expect_all: true
+  check: 같은 번호 별표 구분
+- id: m03
+  level: 중간
+  question: 굴뚝 측정기기는 어떤 기준으로 운영·관리해야 하나?
+  expect_doc_ids: [air-rule_appx-09]
+  forbid_doc_ids: [air-decree_appx-09]
+  check: 같은 번호 별표 구분
+- id: m04
+  level: 중간
+  question: TMS에서 말하는 30분 평균치는 어떻게 정의되나?
+  expect_doc_ids: [tms-center]
+- id: m05
+  level: 중간
+  question: 현행 대기 초과배출부과금 산정지수는 얼마인가?
+  expect_doc_ids: [fee-index-2026]
+  forbid_doc_ids: [tms-handbook-2024]
+  check: 현행 산정지수
+
+# --- 어려움: 여러 문서 잇기 · 구판/현행 구분 · 간접 문서 · 편람 질의회신 ---
+- id: h01
+  level: 어려움
+  question: 실시간 공개자료에서 배출허용기준을 초과했다고 인정하는 시간 기준은?
+  expect_doc_ids: [tms-center_appx-02, air-rule_appx-08]
+- id: h02
+  level: 어려움
+  question: 굴뚝 자동측정기기 자료가 관제센터에서 무효 처리되는 기준과, 그때 대체자료는 어떻게 만들어?
+  expect_doc_ids: [tms-center_appx-01]
+- id: h03
+  level: 어려움
+  question: 굴뚝 자동측정기기 정도검사는 어떤 법에 따라 어떤 방법으로 받나?
+  expect_doc_ids: [env-test-act, env-test-rule, env-test-rule_appx-03, type-approval-notice, type-approval-notice_appx-07, type-approval-notice_appx-07-1]
+- id: h04
+  level: 어려움
+  question: 측정기기를 고장 난 채로 두면 몇 번째 위반에 어떤 처분을 받나?
+  expect_doc_ids: [air-rule_appx-36, air-act]
+- id: h05
+  level: 어려움
+  question: 업무편람 질의·회신에 굴뚝 자동측정기기 부착 대상 여부를 문의한 사례가 있나?
+  expect_doc_ids: [tms-handbook-2024]
