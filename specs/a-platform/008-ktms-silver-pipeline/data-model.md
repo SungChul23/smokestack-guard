@@ -23,7 +23,7 @@
 |---|---|---|---|---|
 | 1 | `area_nm` | string | 아니오 | 시도 |
 | 2 | `fact_manage_nm` | string | 아니오 | 사업장 |
-| 3 | `stack_code` | string | 아니오 | 굴뚝 번호. 사업장 안에서만 유일하다 |
+| 3 | `stack_code` | string | 아니오 | 굴뚝 번호만(`1`, `2` …). 사업장 안에서만 유일해서 `area_nm`·`fact_manage_nm`과 함께 써야 굴뚝이 구분된다. ML-ready의 `stack_code`와 뜻이 다르다(아래 규칙) |
 | 4 | `item` | string | 아니오 | `nox`, `sox`, `tsp`, `hcl`, `co`, `nh3`, `hf` |
 | 5 | `value` | double | 예 | 측정값. 문구이면 null |
 | 6 | `limit` | double | 예 | 배출허용기준. SQL 예약어라 Athena에서는 `"limit"`으로 쓴다 |
@@ -34,6 +34,11 @@
 규칙:
 - 한 실행은 `ts_kst`가 `[start 00:00, end + 1일 00:00)`인 행을 통째로 교체한다.
 - 진행 중인 오늘(KST)의 행은 없다.
+- **`stack_code`는 단계마다 뜻이 다르다**(멘토 검토 C4, 2026-11-17). Silver는 굴뚝 번호만이고 ML-ready는 `지역|사업장|굴뚝번호`를 합친 값이다. Silver와 ML-ready를 `stack_code`만으로 조인하지 않는다.
+- **굴뚝 키의 한계(알려진 제약)**: K-TMS에는 안정 식별자가 없다.
+  - 같은 지역·사업장명·번호를 쓰는 서로 다른 굴뚝은 값이 다르면 `ambiguous`로 표시되어 학습에서 빠진다.
+  - 사업장명이 바뀌면 같은 굴뚝이 다른 키가 되어 이력이 끊긴다.
+  - 기간 한정 프로젝트라 고치지 않고 알려진 제약으로 둔다.
 
 ## 3. ML-ready: `tms_silver2.ktms_ml_ready`
 
@@ -53,7 +58,7 @@
   - `feature_valid`, `classification_eligible`, `regression_eligible`: boolean
   - 버전 3개: string
 - **K-TMS에서 다른 점**(C 규칙):
-  - `stack_code`는 `area_nm|fact_manage_nm|stack_code`다.
+  - `stack_code`는 `area_nm|fact_manage_nm|stack_code`다. Silver의 `stack_code`(굴뚝 번호만)와 뜻이 다르다(§2 규칙).
   - `measured_at`은 KST 벽시계다.
   - 단위 컬럼이 없어 NOx·SOx를 ppm으로 본다.
 - **학습 때 처리**(E): `month_sin`, `month_cos`는 드랍한다. 테이블에는 `COLUMNS` 전체를 그대로 둔다(tw_cems와 같은 구조).
