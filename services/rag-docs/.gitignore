@@ -2,3 +2,4 @@
 *.pdf
 *.metadata.json
 upload/
+cache/

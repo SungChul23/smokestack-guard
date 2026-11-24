@@ -21,21 +21,22 @@ MISSING = cat.HERE / "missing_fields.csv"
 OPTIONAL = {"amendment_mark", "caveat"}
 
 
-def write_all(docs: list[cat.Doc], dest: Path, missing_out: Path) -> int:
+def write_all(docs: list[cat.Doc], dest: Path, missing_out: Path, fmt: str = "pdf") -> int:
     rows: list[tuple[str, str]] = []
     for d in docs:
-        pdf = dest / d.folder / d.file
-        if not pdf.is_file():
-            raise FileNotFoundError(f"업로드 폴더에 없음: {d.folder}/{d.file}")
-        body, missing = cat.to_metadata(d)
-        out = pdf.with_name(cat.metadata_name(d.file))
+        name = d.file if fmt == "pdf" else cat.md_name(d.file)
+        doc_file = dest / d.folder / name
+        if not doc_file.is_file():
+            raise FileNotFoundError(f"업로드 폴더에 없음: {d.folder}/{name}")
+        body, missing = cat.to_metadata(d, source_pdf=fmt == "md")
+        out = doc_file.with_name(cat.metadata_name(name))
         out.write_text(json.dumps(body, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         rows += [(d.doc_id, k) for k in missing if k not in OPTIONAL]
     for folder in cat.FOLDERS:
-        listed = {d.file for d in docs if d.folder == folder}
-        for pdf in sorted((dest / folder).glob("*.pdf")) if (dest / folder).is_dir() else []:
-            if pdf.name not in listed:
-                raise ValueError(f"원장에 없는 PDF: {folder}/{pdf.name}")
+        listed = {d.file if fmt == "pdf" else cat.md_name(d.file) for d in docs if d.folder == folder}
+        for f in sorted((dest / folder).glob(f"*.{fmt}")) if (dest / folder).is_dir() else []:
+            if f.name not in listed:
+                raise ValueError(f"원장에 없는 문서: {folder}/{f.name}")
     with missing_out.open("w", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
         w.writerow(["doc_id", "missing_key"])
@@ -48,9 +49,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--dest", type=Path, required=True)
     p.add_argument("--catalog", type=Path, default=cat.CATALOG)
     p.add_argument("--missing", type=Path, default=MISSING)
+    p.add_argument("--format", choices=("pdf", "md"), default="pdf",
+                   help="이름표를 붙일 문서: 원본 PDF 또는 pdf_to_md.py가 만든 md(research R4b)")
     a = p.parse_args(argv)
     try:
-        n = write_all(cat.read_catalog(a.catalog), a.dest, a.missing)
+        n = write_all(cat.read_catalog(a.catalog), a.dest, a.missing, a.format)
     except (ValueError, FileNotFoundError) as e:
         print(f"오류: {e}", file=sys.stderr)
         return 2

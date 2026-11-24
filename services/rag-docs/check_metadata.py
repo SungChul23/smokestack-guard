@@ -2,6 +2,7 @@
 
   python check_metadata.py --dest <업로드 폴더>
 
+문서는 PDF 또는 pdf_to_md.py가 만든 md(쪽수 = "<!-- 쪽 N -->" 개수).
 검사: 짝 존재 · 파일명 · JSON · 최상위 키 · 값 타입(STRING/NUMBER/BOOLEAN/STRING_LIST) · 빈 값 ·
 includeForEmbedding 대상 · 필수 키 · 10KB 이하 · page_count = PDF 쪽수 · doc_id 유일 · PDF·JSON 외 파일 없음.
 실패마다 "파일: 이유" 한 줄, 끝에 "통과 N/M". 실패가 있으면 종료 코드 1.
@@ -78,7 +79,7 @@ def check_pair(pdf: Path, pages: Callable[[Path], int] = cat.pdf_pages) -> tuple
     if isinstance(want, int):
         got = pages(pdf)
         if got != want:
-            errs.append(f"page_count {want} ≠ PDF {got}쪽")
+            errs.append(f"page_count {want} ≠ {'PDF' if pdf.suffix == '.pdf' else 'md 쪽 표시'} {got}쪽")
     return errs, doc_id
 
 
@@ -92,13 +93,13 @@ def check_dest(dest: Path, pages: Callable[[Path], int] = cat.pdf_pages) -> tupl
         rel = p.relative_to(dest).as_posix()
         if rel.split("/", 1)[0] not in cat.FOLDERS:
             lines.append(f"{rel}: 데이터 소스 폴더(laws/·handbook/) 밖의 파일")
-        elif p.name.endswith(".pdf"):
+        elif p.suffix in cat.DOC_EXTS:
             pdfs.append(p)
         elif p.name.endswith(cat.SUFFIX):
             if not p.with_name(p.name[: -len(cat.SUFFIX)]).is_file():
                 lines.append(f"{rel}: 짝 PDF 없음")
         else:
-            lines.append(f"{rel}: PDF·메타데이터 외 파일(문서로 색인됨)")
+            lines.append(f"{rel}: 문서(PDF·md)·메타데이터 외 파일(문서로 색인됨)")
     ok = 0
     ids: dict[str, str] = {}
     for pdf in pdfs:

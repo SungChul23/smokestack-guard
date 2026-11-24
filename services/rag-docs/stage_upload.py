@@ -47,9 +47,9 @@ def stage(docs: list[cat.Doc], srcs: list[Path], dest: Path) -> tuple[list[str],
     return copied, extra
 
 
-def sync_command(dest: Path) -> str:
-    return (f'aws s3 sync "{dest}" s3://{BUCKET}/ --exclude "*" --include "*.pdf" '
-            f'--include "*{cat.SUFFIX}" --delete --dryrun')
+def sync_command(dest: Path, ext: str = "pdf") -> str:
+    return (f'aws s3 sync "{dest}" s3://{BUCKET}/ --exclude "*" --include "*.{ext}" '
+            f'--include "*.{ext}{cat.SUFFIX}" --delete --dryrun')
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -67,8 +67,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"복사 {len(copied)}개, 원장 문서 {len(docs)}개")
     for f in extra:
         print(f"경고: 원장에 없는 파일 — 지우세요(문서로 색인됨): {f}")
-    print("\n다음: make_metadata.py → check_metadata.py → 아래 명령(--dryrun 확인 뒤 빼고 실행)")
-    print(sync_command(a.dest))
+    print("\n다음: pdf_to_md.py → make_metadata.py --format md → check_metadata.py → check_chunks.py --local")
+    print("올릴 때(md 폴더 기준, --dryrun 확인 뒤 빼고 실행):")
+    print(sync_command(Path("<md 폴더>"), "md"))
     return 1 if extra else 0
 
 

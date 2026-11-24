@@ -113,8 +113,9 @@ def read_catalog(path: Path = CATALOG) -> list[Doc]:
     return docs
 
 
-def to_metadata(doc: Doc) -> tuple[dict, list[str]]:
-    """원장 한 행 → (메타데이터 파일 내용, 빠진 키 목록). 빈 칸은 키를 넣지 않는다."""
+def to_metadata(doc: Doc, source_pdf: bool = False) -> tuple[dict, list[str]]:
+    """원장 한 행 → (메타데이터 파일 내용, 빠진 키 목록). 빈 칸은 키를 넣지 않는다.
+    source_pdf: 변환한 md에 붙일 때 원본 PDF 이름을 남긴다(출처 인용)."""
     attrs: dict[str, dict] = {}
     missing: list[str] = []
     r = doc.row
@@ -139,14 +140,29 @@ def to_metadata(doc: Doc) -> tuple[dict, list[str]]:
             "value": {"type": "NUMBER", "numberValue": int(date.replace("-", ""))},
             "includeForEmbedding": False,
         }
+    if source_pdf:
+        attrs["source_pdf"] = {"value": {"type": "STRING", "stringValue": doc.file},
+                               "includeForEmbedding": False}
     return {"metadataAttributes": attrs}, missing
 
 
-def metadata_name(pdf_name: str) -> str:
-    return pdf_name + SUFFIX
+def metadata_name(doc_name: str) -> str:
+    return doc_name + SUFFIX
+
+
+def md_name(pdf_name: str) -> str:
+    """원본 PDF 이름 → 변환한 마크다운 이름 (research R4b)"""
+    return pdf_name[: -len(".pdf")] + ".md"
+
+
+DOC_EXTS = (".pdf", ".md")
+PAGE_MARK_RE = re.compile(r"^<!-- 쪽 (\d+) -->$", re.MULTILINE)
 
 
 def pdf_pages(path: Path) -> int:
+    """문서 쪽수: PDF는 실제 쪽수, md는 쪽 표시(<!-- 쪽 N -->) 개수"""
+    if path.suffix == ".md":
+        return len(PAGE_MARK_RE.findall(path.read_text(encoding="utf-8")))
     from pypdf import PdfReader
 
     return len(PdfReader(str(path)).pages)

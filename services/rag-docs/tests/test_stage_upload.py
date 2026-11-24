@@ -31,4 +31,4 @@ def test_warns_on_extra_and_prints_sync(tmp_path: Path, catalog_path: Path, caps
     code = stage_upload.main(["--src", str(src), "--dest", str(dest), "--catalog", str(catalog_path)])
     out = capsys.readouterr().out
     assert code == 1 and "laws/옛문서.pdf" in out
-    assert "aws s3 sync" in out and "--dryrun" in out and '--include "*.metadata.json"' in out
+    assert "aws s3 sync" in out and "--dryrun" in out and '--include "*.md.metadata.json"' in out
