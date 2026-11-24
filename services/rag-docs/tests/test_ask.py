@@ -231,3 +231,12 @@ def test_retrieve_puts_current_docs_before_old_handbook():
     rt = Rt({})
     rq.retrieve(rt, "KB", "정도검사 주기는?", top=5, statuses=["구판"])
     assert len(rt.calls) == 1  # --status를 주면 현행 줄을 섞지 않는다
+
+
+def test_answer_strips_empty_trailing_sources_heading():
+    class Br(FakeBedrock):
+        def converse(self, **kw):
+            return {"output": {"message": {"content": [{"text": "답입니다. [1]\n\n---\n\n**출처**\n"}]}}, "usage": {}}
+
+    res = rq.retrieve(FakeRuntime({None: [chunk("a", GYUCHIK, "별표36", "본문")]}), "KB", "질문", top=5)
+    assert rq.answer(Br(), res)["text"] == "답입니다. [1]"

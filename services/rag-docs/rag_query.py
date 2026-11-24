@@ -214,6 +214,10 @@ def resolve_model(name: str | None) -> str:
     return MODELS.get(name, name)
 
 
+# 답 끝에 모델이 남긴 빈 "출처" 제목·구분선(출처 목록은 도구가 붙인다)
+_TRAILING_SOURCES = re.compile(r"(?:\s*(?:-{3,}|\**\s*출처\s*:?\s*\**))+\s*\Z")
+
+
 def answer(br, result: Result, model: str | None = None, max_tokens: int = 3000) -> dict:
     """Converse로 답변. 반환: {"text", "model", "tokens_in", "tokens_out"}"""
     mid = resolve_model(model)
@@ -224,7 +228,7 @@ def answer(br, result: Result, model: str | None = None, max_tokens: int = 3000)
         messages=[{"role": "user", "content": [{"text": user}]}],
         inferenceConfig={"maxTokens": max_tokens, "temperature": 0},
     )
-    text = "".join(c.get("text", "") for c in resp["output"]["message"]["content"])
+    text = _TRAILING_SOURCES.sub("", "".join(c.get("text", "") for c in resp["output"]["message"]["content"]))
     usage = resp.get("usage", {})
     return {"text": text, "model": mid, "tokens_in": usage.get("inputTokens", 0),
             "tokens_out": usage.get("outputTokens", 0)}
