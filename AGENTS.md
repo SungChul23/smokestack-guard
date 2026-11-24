@@ -68,7 +68,8 @@ infra/
 │   ├── tms-database/     # 서비스: RDS PostgreSQL + 배스천
 │   ├── tms-app/          # 서비스: ECR, 서버 ASG, ALB, 배포 역할
 │   ├── tms-dashboard-load/  # 대시보드용 K-TMS 관측 RDS 적재: 30분·매일 예약 실행 + 상태 머신 + VPC Lambda (012)
-│   └── tms-log-search/   # 서비스 로그 수집·분석: OpenSearch 도메인 + 라우터 Lambda + Firehose 3개 + 구독 필터 + 실패분 버킷 (014)
+│   ├── tms-log-search/   # 서비스 로그 수집·분석: OpenSearch 도메인 + 라우터 Lambda + Firehose 3개 + 구독 필터 + 실패분 버킷 (014)
+│   └── tms-rag/          # RAG 근거 문서: 문서 버킷 + Bedrock 지식 기반·데이터 소스(벡터는 tms-logs의 rag-docs) + 서비스 역할 + 에이전트 서버 Retrieve 권한 (016)
 └── modules/
     ├── raw-archive/          # 원본 보존 버킷
     └── scheduled-collector/  # 주기 실행 함수 (Lambda + 역할 + 스케줄 + 로그 + 알람), 수집기·누락률 리포트가 함께 사용
@@ -79,7 +80,8 @@ services/
 ├── tms-silver/           # Silver Glue 진입 스크립트 + 계약 검사 Lambda + 일괄 실행 명령 (TW CEMS, K-TMS)
 ├── dashboard-{api,agent,web}/  # 대시보드·에이전트 앱 (D)
 ├── dashboard-load/       # 관측 RDS 적재 Lambda + DB 마이그레이션 SQL + 사람 명령(migrate·load-ref·backfill) (A, 012)
-└── log-search/           # 로그 라우터 Lambda + OpenSearch 설정 정의·스크립트 + Dashboards 저장 객체 (A, 014)
+├── log-search/           # 로그 라우터 Lambda + OpenSearch 설정 정의·스크립트 + Dashboards 저장 객체 (A, 014)
+└── rag-docs/            # RAG 문서 원장 + PDF→md 변환·검사 + 메타데이터 + 검색 규칙(rag_query)·질문 도구·시험 질문 (A, 016)
 k_tms_synthetic/          # 평가·시연용 합성 생성기 (B, specs/b-collection/102)
 k_tms_synthetic_train/    # 학습용 합성 생성기 + AWS 적재 진입점 lambda_handler.py (B·A, 103·011)
 ```
@@ -128,6 +130,7 @@ smokestack-tms-raw-952900391026/
   - Spark·pandas·Athena 모두 S3 경로가 아니라 카탈로그로 읽는다. `data/`에는 지난 버전 파일도 남아 있어 직접 읽으면 행이 중복된다.
   - 테이블은 Terraform이 아니라 잡의 DDL이 만든다(Iceberg가 커밋마다 카탈로그 값을 바꾸기 때문).
   - 읽는 법과 버전 고정: `specs/a-platform/008-ktms-silver-pipeline/contracts/ktms-tables.md`
+- **문서 버킷 `smokestack-tms-rag-952900391026`은 원본 버킷과 따로다.** RAG 근거 문서(로컬에서 변환·검사한 md)와 `<파일>.metadata.json`만 `laws/`·`handbook/`에 둔다(다른 파일은 문서로 색인된다). 버전 관리, 지난 버전 30일 뒤 삭제. 원본 PDF는 저장소·버킷에 두지 않는다 (`specs/a-platform/016-rag-knowledge-base/`)
 - **로그 버킷 `smokestack-tms-logs-952900391026`은 원본 버킷과 따로다.** Firehose 전달 실패분만 두고 28일 뒤 지운다(버려도 되는 운영 데이터라 수명 주기 규칙을 둔다). 서비스 로그 원본은 CloudWatch Logs, 검색용 사본은 OpenSearch `tms-logs`(14일·활동 28일) (`specs/a-platform/014-log-opensearch/`)
 - **RDS(PostgreSQL)는 서비스용 복사본이다.** 정본은 S3 Silver다. 대시보드 관측(`obs`)·기준 정보(`ref`)는 `tms-dashboard-load`가 원본에서 C의 Silver 규칙으로 채우고, 언제든 `backfill`로 다시 만들 수 있다. 측정값이 없는 칸은 0이 아니라 null + 상태 번호로 둔다. (`specs/a-platform/012-dashboard-rds-load/`)
 
