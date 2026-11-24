@@ -151,6 +151,52 @@ def test_view_links_name_with_trailing_space(pg):
     assert db.mapping_check(pg, date(2026, 11, 18), NOW) == []
 
 
+def _observe(pg, fact: str, stack: str = "001"):
+    rows = load.prepare_rows(pd.DataFrame([{
+        "area_nm": "서울특별시", "fact_manage_nm": fact, "stack_code": stack, "item": "nox",
+        "value": 1.0, "limit": 100.0, "status": "ok", "ts_kst": pd.Timestamp("2026-11-18 10:00"), "ratio": 0.01}]))
+    db.upsert_measurements(pg, rows, "recent", NOW)
+    db.add_stack_keys(pg, rows, date(2026, 11, 18))
+
+
+def test_name_key_ignores_corporate_marks_and_spaces(pg):
+    keys = [r[0] for r in pg.run(
+        "SELECT ref.name_key(x) FROM unnest(CAST(:xs AS text[])) AS x",
+        xs=["(주)가나다발전", "가나다발전(주)", "㈜ 가나다발전", "주식회사 가나다발전", "( 주 )가나다 발전", "（주）가나다발전"])]
+    assert set(keys) == {"가나다발전"}
+
+
+def test_view_links_name_with_moved_corporate_mark(pg):
+    """법인 표기 위치가 바뀌어도 연결하고 점검 D로 기록만 한다 (007, 2026-11-24 매핑 메일)."""
+    db.load_ref(pg, _sites().assign(source_name="가나다발전(주)"), "test-v1")
+    _observe(pg, "(주)가나다발전")
+    assert pg.run("SELECT stack_key, site_id, site_match FROM ref.v_stack") == [
+        ["서울특별시|(주)가나다발전|001", "112003", "name_key"]]  # 키는 원본 그대로
+    assert db.mapping_check(pg, date(2026, 11, 18), NOW) == []  # 메일 없음
+    d = pg.run("SELECT n_items, detail FROM ops.mapping_report WHERE check_type = 'D'")[0]
+    assert d[0] == 1 and "(주)가나다발전" in str(d[1])
+
+
+def test_view_does_not_link_ambiguous_name_key(pg):
+    """같은 시·도에 비교 키가 같은 사업장이 둘이면 자동 연결하지 않는다."""
+    two = pd.concat([_sites().assign(source_name="가나다발전(주)"),
+                     _sites().assign(site_id="112999", source_name="가나다발전(유)", address="다른 주소")])
+    db.load_ref(pg, two, "test-v1")
+    _observe(pg, "(주)가나다발전")
+    assert pg.run("SELECT site_id, site_match FROM ref.v_stack") == [[None, None]]
+    assert db.mapping_check(pg, date(2026, 11, 18), NOW) == [
+        {"area_nm": "서울특별시", "fact_manage_nm": "(주)가나다발전"}]
+
+
+def test_exact_name_wins_over_name_key(pg):
+    db.load_ref(pg, _sites(), "test-v1")  # 가나다발전 → 112003
+    pg.run("INSERT INTO ref.site (site_id, display_name, source_version) VALUES ('112999', '다른', 't')")
+    pg.run("INSERT INTO ref.site_name_map (area_nm, fact_manage_nm, valid_from, site_id, confirmed_by) "
+           "VALUES ('서울특별시', '(주)가나다발전', '2026-01-01', '112999', 'A')")
+    _observe(pg, "(주)가나다발전")
+    assert pg.run("SELECT site_id, site_match FROM ref.v_stack") == [["112999", "exact"]]
+
+
 def test_validate_sites_rejects_duplicate_id_and_holds_shared_names():
     with pytest.raises(ValueError, match="같은 site_id"):
         db.validate_sites(pd.concat([_sites(), _sites()]))

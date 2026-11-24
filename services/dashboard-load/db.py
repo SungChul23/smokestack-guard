@@ -320,6 +320,12 @@ WHERE NOT EXISTS (
   WHERE s.site_id = si.site_id AND m.measured_at >= :day AND m.measured_at < CAST(:day AS date) + 1)
 ORDER BY 1
 """
+_NAME_KEY = """
+SELECT DISTINCT s.area_nm, s.fact_manage_nm, s.site_id
+FROM obs.measurement_30m m JOIN ref.v_stack s USING (stack_key)
+WHERE m.measured_at >= :day AND m.measured_at < CAST(:day AS date) + 1 AND s.site_match = 'name_key'
+ORDER BY 1, 2
+"""
 _NEW_STACKS = "SELECT stack_key FROM ref.stack WHERE source = 'observed' AND first_seen = :day ORDER BY 1"
 _REPORT = """
 INSERT INTO ops.mapping_report (report_date, check_type, n_items, detail, computed_at)
@@ -333,11 +339,13 @@ DETAIL_LIMIT = 200
 def mapping_check(conn, day: date, now: datetime) -> list[dict]:
     """그날 관측에 나왔는데 이름 이력에 없는 (지역, 사업장) 중 처음 본 것만 돌려준다(FR-010).
 
-    점검 A(미연결 이름)·B(그날 관측이 없는 사업장)·C(새 굴뚝)는 ops.mapping_report에 남긴다.
+    점검 A(미연결 이름)·B(그날 관측이 없는 사업장)·C(새 굴뚝)·D(법인 표기 차이로 자동 연결한 이름, 007)는
+    ops.mapping_report에 남긴다.
     """
     unmapped = [tuple(r) for r in conn.run(_UNMAPPED, day=day)]
     silent = [r[0] for r in conn.run(_SILENT, day=day)]
     new_stacks = [r[0] for r in conn.run(_NEW_STACKS, day=day)]
+    by_key = [list(r) for r in conn.run(_NAME_KEY, day=day)]
     conn.run("BEGIN")
     try:
         new_names = []
@@ -351,11 +359,11 @@ def mapping_check(conn, day: date, now: datetime) -> list[dict]:
                 new_names.append({"area_nm": area, "fact_manage_nm": fact})
         conn.run(
             "UPDATE ops.unmapped_name u SET resolved_at = :now WHERE resolved_at IS NULL "
-            "AND EXISTS (SELECT 1 FROM ref.site_name_map n "
-            "WHERE btrim(n.area_nm) = btrim(u.area_nm) AND btrim(n.fact_manage_nm) = btrim(u.fact_manage_nm))",  # 006
+            "AND EXISTS (SELECT 1 FROM ref.v_stack s WHERE s.area_nm = u.area_nm "
+            "AND s.fact_manage_nm = u.fact_manage_nm AND s.site_id IS NOT NULL)",  # 연결 규칙은 뷰 한곳(006·007)
             now=now,
         )
-        for t, items in (("A", [list(x) for x in unmapped]), ("B", silent), ("C", new_stacks)):
+        for t, items in (("A", [list(x) for x in unmapped]), ("B", silent), ("C", new_stacks), ("D", by_key)):
             conn.run(_REPORT, day=day, t=t, n=len(items),
                      detail=json.dumps(items[:DETAIL_LIMIT], ensure_ascii=False), now=now)
         conn.run("COMMIT")

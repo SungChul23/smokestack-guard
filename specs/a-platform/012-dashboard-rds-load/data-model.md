@@ -85,6 +85,7 @@ PK `(area_nm, fact_manage_nm, valid_from)`. `site_id` FK, `valid_to`(null = 현�
 `stack_key` text PK, `area_nm`, `fact_manage_nm`, `stack_code`, `frontend_stack_id`(`KS-…`, null 허용), `collision_flag` boolean, `first_seen`, `source`(`site_list` = 사업장 목록에서 / `observed` = 적재 중 처음 본 키).
 
 - 사업장 코드는 이 표에 저장하지 않고 `ref.site_name_map`(현재 유효한 행)으로 찾는다. 뷰 `ref.v_stack`이 `stack_key → site_id`를 계산해 준다. 이름 이력에 한 줄을 추가하면 과거 관측까지 바로 이어진다(US3-3).
+  - 연결 규칙(뷰 한곳): ① 시·도와 이름이 같으면(앞뒤 공백 무시, 006) 연결 ② 없으면 같은 시·도에서 비교 키 `ref.name_key`(공백, `(주)`·`㈜`·`주식회사`·`(유)`·`유한회사`·`(재)`·`재단법인`·`(사)`·`사단법인`을 뺀 이름)가 같은 사업장이 **1곳일 때만** 연결(007, 예: `(주)티와이코퍼레이션` ↔ `티와이코퍼레이션(주)`). 둘 이상이면 연결하지 않고 미연결 이름으로 알린다. 어떤 규칙으로 연결됐는지는 `site_match`(`exact`/`name_key`)에 나온다. 원본 이름과 `stack_key`는 바꾸지 않는다.
 - 적재가 처음 본 굴뚝 키는 `source = observed`로 이 표에 추가한다(사업장 코드 없이). 그래서 화면은 모든 관측 굴뚝을 표에서 찾을 수 있다.
 
 읽기 예(화면·에이전트):
@@ -100,7 +101,7 @@ WHERE m.measured_at >= $1 AND m.measured_at < $2;
 
 - `ops.schema_migrations(version text PK, applied_at)`
 - `ops.load_run(run_id PK, path, started_at, finished_at, source_range jsonb, rows_upserted, rows_unchanged, skipped_reason, result)`: 실행 요약(FR-021). 로그와 같은 내용을 DB에도 남긴다.
-- `ops.mapping_report(report_date, check_type, detail jsonb, PK(report_date, check_type))`: 매일 점검. `check_type` = `A`(관측에는 있는데 `ref`에 없는 이름) / `B`(`ref`에는 있는데 그날 관측이 없는 굴뚝)
+- `ops.mapping_report(report_date, check_type, detail jsonb, PK(report_date, check_type))`: 매일 점검. `check_type` = `A`(관측에는 있는데 `ref`에 없는 이름) / `B`(`ref`에는 있는데 그날 관측이 없는 굴뚝) / `C`(새 굴뚝) / `D`(법인 표기 차이로 자동 연결한 이름, 메일 없이 기록만, 007)
 - `ops.unmapped_name(area_nm, fact_manage_nm, first_seen, alerted_at, resolved_at, PK(area_nm, fact_manage_nm))`: 같은 이름 반복 알림 방지(FR-010)
 
 ## 5-1. 시멘틱 레이어 뷰 (`005_semantic_views.sql`)
