@@ -54,8 +54,8 @@
 - [X] T026 [US1] `terraform fmt -recursive`·`validate`(tms-rag, tms-log-search) — AI가 실행해 결과 기록.
 - [X] T027a [US1] 파서 교체: 3개 첫 동기화(Haiku 4.5)에서 별표 36 표 칸 밀림·오타 → 한 쪽 직접 비교로 Sonnet 4.6 채택(research R4a), `parser_profile_id` 기본값 변경.
 - [X] T027b [US1] 파싱을 로컬로(research R4b): `services/rag-docs/pdf_to_md.py`(쪽별 Sonnet 4.6·검사·재시도·캐시), `make_metadata.py --format md`(source_pdf), `check_metadata`·`check_chunks --local` md 지원, 데이터 소스 파싱 설정 제거·파서 권한 제거. 3개 시험 통과(정답 행 4/4).
-- [ ] T027 🧑 [US1] `aws s3 sync`(어려운 문서 3개만: 시행규칙 별표 36, 별표 8 현행, 관제센터 별표 1 + 메타데이터) → `tms-rag` apply `-var rag_kb_enabled=true`(파서 모델이 허용 목록에 없다는 오류면 변수만 바꿔 다시) → laws 동기화 → Dev Tools로 조각 10개: 표가 마크다운 표인지, 머리글 없는지, 메타데이터 키가 필드로 있는지 기록 (quickstart §4·§5, research R4).
-- [ ] T028 🧑 [US1] 나머지 업로드(`--dryrun` 확인 뒤) → laws·handbook 동기화 → 통계 scanned 38/1·indexed 38/1·failed 0(SC-001), 비용 메모(Cost Explorer Bedrock 다음 날).
+- [X] T027 🧑 [US1] (2026-11-23 KB 안 파서로 3개 시험 → 표 칸 누락으로 로컬 md 변환으로 바꿈, research R4a·R4b) `aws s3 sync`(어려운 문서 3개만: 시행규칙 별표 36, 별표 8 현행, 관제센터 별표 1 + 메타데이터) → `tms-rag` apply `-var rag_kb_enabled=true`(파서 모델이 허용 목록에 없다는 오류면 변수만 바꿔 다시) → laws 동기화 → Dev Tools로 조각 10개: 표가 마크다운 표인지, 머리글 없는지, 메타데이터 키가 필드로 있는지 기록 (quickstart §4·§5, research R4).
+- [X] T028 🧑 [US1] (2026-11-24 md 39개 → 41개 업로드·동기화, 실패 0, 조각 3,343개, check_chunks 확인 필요 0. 비용: 변환 ~$12.8 + 임베딩 1센트 미만) 나머지 업로드(`--dryrun` 확인 뒤) → laws·handbook 동기화 → 통계 scanned 38/1·indexed 38/1·failed 0(SC-001), 비용 메모(Cost Explorer Bedrock 다음 날).
 
 ## Phase 5: US3 - 내 PC에서 자연어로 묻는다 (P1)
 
@@ -70,7 +70,7 @@
   - `doc_id`는 T015 원장 값과 같게.
 - [X] T032 [P] [US3] `services/rag-docs/tests/test_run_eval.py`: 가짜 retrieve 결과로 — 기대 문서가 5위 안이면 통과, forbid가 1위면 실패, 난이도별·전체 통과율, 같은 번호 별표 질문(`check`에 "같은 번호") 통과율, 결과 md 표 형식.
 - [X] T033 [US3] `services/rag-docs/run_eval.py`: `--kb`, `--only`, `--top`(기본 5) — 질문마다 Retrieve → 통과/실패, 기대 문서 순위, 1위 문서 → `eval_results/<YYYY-MM-DD>.md`(질문 표 + 난이도별 통과율 + 전체 통과율).
-- [ ] T034 🧑 [US3] (2026-11-24 `run_eval.py` 15/15, `eval_results/2026-11-24.md`. 답변 인용 표본·sonnet 비교 남음. 시험에서 바꾼 것: 검색 HYBRID 고정, 문서 지목 필터, 답변은 Retrieve + 이름표 머리말 + Converse — `rag_query.py`) `ask.py`로 quickstart §6 질문 2개 + `--answer` 1개 → `run_eval.py` 실행 → 결과 파일 커밋. 기준: 전체 ≥ 80%, 같은 번호 별표·현행 산정지수 100%(SC-003), 답변 인용(SC-004)은 `--answer`(Haiku 4.5)로 5개 표본 확인, Haiku가 틀린 어려운 질문은 `--model sonnet`으로 다시 돌려 차이를 기록(D에게 답변 모델 근거). 못 미치면 원인(조각·파서 지시문·메타데이터) 메모 후 조정.
+- [X] T034 🧑 [US3] (2026-11-24 `run_eval.py` 15/15, 답변 15문항 2회 확인 — `eval_results/2026-11-24.md`. Sonnet 비교는 생략. 시험에서 바꾼 것: 검색 HYBRID 고정, 문서 지목 필터, 답변은 Retrieve + 이름표 머리말 + Converse — `rag_query.py`) `ask.py`로 quickstart §6 질문 2개 + `--answer` 1개 → `run_eval.py` 실행 → 결과 파일 커밋. 기준: 전체 ≥ 80%, 같은 번호 별표·현행 산정지수 100%(SC-003), 답변 인용(SC-004)은 `--answer`(Haiku 4.5)로 5개 표본 확인, Haiku가 틀린 어려운 질문은 `--model sonnet`으로 다시 돌려 차이를 기록(D에게 답변 모델 근거). 못 미치면 원인(조각·파서 지시문·메타데이터) 메모 후 조정.
 
 ## Phase 6: US4 - 에이전트가 같은 지식 기반을 부른다 (P2)
 
@@ -82,8 +82,8 @@
 
 ## Phase 7: Polish
 
-- [ ] T038 [P] `AGENTS.md`: 저장소 구조에 `infra/stacks/tms-rag/`(문서 버킷 + 지식 기반 역할·지식 기반·데이터 소스, 016)와 `services/rag-docs/`(메타데이터·질문 도구, A, 016), S3 경로 규칙에 "문서 버킷 `smokestack-tms-rag-952900391026`은 RAG 근거 PDF와 메타데이터만(laws/·handbook/), 원본 버킷과 따로" 한 줄.
-- [ ] T039 [P] `services/log-search/README.md`: `rag-docs` 인덱스·`rag_kb_writer` 역할, 인덱스는 덮어쓰지 않음(바꾸려면 지우고 재동기화).
+- [X] T038 [P] `AGENTS.md`: 저장소 구조에 `infra/stacks/tms-rag/`(문서 버킷 + 지식 기반 역할·지식 기반·데이터 소스, 016)와 `services/rag-docs/`(메타데이터·질문 도구, A, 016), S3 경로 규칙에 "문서 버킷 `smokestack-tms-rag-952900391026`은 RAG 근거 PDF와 메타데이터만(laws/·handbook/), 원본 버킷과 따로" 한 줄.
+- [X] T039 [P] `services/log-search/README.md`: `rag-docs` 인덱스·`rag_kb_writer` 역할, 인덱스는 덮어쓰지 않음(바꾸려면 지우고 재동기화).
 - [ ] T040 🧑 SC-005(조각 20개 머리글 0)·SC-007(일주일 JVM 최대 < 90%, 로그 전달 실패 증가 없음)·SC-008(구축 비용 ≤ $10) 확인 → spec Status 갱신, 이슈 #80 체크.
 - [ ] T041 📨 D에게 2차 후보 알림: 근거 카드·사례 검토 뒤 `cards/` 데이터 소스로 넣어 같은 시험 묶음으로 비교 (research R10).
 
