@@ -95,6 +95,7 @@ def main(argv=None) -> dict:
         "source_upload": {"bucket": OUTPUT_BUCKET, "prefix": SOURCE_PREFIX},
         "source_files": list(SOURCE_FILES),
         "entry_script": ENTRY_POINT,
+        "source_archive": "ln1-source.tar.gz",
         "input": {
             "channel_name": "train",
             "input_mode": "File",
