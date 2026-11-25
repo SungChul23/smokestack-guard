@@ -73,7 +73,7 @@
 
 - [X] T022 [P] (research R13) `specs/a-platform/017-agent-guardrail/research.md`: 시험으로 확인한 사실 반영(Standard 한국어 탐지 결과, 관리형 PHONE의 한국 번호 탐지 여부, 프로필 ARN 권한 형식, 실측 비용).
 - [X] T023 🧑 (해당 없음: 콘솔에서 따로 만든 가드레일 없음) 콘솔에서 만든 시험용 가드레일 삭제(Terraform 것이 정본, quickstart §6).
-- [ ] T024 PR 초안(spec부터 읽는 순서, 커밋 고정 링크) → A 확인 뒤 생성, `Closes #86`.
+- [X] T024 PR #87 초안(spec부터 읽는 순서, 커밋 고정 링크) → A 확인 뒤 생성, `Closes #86`.
 
 ## Dependencies
 
