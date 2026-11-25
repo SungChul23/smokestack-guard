@@ -45,7 +45,7 @@ D의 입력 가드와 비교(파일은 저장소 밖):
 
 ## 5. 차단으로 바꾸기 (운영 감지를 본 뒤)
 
-`terraform apply -var 'guardrail_enforce=content,prompt_attack'` 처럼 정책별로 SSM 값을 바꾼다. 가드레일 버전은 바뀌지 않는다. 서버는 다음 설정 읽기 때(최대 5분) 반영.
+`terraform apply -var 'guardrail_enforce=prompt_attack,content,internal_info'` 처럼 정책·주제별로(`tamper_request`는 넣지 않음, research R3a) SSM 값을 바꾼다. 가드레일 버전은 바뀌지 않는다. 서버는 다음 설정 읽기 때(최대 5분) 반영.
 
 ## 6. 정리
 

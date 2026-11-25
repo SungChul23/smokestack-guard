@@ -17,7 +17,7 @@ resource "aws_ssm_parameter" "guardrail_version" {
 
 resource "aws_ssm_parameter" "guardrail_enforce" {
   name        = "/tms/app/config/guardrail-enforce"
-  description = "Policies to enforce: content,prompt_attack,topics,grounding or none (017)"
+  description = "Policies to enforce: content,prompt_attack,grounding,topics or topic names, or none (017)"
   type        = "String"
   value       = var.guardrail_enforce
 }

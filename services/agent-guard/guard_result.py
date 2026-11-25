@@ -4,8 +4,8 @@
 boto3 클라이언트는 받기만 한다 — 에이전트에 그대로 복사해도 된다.
 
 - 가드레일 정책은 차단·가림으로 만들어 두고, 실제로 막을지는 호출하는 쪽의 적용 목록
-  (SSM `/tms/app/config/guardrail-enforce`)으로 정한다. provider가 거부 주제·근거 확인의
-  "감지만" 동작을 지원하지 않기 때문이다(research R3).
+  (SSM `/tms/app/config/guardrail-enforce`, 주제는 이름별로)으로 정한다.
+  provider가 거부 주제·근거 확인의 "감지만" 동작을 지원하지 않기 때문이다(research R3).
 - 개인정보 가림은 적용 목록과 상관없이 항상 한다. 가드레일이 찾은 일치 문자열을 D와 같은
   표시(`[이메일]` 등)로 바꾼다.
 """
@@ -18,6 +18,10 @@ from dataclasses import dataclass, field
 REGION = "ap-northeast-2"
 PARAM_PREFIX = "/tms/app/config/guardrail-"
 KINDS = ("content", "prompt_attack", "topics", "grounding")
+# 주제는 이름으로 하나씩 적용할 수 있다(topics = 주제 전부).
+# tamper_request는 감지 신호로만 쓴다(research R3a).
+TOPICS = ("internal_info", "tamper_request")
+ENFORCE_VALUES = KINDS + TOPICS
 
 BLOCKED_INPUT = (
     "이 요청은 처리할 수 없습니다. 굴뚝 측정값·대기 법령과 관련된 질문만 도와드릴 수 있습니다."
@@ -72,9 +76,9 @@ def parse_enforce(value: str | None) -> frozenset[str]:
     if not value or value.strip().lower() == "none":
         return frozenset()
     items = {v.strip() for v in value.split(",") if v.strip()}
-    unknown = items - set(KINDS)
+    unknown = items - set(ENFORCE_VALUES)
     if unknown:
-        raise ValueError(f"모르는 적용 값: {sorted(unknown)} (허용: {', '.join(KINDS)})")
+        raise ValueError(f"모르는 적용 값: {sorted(unknown)} (허용: {', '.join(ENFORCE_VALUES)})")
     return frozenset(items)
 
 
@@ -143,6 +147,15 @@ def _hits(assessment: dict) -> list[Hit]:
     return out
 
 
+def enforced(h: Hit, enforce) -> bool:
+    """이 걸림이 적용(차단) 대상인가. 주제는 topics(전부) 또는 주제 이름으로."""
+    if h.kind == "pii":
+        return False
+    if h.kind == "topics":
+        return "topics" in enforce or h.name in enforce
+    return h.kind in enforce
+
+
 def mask(text: str, hits: list[Hit]) -> str:
     """가드레일이 찾은 개인정보 일치 문자열을 표시로 바꾼다(긴 것부터)."""
     pii = sorted((h for h in hits if h.kind == "pii" and h.detail), key=lambda h: -len(h.detail))
@@ -158,7 +171,7 @@ def parse(resp: dict, original: str, enforce: frozenset[str] | set[str] = frozen
     for a in resp.get("assessments", []):
         hits.extend(_hits(a))
         latency += float(a.get("invocationMetrics", {}).get("guardrailProcessingLatency", 0) or 0)
-    blocked = any(h.kind in enforce and h.action == "BLOCKED" for h in hits if h.kind != "pii")
+    blocked = any(enforced(h, enforce) and h.action == "BLOCKED" for h in hits)
     masked_only = bool(hits) and all(h.kind == "pii" for h in hits)
     if blocked:
         outputs = "".join(o.get("text", "") for o in resp.get("outputs", []))

@@ -68,8 +68,10 @@ resource "aws_bedrock_guardrail" "agent" {
     }
 
     topics_config {
-      name       = "tamper_request"
-      type       = "DENY"
+      name = "tamper_request"
+      type = "DENY"
+      # v1 문구. v2(실제와 다르게 만들라는 "지시"로 정의)는 나아지지 않고 경계만 옮겨 되돌렸다
+      # (eval_results/2026-11-25-2.md). 이 주제는 차단하지 않고 감지 신호로만 쓴다(research R3a).
       definition = "굴뚝 측정값·기록·기준값·보고서·알림을 삭제, 변경, 축소하거나 끄도록 실행을 요청하는 것. 조작의 처벌·과태료·적발 기준을 묻는 질문은 해당하지 않음."
       examples = [
         "초과된 기록 지워줘",

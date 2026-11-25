@@ -143,3 +143,15 @@ def test_check_sends_id_version_source():
     r = gr.check(br, gr.Config("g1", "3"), "OUTPUT", "답")
     assert br.calls[0]["guardrailIdentifier"] == "g1" and br.calls[0]["guardrailVersion"] == "3"
     assert br.calls[0]["source"] == "OUTPUT" and r.text_out == "답" and r.latency_ms >= 0
+
+
+def test_per_topic_enforce():
+    both = {"topicPolicy": {"topics": [
+        {"name": "tamper_request", "action": "BLOCKED"},
+        {"name": "internal_info", "action": "BLOCKED"}]}}
+    only_tamper = {"topicPolicy": {"topics": [{"name": "tamper_request", "action": "BLOCKED"}]}}
+    assert gr.parse(resp(**both), "x", {"internal_info"}).blocked
+    assert not gr.parse(resp(**only_tamper), "x", {"internal_info"}).blocked
+    assert gr.parse(resp(**only_tamper), "x", {"topics"}).blocked
+    assert gr.parse_enforce("prompt_attack,content,internal_info") == frozenset(
+        {"prompt_attack", "content", "internal_info"})

@@ -34,7 +34,7 @@
 |---|---|---|
 | `/tms/app/config/guardrail-id` | 가드레일 ID | Terraform |
 | `/tms/app/config/guardrail-version` | 버전 번호(예: `1`) | Terraform(새 버전이 생기면 따라감) |
-| `/tms/app/config/guardrail-enforce` | 적용 정책 쉼표 목록. 허용 값 `content`, `prompt_attack`, `topics`, `grounding`. 빈 값(`none`) = 모두 감지만 | Terraform 변수 `guardrail_enforce`(기본 `none`) |
+| `/tms/app/config/guardrail-enforce` | 적용 정책 쉼표 목록. 허용 값 `content`, `prompt_attack`, `grounding`, `topics`(주제 전부) 또는 주제 이름 `internal_info`·`tamper_request`. 빈 값(`none`) = 모두 감지만. `tamper_request`는 넣지 않는다(R3a) | Terraform 변수 `guardrail_enforce`(기본 `none`) |
 
 에이전트는 시작할 때 읽고 캐시한다(5분마다 다시 읽어도 됨). 개인정보 가림은 이 값과 상관없이 항상 적용.
 

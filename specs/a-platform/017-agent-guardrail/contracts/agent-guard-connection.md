@@ -27,7 +27,7 @@
 |---|---|
 | `/tms/app/config/guardrail-id` | `guardrailIdentifier` |
 | `/tms/app/config/guardrail-version` | `guardrailVersion` (`DRAFT` 쓰지 않음) |
-| `/tms/app/config/guardrail-enforce` | 적용할 정책 목록(`content,prompt_attack,topics,grounding` 중). `none` = 모두 감지만 |
+| `/tms/app/config/guardrail-enforce` | 적용할 정책 목록(`content`, `prompt_attack`, `grounding`, `topics` 또는 주제 이름 `internal_info`). `none` = 모두 감지만. `tamper_request`는 감지 신호로만 |
 
 리전 `ap-northeast-2`, 클라이언트 `bedrock-runtime`. 권한: `bedrock:ApplyGuardrail`(이 가드레일만, `tms-agent-guard/agent_access.tf`).
 
