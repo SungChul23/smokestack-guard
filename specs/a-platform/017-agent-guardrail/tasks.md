@@ -29,7 +29,7 @@
 - [X] T009 [P] [US1] `infra/stacks/tms-agent-guard/agent_access.tf`: `data "aws_iam_role" "app_server"`(이름 변수) + 인라인 정책 `tms-agent-guard`: `bedrock:ApplyGuardrail` — 가드레일 ARN, STANDARD면 `arn:aws:bedrock:*:<계정>:guardrail-profile/<프로필>`도 (research R5). 016 `agent_access.tf`처럼 tms-app 정책과 따로.
 - [X] T010 [US1] `terraform fmt -recursive`·`validate`(WSL `/mnt/c/terraform/terraform.exe`). `AGENTS.md` 저장소 구조에 `tms-agent-guard/`·`services/agent-guard/` 한 줄씩.
 - [X] T011 🧑 [US1] (2026-11-25 완료: 프로필 apac.guardrail.v1:0, provider는 프로필 ARN을 요구해 guardrail.tf에서 ARN으로 넘김, 가드레일 n60v40t6akh2 버전 1) 콘솔 교차 리전 화면에서 가드레일 프로필 ID 확인 → 다르면 변수 기본값 고침 → `terraform plan`(가드레일 1, 버전 1, SSM 3, 인라인 정책 1)·`apply` (quickstart §2).
-- [ ] T012 🧑 [US1] 서버(콘솔 Session Manager)에서 contracts "확인" 명령 → `GUARDRAIL_INTERVENED`·주제 `tamper_request`, 다른 가드레일 ID → AccessDenied (SC-005). 프로필 ARN 때문에 거부되면 T009 범위를 고치고 다시.
+- [X] T012 🧑 [US1] (2026-11-25: 서버에서 SSM 값으로 호출 → GUARDRAIL_INTERVENED·tamper_request. 없는 ID는 ValidationException(권한 검사 전 단계). 정책 시뮬레이터: Create·Update·DeleteGuardrail implicitDeny. ApplyGuardrail 자원 범위는 시뮬레이터가 자원 ARN을 해석하지 못해(템플릿 ARN으로 평가) plan의 정책 문서(가드레일·프로필 ARN 2개)로 확인) 서버(콘솔 Session Manager)에서 contracts "확인" 명령 → `GUARDRAIL_INTERVENED`·주제 `tamper_request`, 다른 가드레일 ID → AccessDenied (SC-005). 프로필 ARN 때문에 거부되면 T009 범위를 고치고 다시.
 
 **Checkpoint**: 서버가 SSM 값으로 검사할 수 있다.
 
@@ -49,8 +49,8 @@
 
 **목표**: 모드 값으로 정책별 차단 전환. **독립 확인**: 같은 문장이 `none`에선 원문, `topics`에선 차단 문구(개인정보는 둘 다 가림).
 
-- [ ] T018 [US3] `services/agent-guard/tests/test_guard_result.py`에 모드 전환 경우 추가(같은 응답을 `enforce = {}` / `{"topics"}` / `{"content"}`로) + `guard_eval.py --enforce` 옵션이 `text_out`만 바꾸고 판정은 그대로인지.
-- [ ] T019 [US3] `services/agent-guard/README.md`·quickstart §5: 차단으로 바꾸는 순서(운영 감지 확인 → `terraform apply -var guardrail_enforce=…` → 서버 반영 최대 5분 → 되돌리기).
+- [X] T018 [US3] (`test_per_topic_enforce`·`test_enforce_option_changes_text_only`로 확인) `services/agent-guard/tests/test_guard_result.py`에 모드 전환 경우 추가(같은 응답을 `enforce = {}` / `{"topics"}` / `{"content"}`로) + `guard_eval.py --enforce` 옵션이 `text_out`만 바꾸고 판정은 그대로인지.
+- [X] T019 [US3] `services/agent-guard/README.md`·quickstart §5: 차단으로 바꾸는 순서(운영 감지 확인 → `terraform apply -var guardrail_enforce=…` → 서버 반영 최대 5분 → 되돌리기).
 
 ## Phase 6: US5 - 막히거나 감지된 질문을 Dashboards에서 본다 (P1)
 
@@ -61,18 +61,18 @@
 - [X] T027 [P] [US5] `services/log-search/opensearch/index-templates/activity.json`: `json.properties`에 `question`(text + `fields.keyword` keyword ignore_above 256), `ms`(float), `layer`·`direction`·`action`·`reason`·`tool`·`guardrail_version`(keyword). `_meta`에 017. `tests/test_setup.py`에 새 필드 확인 한 줄.
 - [X] T028 [US5] `services/log-search/dashboards/guard.ndjson`: 인덱스 패턴은 기존 `activity` 참조. 저장된 검색 "에이전트 가드 · 최근 걸린 질문"(`json.event:agent_guard`, 열 layer·direction·action·reason·tool·question), "에이전트 가드 · 감지만"(`json.action:DETECTED`), 그래프: 사유별 건수(막대), 층별·동작별 시간 추이(선), 1차 놓침·2차 잡음 수(지표: `layer:guardrail and direction:INPUT and action:(BLOCKED or DETECTED)`), 호출 실패 수(`action:ERROR`), 대시보드 "에이전트 가드". 기존 ndjson 모양(014 `ops.ndjson`) 그대로.
 - [X] T029 [US5] `specs/a-platform/014-log-opensearch/spec.md`·`data-model.md`: FR-021·US3 시나리오 2·SC-009 문구를 "가드에 걸린 질문만 가린 앞 300자 28일"로 고치고 017 링크(research R11). `services/log-search/README.md`에 가드 기록·화면 한 줄.
-- [ ] T030 🧑 [US5] `tms-log-search` plan·apply(라우터 코드 변경) → `setup_opensearch.py`(틀 갱신) → Dashboards에서 `guard.ndjson` 가져오기 → 서버 로그 그룹에 가짜 가드 기록 한 줄 쓰기(가짜 개인정보 5종 포함, `aws logs put-log-events` 또는 서버에서 `logger`) → 5분 뒤 화면·가림 확인(SC-007). 틀은 다음 날 인덱스부터 적용되므로 `question` 낱말 검색은 다음 날 확인.
-- [ ] T031 📨 [US5] 팀 공지 초안: 가드에 걸린 질문(가린 앞 300자)을 28일 남기고 팀원이 Dashboards에서 볼 수 있음 → A 확인 뒤.
+- [X] T030 🧑 [US5] (2026-11-25: 라우터 apply, 화면 가져오기, 가짜 기록 26건 — 가림·패널 확인) `tms-log-search` plan·apply(라우터 코드 변경) → `setup_opensearch.py`(틀 갱신) → Dashboards에서 `guard.ndjson` 가져오기 → 서버 로그 그룹에 가짜 가드 기록 한 줄 쓰기(가짜 개인정보 5종 포함, `aws logs put-log-events` 또는 서버에서 `logger`) → 5분 뒤 화면·가림 확인(SC-007). 틀은 다음 날 인덱스부터 적용되므로 `question` 낱말 검색은 다음 날 확인.
+- [-] T031 📨 [US5] (2026-11-25 A 결정으로 하지 않음) 팀 공지 초안: 가드에 걸린 질문(가린 앞 300자)을 28일 남기고 팀원이 Dashboards에서 볼 수 있음 → A 확인 뒤.
 
 ## Phase 7: US4 - D에게 연결 방법 전달 (P2)
 
-- [ ] T020 [US4] `contracts/agent-guard-connection.md`를 구현 결과로 맞춘다(실제 함수 이름·반환 필드, 시험 기록의 실측 지연·비용, 프로필 ID).
+- [X] T020 [US4] (D 작업 순서 체크리스트·실측 지연·비용·정규식 수정 1건 추가) `contracts/agent-guard-connection.md`를 구현 결과로 맞춘다(실제 함수 이름·반환 필드, 시험 기록의 실측 지연·비용, 프로필 ID).
 - [ ] T021 📨 [US4] #66 댓글 초안(연결 문서 링크, SSM 이름 3개, `guard_result.py` 복사 방법, 부를 두 곳, 실패 시 동작, 처음엔 `none`) → A 확인 뒤 게시.
 
 ## Phase 8: Polish
 
-- [ ] T022 [P] `specs/a-platform/017-agent-guardrail/research.md`: 시험으로 확인한 사실 반영(Standard 한국어 탐지 결과, 관리형 PHONE의 한국 번호 탐지 여부, 프로필 ARN 권한 형식, 실측 비용).
-- [ ] T023 🧑 콘솔에서 만든 시험용 가드레일 삭제(Terraform 것이 정본, quickstart §6).
+- [X] T022 [P] (research R13) `specs/a-platform/017-agent-guardrail/research.md`: 시험으로 확인한 사실 반영(Standard 한국어 탐지 결과, 관리형 PHONE의 한국 번호 탐지 여부, 프로필 ARN 권한 형식, 실측 비용).
+- [X] T023 🧑 (해당 없음: 콘솔에서 따로 만든 가드레일 없음) 콘솔에서 만든 시험용 가드레일 삭제(Terraform 것이 정본, quickstart §6).
 - [ ] T024 PR 초안(spec부터 읽는 순서, 커밋 고정 링크) → A 확인 뒤 생성, `Closes #86`.
 
 ## Dependencies
