@@ -1,0 +1,23 @@
+[project]
+name = "tms-agent-guard"
+version = "0.1.0"
+description = "에이전트 가드레일 2차 검사: 응답 해석 규칙과 시험 도구 (spec 017)"
+requires-python = ">=3.11"
+dependencies = ["boto3", "pyyaml"]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[tool.setuptools]
+py-modules = []
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
