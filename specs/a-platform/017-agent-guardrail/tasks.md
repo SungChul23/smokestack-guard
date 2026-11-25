@@ -52,12 +52,24 @@
 - [ ] T018 [US3] `services/agent-guard/tests/test_guard_result.py`에 모드 전환 경우 추가(같은 응답을 `enforce = {}` / `{"topics"}` / `{"content"}`로) + `guard_eval.py --enforce` 옵션이 `text_out`만 바꾸고 판정은 그대로인지.
 - [ ] T019 [US3] `services/agent-guard/README.md`·quickstart §5: 차단으로 바꾸는 순서(운영 감지 확인 → `terraform apply -var guardrail_enforce=…` → 서버 반영 최대 5분 → 되돌리기).
 
-## Phase 6: US4 - D에게 연결 방법 전달 (P2)
+## Phase 6: US5 - 막히거나 감지된 질문을 Dashboards에서 본다 (P1)
+
+**목표**: 가드 기록 → 활동 인덱스(가림) → "에이전트 가드" 화면. **독립 확인**: 기록 한 줄이 5분 안에 화면에, 가짜 개인정보 5종은 저장본에서 가려짐(SC-007).
+
+- [ ] T025 [P] [US5] `services/log-search/tests/test_router.py`: 활동 문서(`event = agent_guard`)의 `json.question`과 `message`에서 가짜 주민번호·카드·휴대폰·유선·이메일이 `[주민번호]` 등으로 바뀜, 가림 표시가 이미 있는 문장은 그대로, 측정값·날짜(`2026-11-12`, `32.5`)는 안 바뀜, 활동이 아닌 문서는 손대지 않음.
+- [ ] T026 [US5] `services/log-search/router.py`: 활동 문서에만 개인정보 가림 함수 적용(`json.question`, `message`). 패턴은 D `_PII`와 같게, 머리 주석에 017 FR-020. 라우터 패키지 다시 만들기(`build/router.zip`은 Terraform이 만듦 — 014 방식 확인).
+- [ ] T027 [P] [US5] `services/log-search/opensearch/index-templates/activity.json`: `json.properties`에 `question`(text + `fields.keyword` keyword ignore_above 256), `ms`(float), `layer`·`direction`·`action`·`reason`·`tool`·`guardrail_version`(keyword). `_meta`에 017. `tests/test_setup.py`에 새 필드 확인 한 줄.
+- [ ] T028 [US5] `services/log-search/dashboards/guard.ndjson`: 인덱스 패턴은 기존 `activity` 참조. 저장된 검색 "에이전트 가드 · 최근 걸린 질문"(`json.event:agent_guard`, 열 layer·direction·action·reason·tool·question), "에이전트 가드 · 감지만"(`json.action:DETECTED`), 그래프: 사유별 건수(막대), 층별·동작별 시간 추이(선), 1차 놓침·2차 잡음 수(지표: `layer:guardrail and direction:INPUT and action:(BLOCKED or DETECTED)`), 호출 실패 수(`action:ERROR`), 대시보드 "에이전트 가드". 기존 ndjson 모양(014 `ops.ndjson`) 그대로.
+- [ ] T029 [US5] `specs/a-platform/014-log-opensearch/spec.md`·`data-model.md`: FR-021·US3 시나리오 2·SC-009 문구를 "가드에 걸린 질문만 가린 앞 300자 28일"로 고치고 017 링크(research R11). `services/log-search/README.md`에 가드 기록·화면 한 줄.
+- [ ] T030 🧑 [US5] `tms-log-search` plan·apply(라우터 코드 변경) → `setup_opensearch.py`(틀 갱신) → Dashboards에서 `guard.ndjson` 가져오기 → 서버 로그 그룹에 가짜 가드 기록 한 줄 쓰기(가짜 개인정보 5종 포함, `aws logs put-log-events` 또는 서버에서 `logger`) → 5분 뒤 화면·가림 확인(SC-007). 틀은 다음 날 인덱스부터 적용되므로 `question` 낱말 검색은 다음 날 확인.
+- [ ] T031 📨 [US5] 팀 공지 초안: 가드에 걸린 질문(가린 앞 300자)을 28일 남기고 팀원이 Dashboards에서 볼 수 있음 → A 확인 뒤.
+
+## Phase 7: US4 - D에게 연결 방법 전달 (P2)
 
 - [ ] T020 [US4] `contracts/agent-guard-connection.md`를 구현 결과로 맞춘다(실제 함수 이름·반환 필드, 시험 기록의 실측 지연·비용, 프로필 ID).
 - [ ] T021 📨 [US4] #66 댓글 초안(연결 문서 링크, SSM 이름 3개, `guard_result.py` 복사 방법, 부를 두 곳, 실패 시 동작, 처음엔 `none`) → A 확인 뒤 게시.
 
-## Phase 7: Polish
+## Phase 8: Polish
 
 - [ ] T022 [P] `specs/a-platform/017-agent-guardrail/research.md`: 시험으로 확인한 사실 반영(Standard 한국어 탐지 결과, 관리형 PHONE의 한국 번호 탐지 여부, 프로필 ARN 권한 형식, 실측 비용).
 - [ ] T023 🧑 콘솔에서 만든 시험용 가드레일 삭제(Terraform 것이 정본, quickstart §6).
@@ -65,14 +77,15 @@
 
 ## Dependencies
 
-- Setup(T001~T004) → Foundational(T005~T006) → US1(T007~T012) → US2(T013~T017) → US3·US4 → Polish.
+- Setup(T001~T004) → Foundational(T005~T006) → US1(T007~T012) → US2(T013~T017) → US3·US5·US4 → Polish.
+- US5(T025~T031)는 가드레일과 독립이라 US1과 같이 해도 된다(라우터·틀·화면은 가짜 기록으로 확인).
 - US2의 실제 시험(T016)은 US1 apply(T011) 뒤. 단, 콘솔 시험 가드레일이 있으면 `--guardrail-id … --version DRAFT`로 먼저 돌릴 수 있다.
 - #84(016) 머지와 무관. D 머지와 무관(T017만 D 파일 필요, 선택).
 
 ## Parallel
 
-- T002·T003 / T005·(T004) / T008·T009(T007과 다른 파일, 참조만) / T013·T014.
+- T002·T003 / T005·(T004) / T008·T009(T007과 다른 파일, 참조만) / T013·T014 / T025·T027·T028.
 
 ## Implementation Strategy
 
-MVP = US1 + US2: 가드레일을 만들고 시험 기록으로 "정상 질문을 막지 않는다"를 확인한 상태. 이 상태에서 D에게 감지만(`none`)으로 붙이게 넘길 수 있다. US3(차단 전환)는 운영 감지를 본 뒤.
+MVP = US1 + US2 + US5: 가드레일을 만들고 시험 기록으로 "정상 질문을 막지 않는다"를 확인하고, 감지 결과를 볼 화면까지 있는 상태. 이 상태에서 D에게 감지만(`none`)으로 붙이게 넘긴다. US3(차단 전환)는 Dashboards의 운영 감지를 본 뒤 정책별로.

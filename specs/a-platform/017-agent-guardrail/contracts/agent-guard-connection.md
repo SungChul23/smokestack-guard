@@ -76,6 +76,22 @@ br.apply_guardrail(
 
 정책 이름: 유해 내용 `HATE`·`INSULTS`·`SEXUAL`·`VIOLENCE`·`MISCONDUCT`, `PROMPT_ATTACK`, 주제 `tamper_request`·`internal_info`, 근거 확인 `GROUNDING`·`RELEVANCE`.
 
+## 기록 남기기 (Dashboards "에이전트 가드")
+
+막거나 감지·가림·실패할 때마다 서버 로그에 JSON 한 줄(`print`/로거, 표준 출력 → CloudWatch → 활동 인덱스). 형식은 [data-model §7](../data-model.md).
+
+```python
+log.info(json.dumps({"log_type": "activity", "event": "agent_guard",
+    "layer": "guardrail", "direction": "INPUT", "action": "BLOCKED" if r.blocked else "DETECTED",
+    "reason": ",".join(h.name for h in r.hits), "tool": tool or "none", "sub": sub,
+    "guardrail_version": cfg.version, "question": masked_question[:300], "ms": r.latency_ms},
+    ensure_ascii=False))
+```
+
+- D 1차가 막을 때도 같은 형식(`layer = "regex"`, `reason` = D 사유 코드, `action = "BLOCKED"`). 잡담 분기는 남기지 않는다.
+- 걸리지 않은 질문은 남기지 않는다.
+- 문장은 `check_input`이 가린 것을 넣는다. 저장 전에 라우터가 한 번 더 가린다.
+
 ## 꼭 지킬 것
 
 1. **②에는 `check_input`이 가린 문장을 넘긴다.** 원문 개인정보를 바깥 호출에 보내지 않는다.

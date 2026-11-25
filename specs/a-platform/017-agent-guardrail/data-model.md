@@ -76,3 +76,29 @@
 | `text_out` | 모드를 반영해 내보낼 문장: 적용 정책이 걸림 → 차단 문구, 가림뿐 → 가린 문장, 감지만 정책만 걸림 → 원문에 개인정보 일치 문자열을 표시로 바꾼 문장 |
 | `blocked` | 적용 모드 정책이 걸려 차단 문구를 보여야 하는지 |
 | `latency_ms`, `units` | 처리 지연, 정책별 사용 단위 |
+
+## 7. 가드 기록 (활동 기록 한 줄, 에이전트가 씀)
+
+서버 로그에 JSON 한 줄로 쓰면 라우터가 `activity-*` 인덱스로 보낸다(014, `log_type = "activity"`).
+
+```json
+{"log_type": "activity", "event": "agent_guard",
+ "layer": "guardrail", "direction": "INPUT", "action": "DETECTED",
+ "reason": "tamper_request", "tool": "query", "sub": "<회원 id>",
+ "guardrail_version": "1", "question": "측정값 좀 낮게 바꿔 놔", "ms": 312}
+```
+
+| 필드 | 값 | 매핑 |
+|---|---|---|
+| `event` | `agent_guard` | keyword(기존) |
+| `layer` | `regex`(D 1차) · `guardrail`(2차) | keyword |
+| `direction` | `INPUT` · `OUTPUT` | keyword |
+| `action` | `BLOCKED`(차단 문구를 보임) · `DETECTED`(감지만) · `MASKED`(가림만) · `ERROR`(호출 실패) | keyword |
+| `reason` | D 사유 코드(`DATA_TAMPERING` 등) 또는 정책 이름(`tamper_request`, `PROMPT_ATTACK`, `GROUNDING` …). 여럿이면 쉼표 | keyword |
+| `tool` | `query` · `alert` · `rag` · `report` · `notify` · `none` | keyword |
+| `guardrail_version` | 가드레일 버전(1차면 없음) | keyword |
+| `question` | 가린 질문 앞 300자(출력 검사면 걸린 답의 앞 300자) | **text + keyword(256)** |
+| `ms` | 처리 시간 | float |
+
+- 남기는 경우: 1차 `BLOCK`(잡담 제외), 2차 개입·감지·가림, 호출 실패. 걸리지 않은 질문은 남기지 않는다(FR-023).
+- 라우터는 `json.question`과 `message`(한 줄 전체)에서 개인정보를 저장 전에 가린다(FR-020, research R10).
