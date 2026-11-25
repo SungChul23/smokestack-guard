@@ -43,3 +43,11 @@ def test_dry_run_prints_steps(capsys):
     assert s.main(["--dry-run", "--account", "123456789012"]) == 0
     out = capsys.readouterr().out
     assert "인덱스 템플릿 logs-app" in out and "모니터 errors-burst" in out and "ops.ndjson" in out
+
+
+def test_activity_template_has_agent_guard_fields():
+    props = s.load(HERE / "opensearch/index-templates/activity.json")["template"]["mappings"]["properties"]
+    j = props["json"]["properties"]
+    assert j["question"]["type"] == "text" and j["question"]["fields"]["keyword"]["type"] == "keyword"
+    assert j["ms"]["type"] == "float"
+    assert all(j[k]["type"] == "keyword" for k in ("layer", "direction", "action", "reason", "tool"))

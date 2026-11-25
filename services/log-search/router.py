@@ -13,6 +13,10 @@ Firehose는 CloudWatch Logs 묶음을 OpenSearch에 직접 넣지 못한다(여�
 - 그 밖(Lambda·Glue·Step Functions) → STREAM_PIPELINE
 
 로그 본문은 그대로 옮길 뿐 이 함수가 따로 로그에 찍지 않는다(요약만).
+
+활동 기록(STREAM_ACTIVITY)은 보내기 전에 개인정보(주민번호·카드·전화·이메일)를 가린다(017 FR-020).
+에이전트 가드 기록(event=agent_guard)에는 가드에 걸린 질문 문장(앞 300자)이 들어오므로, 에이전트가
+가렸더라도 저장 직전에 한 번 더 가린다. `message`(한 줄 원문)와 `json.question` 둘 다.
 """
 
 from __future__ import annotations
@@ -36,6 +40,14 @@ _LEVEL_WORDS = ("CRITICAL", "ERROR", "WARNING", "WARN", "INFO", "DEBUG")
 _LEVEL_RE = re.compile(r"\[(CRITICAL|ERROR|WARNING|WARN|INFO|DEBUG)\]|^(CRITICAL|ERROR|WARNING|WARN|INFO|DEBUG)[: ]")
 _ERROR_HINTS = ("Traceback (most recent call last)", "Task timed out", "Runtime.ExitError", "Exception:")
 _FAILED_SFN = {"FAILED", "TIMED_OUT", "ABORTED"}
+
+# D(check_input)와 같은 표시. \b 대신 숫자 앞뒤 검사 — 한글이 바로 붙어도("010-…로") 가린다.
+_PII = [
+    ("[주민번호]", re.compile(r"(?<!\d)\d{6}[-\s]?[1-4]\d{6}(?!\d)")),
+    ("[카드번호]", re.compile(r"(?<!\d)(?:\d{4}[-\s]?){3}\d{4}(?!\d)")),
+    ("[전화번호]", re.compile(r"(?<!\d)0\d{1,2}[-\s]?\d{3,4}[-\s]?\d{4}(?!\d)")),
+    ("[이메일]", re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")),
+]
 
 
 # ---------------------------------------------------------------------------
@@ -76,6 +88,21 @@ def guess_level(message: str, parsed: dict | None) -> str:
     if m:
         return _norm_level(m.group(1) or m.group(2))
     return "INFO"
+
+
+def mask_pii(text: str) -> str:
+    for label, pattern in _PII:
+        text = pattern.sub(label, text)
+    return text
+
+
+def _mask_activity(doc: dict) -> dict:
+    """활동 문서의 한 줄 원문과 질문 문장에서 개인정보를 가린다."""
+    doc["message"] = mask_pii(doc["message"])
+    q = doc.get("json", {}).get("question")
+    if isinstance(q, str):
+        doc["json"]["question"] = mask_pii(q)
+    return doc
 
 
 def _parse_json(message: str) -> dict | None:
@@ -123,6 +150,7 @@ def from_cloudwatch(event: dict) -> list[tuple[str, dict]]:
             doc["json"] = parsed
         if is_app and parsed is not None and parsed.get("log_type") == "activity":
             target = STREAM_ACTIVITY
+            doc = _mask_activity(doc)
         elif is_app:
             target = STREAM_APP
         else:

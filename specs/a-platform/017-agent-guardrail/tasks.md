@@ -56,11 +56,11 @@
 
 **목표**: 가드 기록 → 활동 인덱스(가림) → "에이전트 가드" 화면. **독립 확인**: 기록 한 줄이 5분 안에 화면에, 가짜 개인정보 5종은 저장본에서 가려짐(SC-007).
 
-- [ ] T025 [P] [US5] `services/log-search/tests/test_router.py`: 활동 문서(`event = agent_guard`)의 `json.question`과 `message`에서 가짜 주민번호·카드·휴대폰·유선·이메일이 `[주민번호]` 등으로 바뀜, 가림 표시가 이미 있는 문장은 그대로, 측정값·날짜(`2026-11-12`, `32.5`)는 안 바뀜, 활동이 아닌 문서는 손대지 않음.
-- [ ] T026 [US5] `services/log-search/router.py`: 활동 문서에만 개인정보 가림 함수 적용(`json.question`, `message`). 패턴은 D `_PII`와 같게, 머리 주석에 017 FR-020. 라우터 패키지 다시 만들기(`build/router.zip`은 Terraform이 만듦 — 014 방식 확인).
-- [ ] T027 [P] [US5] `services/log-search/opensearch/index-templates/activity.json`: `json.properties`에 `question`(text + `fields.keyword` keyword ignore_above 256), `ms`(float), `layer`·`direction`·`action`·`reason`·`tool`·`guardrail_version`(keyword). `_meta`에 017. `tests/test_setup.py`에 새 필드 확인 한 줄.
-- [ ] T028 [US5] `services/log-search/dashboards/guard.ndjson`: 인덱스 패턴은 기존 `activity` 참조. 저장된 검색 "에이전트 가드 · 최근 걸린 질문"(`json.event:agent_guard`, 열 layer·direction·action·reason·tool·question), "에이전트 가드 · 감지만"(`json.action:DETECTED`), 그래프: 사유별 건수(막대), 층별·동작별 시간 추이(선), 1차 놓침·2차 잡음 수(지표: `layer:guardrail and direction:INPUT and action:(BLOCKED or DETECTED)`), 호출 실패 수(`action:ERROR`), 대시보드 "에이전트 가드". 기존 ndjson 모양(014 `ops.ndjson`) 그대로.
-- [ ] T029 [US5] `specs/a-platform/014-log-opensearch/spec.md`·`data-model.md`: FR-021·US3 시나리오 2·SC-009 문구를 "가드에 걸린 질문만 가린 앞 300자 28일"로 고치고 017 링크(research R11). `services/log-search/README.md`에 가드 기록·화면 한 줄.
+- [X] T025 [P] [US5] `services/log-search/tests/test_router.py`: 활동 문서(`event = agent_guard`)의 `json.question`과 `message`에서 가짜 주민번호·카드·휴대폰·유선·이메일이 `[주민번호]` 등으로 바뀜, 가림 표시가 이미 있는 문장은 그대로, 측정값·날짜(`2026-11-12`, `32.5`)는 안 바뀜, 활동이 아닌 문서는 손대지 않음.
+- [X] T026 [US5] `services/log-search/router.py`: 활동 문서에만 개인정보 가림 함수 적용(`json.question`, `message`). 패턴은 D `_PII`와 같게, 머리 주석에 017 FR-020. 라우터 패키지 다시 만들기(`build/router.zip`은 Terraform이 만듦 — 014 방식 확인).
+- [X] T027 [P] [US5] `services/log-search/opensearch/index-templates/activity.json`: `json.properties`에 `question`(text + `fields.keyword` keyword ignore_above 256), `ms`(float), `layer`·`direction`·`action`·`reason`·`tool`·`guardrail_version`(keyword). `_meta`에 017. `tests/test_setup.py`에 새 필드 확인 한 줄.
+- [X] T028 [US5] `services/log-search/dashboards/guard.ndjson`: 인덱스 패턴은 기존 `activity` 참조. 저장된 검색 "에이전트 가드 · 최근 걸린 질문"(`json.event:agent_guard`, 열 layer·direction·action·reason·tool·question), "에이전트 가드 · 감지만"(`json.action:DETECTED`), 그래프: 사유별 건수(막대), 층별·동작별 시간 추이(선), 1차 놓침·2차 잡음 수(지표: `layer:guardrail and direction:INPUT and action:(BLOCKED or DETECTED)`), 호출 실패 수(`action:ERROR`), 대시보드 "에이전트 가드". 기존 ndjson 모양(014 `ops.ndjson`) 그대로.
+- [X] T029 [US5] `specs/a-platform/014-log-opensearch/spec.md`·`data-model.md`: FR-021·US3 시나리오 2·SC-009 문구를 "가드에 걸린 질문만 가린 앞 300자 28일"로 고치고 017 링크(research R11). `services/log-search/README.md`에 가드 기록·화면 한 줄.
 - [ ] T030 🧑 [US5] `tms-log-search` plan·apply(라우터 코드 변경) → `setup_opensearch.py`(틀 갱신) → Dashboards에서 `guard.ndjson` 가져오기 → 서버 로그 그룹에 가짜 가드 기록 한 줄 쓰기(가짜 개인정보 5종 포함, `aws logs put-log-events` 또는 서버에서 `logger`) → 5분 뒤 화면·가림 확인(SC-007). 틀은 다음 날 인덱스부터 적용되므로 `question` 낱말 검색은 다음 날 확인.
 - [ ] T031 📨 [US5] 팀 공지 초안: 가드에 걸린 질문(가린 앞 300자)을 28일 남기고 팀원이 Dashboards에서 볼 수 있음 → A 확인 뒤.
 

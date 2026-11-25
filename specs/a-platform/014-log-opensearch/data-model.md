@@ -40,7 +40,7 @@
 | `json.target` | keyword | 즐겨찾기 대상 id(`favorite_*`만) |
 | `json.sub` | keyword | 회원 id |
 
-이메일·이름·초대 코드 입력값·질문 원문은 없다(FR-021).
+이메일·이름·초대 코드 입력값·질문 원문은 없다(FR-021). 예외: 에이전트 가드 기록(`event = agent_guard`)은 가린 질문 앞 300자를 `json.question`에 둔다 — 형식은 [017 data-model §7](../017-agent-guardrail/data-model.md), 라우터가 저장 전에 개인정보를 다시 가린다.
 
 ## 보관 정책 (ISM)
 
