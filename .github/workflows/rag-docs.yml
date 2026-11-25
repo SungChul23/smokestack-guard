@@ -1,0 +1,37 @@
+name: rag-docs
+
+# RAG 근거 문서(A, 016): 메타데이터·업로드·질문 도구 시험.
+on:
+  push:
+    paths:
+      - "services/rag-docs/**"
+      - ".github/workflows/rag-docs.yml"
+  pull_request:
+    paths:
+      - "services/rag-docs/**"
+      - ".github/workflows/rag-docs.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/rag-docs
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -r requirements.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: pytest -q

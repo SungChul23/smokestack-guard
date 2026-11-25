@@ -1,4 +1,4 @@
-"""OpenSearch 도메인 안 설정을 저장소 정의대로 맞춘다 (specs/a-platform/014-log-opensearch, research R5).
+"""OpenSearch 도메인 안 설정을 저장소 정의대로 맞춘다 (specs/a-platform/014-log-opensearch R5, 016-rag-knowledge-base).
 
 사람(A)이 실행한다. 도메인을 지웠다 다시 만들어도 이 명령 한 번이면 같은 상태가 된다(멱등).
 
@@ -8,12 +8,15 @@
 적용 순서
   1. 인덱스 템플릿 3개 (opensearch/index-templates)
   2. 보관 정책 ISM 2개 (opensearch/ism) — 이미 있으면 seq_no로 갱신
-  3. 역할 firehose_writer (opensearch/roles)
-  4. 역할 매핑: firehose_writer ← Firehose 역할, readall·opensearch_dashboards_user·reports_writer ← 뷰어 역할
+  3. 인덱스 rag-docs (opensearch/indices, 016 RAG 벡터 저장소) — 있으면 건너뛴다(덮어쓰지 않음).
+     매핑을 바꾸려면 사람이 DELETE rag-docs 뒤 다시 실행하고 지식 기반을 재동기화한다
+  4. 역할 firehose_writer, reports_writer, rag_kb_writer (opensearch/roles)
+  5. 역할 매핑: firehose_writer ← Firehose 역할, readall·opensearch_dashboards_user·reports_writer ← 뷰어 역할,
+     rag_kb_writer ← 지식 기반 역할 tms-rag-kb (016, rag-docs*만)
      (reports_writer: 대시보드 PDF·PNG 보고서. 이 도메인에는 기본 reports_full_access가 없어 opensearch/roles에서 만든다)
      (관리자 all_access는 도메인 마스터 = Terraform을 apply한 IAM 사용자라 따로 매핑하지 않음)
-  5. 알림 채널(SNS 운영 토픽) + 모니터 errors-burst (opensearch/monitors)
-  6. (사람) Dashboards 저장 객체: dashboards/*.ndjson을 Dashboards > Stack Management > Saved objects > Import
+  6. 알림 채널(SNS 운영 토픽) + 모니터 errors-burst (opensearch/monitors)
+  7. (사람) Dashboards 저장 객체: dashboards/*.ndjson을 Dashboards > Stack Management > Saved objects > Import
 
 요청은 실행하는 사람의 AWS 자격 증명으로 SigV4 서명한다(FGAC 마스터 = 도메인을 만든 A의 IAM 사용자로 실행).
 비밀값을 다루지 않는다.
@@ -38,6 +41,7 @@ ROLES = {
     "firehose": "tms-logs-firehose",
     "viewer": "tms-logs-viewer",
     "sns": "tms-logs-sns",
+    "rag_kb": "tms-rag-kb",
 }
 
 
@@ -56,6 +60,8 @@ def plan(account: str) -> list[tuple[str, str, str, dict | None]]:
         steps.append((f"인덱스 템플릿 {f.stem}", "PUT", f"/_index_template/{f.stem}", load(f)))
     for f in sorted((DEFS / "ism").glob("*.json")):
         steps.append((f"보관 정책 {f.stem}", "ISM", f"/_plugins/_ism/policies/{f.stem}", load(f)))
+    for f in sorted((DEFS / "indices").glob("*.json")):
+        steps.append((f"인덱스 {f.stem}", "INDEX", f"/{f.stem}", load(f)))
     for f in sorted((DEFS / "roles").glob("*.json")):
         steps.append((f"역할 {f.stem}", "PUT", f"/_plugins/_security/api/roles/{f.stem}", load(f)))
     mappings = {
@@ -63,10 +69,11 @@ def plan(account: str) -> list[tuple[str, str, str, dict | None]]:
         "readall": [role_arn(account, "viewer")],
         "opensearch_dashboards_user": [role_arn(account, "viewer")],
         "reports_writer": [role_arn(account, "viewer")],
+        "rag_kb_writer": [role_arn(account, "rag_kb")],
     }
     for role, arns in mappings.items():
         steps.append((f"역할 매핑 {role}", "PUT", f"/_plugins/_security/api/rolesmapping/{role}",
-                      {"backend_roles": arns, "description": "014 setup_opensearch.py"}))
+                      {"backend_roles": arns, "description": "014·016 setup_opensearch.py"}))
     channel = {"config_id": CHANNEL_ID, "config": {
         "name": "운영 메일 (tms-collector-alerts)", "config_type": "sns",
         "sns": {"topic_arn": f"arn:aws:sns:{REGION}:{account}:{ALERT_TOPIC}", "role_arn": role_arn(account, "sns")}}}
@@ -113,6 +120,12 @@ def apply_step(c: Client, kind: str, path: str, body: dict) -> str:
     if kind == "PUT":
         status, out = c.call("PUT", path, body)
         return _ok(status, out)
+    if kind == "INDEX":
+        status, _ = c.call("HEAD", path)
+        if status == 200:
+            return "있음(건너뜀)"
+        status, out = c.call("PUT", path, body)
+        return "생성 " + _ok(status, out)
     if kind == "ISM":
         status, cur = c.call("GET", path)
         if status == 200:
