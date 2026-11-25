@@ -1,0 +1,14 @@
+# Specification Quality Checklist: 405 대만 CEMS·국내 실측·합성 데이터 혼합
+
+**Feature** [spec.md](../spec.md) · [Issue #58](https://github.com/SungChul23/smokestack-guard/issues/58)
+
+## Content Quality
+
+- [x] 목적·기능 범위·인수 조건을 설명한다.
+- [x] 명세, 구현 근거, 검증 작업을 분리했다.
+
+## Requirement Completeness
+
+- [x] 요구사항과 인수 조건을 확인 가능한 문장으로 작성했다.
+- [x] 확정 정책과 미검증 사항을 구분했다.
+- [ ] [tasks.md](../tasks.md)의 인수 검증 증거가 확인됐다.
