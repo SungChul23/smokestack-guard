@@ -26,6 +26,8 @@
 /infra/stacks/tms-dashboard-load/ @SungChul23
 /infra/stacks/tms-log-search/   @SungChul23
 /services/log-search/          @SungChul23
+/infra/stacks/tms-rag/          @SungChul23
+/services/rag-docs/             @SungChul23
 /services/dashboard-load/       @SungChul23 @jaeyan42
 
 # D — 대시보드·에이전트 앱 (부담당 A가 배포 길 관리)

@@ -1,0 +1,31 @@
+{
+  "description": "Bedrock 지식 기반이 rag-docs에 쓰고 검색한다 (016). AWS 문서 권장 목록(kb-osm-permissions-console-fgap) + 매핑 조회. 로그 인덱스 권한 없음",
+  "cluster_permissions": [
+    "cluster_composite_ops",
+    "cluster_monitor",
+    "indices:data/read/msearch",
+    "indices:data/write/bulk*",
+    "indices:data/read/mget*"
+  ],
+  "index_permissions": [
+    {
+      "index_patterns": ["rag-docs*"],
+      "allowed_actions": [
+        "crud",
+        "create_index",
+        "indices:admin/get",
+        "indices:admin/mappings/get",
+        "indices:admin/mapping/put",
+        "indices:data/read/msearch",
+        "indices:data/read/search",
+        "indices:data/read/mget*",
+        "indices:data/write/index",
+        "indices:data/write/update",
+        "indices:data/write/delete",
+        "indices:data/write/delete/byquery",
+        "indices:data/write/bulk*"
+      ]
+    }
+  ],
+  "tenant_permissions": []
+}
