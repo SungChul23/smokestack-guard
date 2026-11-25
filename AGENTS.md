@@ -64,6 +64,7 @@ infra/
 │   ├── tms-synthetic/    # 학습용 합성 K-TMS 적재: 30분 예약 실행 + Lambda + 실패 보관함(SQS) + 알람
 │   ├── tms-foundation/   # 서비스: Route 53 영역, GitHub OIDC, 비용 알림
 │   ├── tms-network/      # 서비스: VPC, 서브넷, NAT, 보안그룹
+│   ├── tms-agent-guard/  # 에이전트 가드레일(Bedrock Guardrails, 2차 검사) + 버전 + SSM 설정 3개 + 서버 ApplyGuardrail 권한 (017)
 │   ├── tms-serving/      # 서비스: 인증서, CloudFront + S3 화면, Cognito
 │   ├── tms-database/     # 서비스: RDS PostgreSQL + 배스천
 │   ├── tms-app/          # 서비스: ECR, 서버 ASG, ALB, 배포 역할
@@ -77,6 +78,7 @@ services/
 ├── tms-missing-rate/     # 전날 슬롯 누락률 리포트 Lambda 코드
 ├── tms-eda/              # JSONL → Parquet 변환 Glue 스크립트 + 백필 명령
 ├── tms-silver/           # Silver Glue 진입 스크립트 + 계약 검사 Lambda + 일괄 실행 명령 (TW CEMS, K-TMS)
+├── agent-guard/          # 가드레일 응답 해석 규칙(guard_result, 에이전트도 같은 규칙) + 시험 문장·시험 도구 (A, 017)
 ├── dashboard-{api,agent,web}/  # 대시보드·에이전트 앱 (D)
 ├── dashboard-load/       # 관측 RDS 적재 Lambda + DB 마이그레이션 SQL + 사람 명령(migrate·load-ref·backfill) (A, 012)
 └── log-search/           # 로그 라우터 Lambda + OpenSearch 설정 정의·스크립트 + Dashboards 저장 객체 (A, 014)
