@@ -27,7 +27,7 @@ from smokestack_guard.silver.ml_ready import (
     FEATURE_VERSION,
     LABEL_VERSION,
     LAGS,
-    ML_ITEMS,
+    items_for,
     QUALITY_POLICY_VERSION,
     WINDOW,
     default_data_source,
@@ -58,11 +58,12 @@ META_COLUMNS = ["data_source"]
 # ---------------------------------------------------------------------------
 
 
-def normalize(silver: DataFrame) -> DataFrame:
+def normalize(silver: DataFrame, data_source: str | None = None) -> DataFrame:
     """Silver → (stack_code, item_code, measured_at, ratio_pct, measure_value, standard_value)."""
     cols = set(silver.columns)
-    df = silver.where((F.col("status") == "ok") & F.col("item").isin(*ML_ITEMS))
-    if "unit" in cols:  # ktms has no unit column; its nox/sox are taken as ppm
+    data_source = data_source or default_data_source(silver.columns)
+    df = silver.where((F.col("status") == "ok") & F.col("item").isin(*items_for(data_source)))
+    if "unit" in cols:  # ktms has no unit column; its items are taken as ppm
         df = df.where(F.col("unit") == "ppm")
     if "ts_local" in cols:  # tw_cems: Taiwan wall clock
         clock, stack = F.col("ts_local"), F.col("stack_code")
@@ -229,8 +230,9 @@ def cast_contract(df: DataFrame) -> DataFrame:
 
 
 def to_ml_ready(silver: DataFrame, data_source: str | None = None) -> DataFrame:
-    deduped, _ = dedupe(normalize(silver))
-    return add_features(deduped, data_source or default_data_source(silver.columns))
+    data_source = data_source or default_data_source(silver.columns)
+    deduped, _ = dedupe(normalize(silver, data_source))
+    return add_features(deduped, data_source)
 
 
 def ml_ready_stats(df: DataFrame) -> dict:
