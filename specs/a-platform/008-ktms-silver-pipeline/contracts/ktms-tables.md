@@ -89,7 +89,7 @@ aws s3 cp s3://smokestack-tms-raw-952900391026/silver2/_runs/ktms_ml_ready_check
 
 - 합성 테이블(`ktms_synthetic*`)은 B의 생성기에 따라 이름·구조가 정해진다. 생기면 이 문서에 추가한다.
 - 컬럼 의미가 바뀌면 C의 PR과 `feature_version`, `label_version`, `quality_policy_version` 값으로 알린다.
-- **`partial_history_usable` 컬럼 (C #49):** 맨 끝에 붙는 boolean(37번째). 직전 3시간 중 일부가 비어 `classification_eligible`은 false지만 라벨과 직전 30분 값이 있는 행이다(기준값 변경이 없을 때). 빈 칸은 NaN 그대로이고 `classification_eligible`과 겹치지 않는다. **SOx에만 쓴다**: NOx는 도은 님이 결측 행을 빼고 진행하므로 `classification_eligible`만 쓴다(방향이 바뀌면 이 문서를 고친다). 다시 계산하기 전 행은 null이다. 근거: 11/22~24 재검증에서 SOx는 방향이 같고 양성이 적어 누적 중이다(`부분이력_재검증_누적`).
+- **`partial_history_usable` 컬럼 (C #49):** 맨 끝에 붙는 boolean(37번째). 직전 3시간 중 일부가 비어 `classification_eligible`은 false지만 라벨과 직전 30분 값이 있는 행이다(기준값 변경이 없을 때). 빈 칸은 NaN 그대로이고 `classification_eligible`과 겹치지 않는다. **SOx 학습·채점에만 쓴다**: NOx 학습에는 쓰지 않고 `classification_eligible`만 쓴다(모델 담당과 정함). 다시 계산하기 전 행은 null이다. 근거: 11/22~24 재검증에서 SOx는 방향이 같고 양성이 적어 누적 중이다(`부분이력_재검증_누적`).
 - **`data_source` 컬럼 (C #48):** 머지와 재배포 뒤 ML-ready 맨 끝에 붙는다(`ktms`, 합성은 `ktms_synth`). 테이블을 합칠 때 출처 구분에 쓴다. 다시 계산하기 전 행은 null이다. 컬럼 추가 전 버전(`snapshot_id`)도 같은 행으로 읽히고, 이 컬럼은 null로 나온다(Spark 확인. 도구에 따라 컬럼 자체가 없게 보일 수 있다).
 
 ## 6. 학습용 합성 테이블 (spec 011)
