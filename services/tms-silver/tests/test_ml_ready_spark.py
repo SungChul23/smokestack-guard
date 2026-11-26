@@ -14,7 +14,8 @@ import ml_ready_spark as mrs
 
 KEYS = ["stack_code", "item_code", "measured_at"]
 DOUBLE_COLS = [c for c in ml_ready.COLUMNS[3:29]]  # ratio_pct ~ label_ratio_60m
-BOOL_COLS = ["feature_valid", "classification_eligible", "regression_eligible", "partial_history_usable"]
+BOOL_COLS = ["feature_valid", "classification_eligible", "regression_eligible",
+             "partial_history_usable"]
 
 
 @pytest.fixture(scope="module")
