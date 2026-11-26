@@ -70,7 +70,7 @@ infra/
 │   ├── tms-app/          # 서비스: ECR, 서버 ASG, ALB, 배포 역할
 │   ├── tms-dashboard-load/  # 대시보드용 K-TMS 관측 RDS 적재: 30분·매일 예약 실행 + 상태 머신 + VPC Lambda (012)
 │   ├── tms-log-search/   # 서비스 로그 수집·분석: OpenSearch 도메인 + 라우터 Lambda + Firehose 3개 + 구독 필터 + 실패분 버킷 (014)
-│   └── tms-rag/          # RAG 근거 문서: 문서 버킷 + Bedrock 지식 기반·데이터 소스(벡터는 tms-logs의 rag-docs) + 서비스 역할 + 에이전트 서버 Retrieve 권한 (016)
+│   └── tms-rag/          # RAG 근거 문서: 문서 버킷 + Bedrock 지식 기반·데이터 소스(벡터는 tms-logs의 rag-docs) + 서비스 역할 + 에이전트 서버 Retrieve 권한 + 팀원 로컬 검색 그룹 (016)
 └── modules/
     ├── raw-archive/          # 원본 보존 버킷
     └── scheduled-collector/  # 주기 실행 함수 (Lambda + 역할 + 스케줄 + 로그 + 알람), 수집기·누락률 리포트가 함께 사용
