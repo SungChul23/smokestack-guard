@@ -59,7 +59,7 @@
 - **K-TMS에서 다른 점**(C 규칙):
   - `stack_code`는 `area_nm|fact_manage_nm|stack_code`다. Silver의 `stack_code`(굴뚝 번호만)와 뜻이 다르다(§2 규칙).
   - `measured_at`은 KST 벽시계다.
-  - 단위 컬럼이 없어 NOx·SOx를 ppm으로 본다.
+  - 단위 컬럼이 없어 NOx·SOx를 ppm으로 본다. 실측(`data_source = ktms`)의 ML-ready에는 `co`, `hcl`, `tsp`도 있다(아래).
 - **학습 때 처리**(E): `month_sin`, `month_cos`는 드랍한다. 테이블에는 `COLUMNS` 전체를 그대로 둔다(tw_cems와 같은 구조).
 - **규칙**:
   - 한 실행은 `measured_at`이 `[start, end + 1일)`인 행을 교체한다.
