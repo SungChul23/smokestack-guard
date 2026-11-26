@@ -27,10 +27,10 @@ from smokestack_guard.silver.ml_ready import (
     FEATURE_VERSION,
     LABEL_VERSION,
     LAGS,
-    items_for,
     QUALITY_POLICY_VERSION,
     WINDOW,
     default_data_source,
+    items_for,
 )
 
 KEYS = ["stack_code", "item_code", "measured_at"]
