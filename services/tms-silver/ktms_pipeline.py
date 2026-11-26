@@ -125,7 +125,7 @@ _ML_STRING = {
     "quality_policy_version",
     "data_source",  # C #48: 출처 구분(tw_cems / ktms / ktms_synth). 없으면 double로 잘못 잡힌다
 }
-_ML_BOOL = {"feature_valid", "classification_eligible", "regression_eligible"}
+_ML_BOOL = {"feature_valid", "classification_eligible", "regression_eligible", "partial_history_usable"}
 
 
 def _types():

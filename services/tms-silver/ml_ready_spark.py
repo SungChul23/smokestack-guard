@@ -41,7 +41,7 @@ KEYS = ["stack_code", "item_code", "measured_at"]
 # 단위가 %p라 1e-5는 학습에 영향이 없다. 실제 최대 차이는 compare 기록의 max_abs_diff로 남긴다.
 COLUMN_ABS_TOL = {"ratio_rolling_std_3h": 1e-5}
 SLOT_SECONDS = 30 * 60
-BOOL_COLUMNS = ["feature_valid", "classification_eligible", "regression_eligible"]
+BOOL_COLUMNS = ["feature_valid", "classification_eligible", "regression_eligible", "partial_history_usable"]
 STRING_COLUMNS = ["stack_code", "item_code", "feature_version", "label_version",
                   "quality_policy_version", "data_source"]  # fmt: skip
 # data_source는 입력 출처 표시일 뿐 피처에서 계산한 값이 아니다. 정답지(pandas) 비교에서 뺀다.
@@ -191,6 +191,13 @@ def add_features(df: DataFrame, data_source: str | None = None) -> DataFrame:
             "regression_eligible",
             F.col("feature_valid")
             & F.col("label_ratio_60m").isNotNull()
+            & ~F.col("_limit_changed"),
+        )
+        .withColumn(  # #49: 이력이 비었지만 라벨과 직전 30분 값이 있는 행. classification_eligible이 아니다
+            "partial_history_usable",
+            ~F.col("feature_valid")
+            & F.col("label_entry_60m").isNotNull()
+            & F.col("ratio_lag_30m").isNotNull()
             & ~F.col("_limit_changed"),
         )
         .withColumn("feature_version", F.lit(FEATURE_VERSION))

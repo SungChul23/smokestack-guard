@@ -67,6 +67,9 @@ def _rule_checks(df: pd.DataFrame) -> list[str]:
     reg = df["regression_eligible"].astype(bool)
     if (reg & (df["label_ratio_60m"].isna() | ~df["feature_valid"].astype(bool))).any():
         bad.append("regression_eligible인데 라벨이 없거나 feature_valid가 아닌 행이 있다")
+    part = df["partial_history_usable"].astype(bool)
+    if (part & (df["label_entry_60m"].isna() | df["ratio_lag_30m"].isna() | df["feature_valid"].astype(bool))).any():
+        bad.append("partial_history_usable인데 라벨·직전 30분 값이 없거나 feature_valid인 행이 있다")
     return bad
 
 

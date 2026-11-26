@@ -14,7 +14,7 @@ import ml_ready_spark as mrs
 
 KEYS = ["stack_code", "item_code", "measured_at"]
 DOUBLE_COLS = [c for c in ml_ready.COLUMNS[3:29]]  # ratio_pct ~ label_ratio_60m
-BOOL_COLS = ["feature_valid", "classification_eligible", "regression_eligible"]
+BOOL_COLS = ["feature_valid", "classification_eligible", "regression_eligible", "partial_history_usable"]
 
 
 @pytest.fixture(scope="module")
@@ -77,7 +77,7 @@ def test_column_names_order_and_types(ours):
     assert types["measured_at"] == "timestamp"
     assert all(types[c] == "double" for c in DOUBLE_COLS), types
     assert all(types[c] == "boolean" for c in BOOL_COLS), types
-    assert all(types[c] == "string" for c in ml_ready.COLUMNS[-3:])
+    assert all(types[c] == "string" for c in ml_ready.COLUMNS[-4:-1])
 
 
 # ---------------------------------------------------------------------------
