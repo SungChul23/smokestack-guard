@@ -64,7 +64,7 @@ infra/
 │   ├── tms-synthetic/    # 학습용 합성 K-TMS 적재: 30분 예약 실행 + Lambda + 실패 보관함(SQS) + 알람
 │   ├── tms-foundation/   # 서비스: Route 53 영역, GitHub OIDC, 비용 알림
 │   ├── tms-network/      # 서비스: VPC, 서브넷, NAT, 보안그룹
-│   ├── tms-agent-guard/  # 에이전트 가드레일(Bedrock Guardrails, 2차 검사) + 버전 + SSM 설정 3개 + 서버 ApplyGuardrail 권한 (017)
+│   ├── tms-agent-guard/  # 에이전트 가드레일(Bedrock Guardrails, 2차 검사) + 버전 + SSM 설정 3개 + 서버 ApplyGuardrail 권한 + 팀원 로컬 시험 그룹 (017)
 │   ├── tms-serving/      # 서비스: 인증서, CloudFront + S3 화면, Cognito
 │   ├── tms-database/     # 서비스: RDS PostgreSQL + 배스천
 │   ├── tms-app/          # 서비스: ECR, 서버 ASG, ALB, 배포 역할

@@ -39,3 +39,9 @@ variable "app_server_role_name" {
   type        = string
   default     = "tms-app-server"
 }
+
+variable "guard_user_names" {
+  description = "로컬 PC에서 본인 IAM 사용자로 이 가드레일을 시험할 사용자 이름 (비밀 아님). 그룹 tms-agent-guard-users"
+  type        = list(string)
+  default     = ["de-ai-05"]
+}
