@@ -231,6 +231,21 @@ def test_normalize_ktms_shape(spark):
     assert rows[0].ratio_pct == pytest.approx(40.0)
 
 
+def test_normalize_extra_items_only_for_real_ktms(spark):
+    ts = datetime(2026, 11, 8, 10, 0)
+    schema = (
+        "area_nm string, fact_manage_nm string, stack_code string, item string, value double, "
+        "limit double, status string, ts_kst timestamp, ratio double"
+    )
+    rows = [("도", "사업장", "1", item, 5.0, 10.0, "ok", ts, 0.5) for item in
+            ("nox", "sox", "co", "hcl", "tsp", "nh3")]
+    df = spark.createDataFrame(rows, schema)
+    got = {r.item_code for r in mrs.normalize(df).collect()}
+    assert got == {"nox", "sox", "co", "hcl", "tsp"}
+    synth = {r.item_code for r in mrs.normalize(df, "ktms_synth").collect()}
+    assert synth == {"nox", "sox"}
+
+
 # ---------------------------------------------------------------------------
 # 9. 중복 키
 # ---------------------------------------------------------------------------

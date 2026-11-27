@@ -16,6 +16,29 @@ def eligible(out, col):
     return [i for i, ok in enumerate(out[col]) if ok]
 
 
+def ktms_silver(items):
+    times = pd.date_range("2026-11-02 00:00", periods=8, freq="30min")
+    rows = [
+        {"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "item": item, "ts_kst": t,
+         "value": 1.0, "limit": 100.0, "ratio": 0.1, "status": "ok"}
+        for item in items for t in times
+    ]
+    return pd.DataFrame(rows)
+
+
+class ExtraItemTests(unittest.TestCase):
+    items = ["nox", "sox", "co", "hcl", "tsp", "nh3"]
+
+    def test_real_ktms_keeps_co_hcl_tsp_but_not_other_items(self):
+        out = to_ml_ready(ktms_silver(self.items))
+        self.assertEqual(set(out["item_code"]), {"nox", "sox", "co", "hcl", "tsp"})
+        self.assertEqual(set(out["data_source"]), {"ktms"})
+
+    def test_synthetic_keeps_only_nox_sox(self):
+        out = to_ml_ready(ktms_silver(self.items), "ktms_synth")
+        self.assertEqual(set(out["item_code"]), {"nox", "sox"})
+
+
 class EligibilityTests(unittest.TestCase):
     def test_limit_change_excludes_rows_whose_window_contains_it(self):
         # limit changes at slot 8: rows 6..12 see it (150 min back .. 60 min ahead)
