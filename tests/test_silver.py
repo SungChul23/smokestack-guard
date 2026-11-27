@@ -389,7 +389,7 @@ class TwCemsMlReadyTests(unittest.TestCase):
         stack = {"area_nm": "A", "fact_manage_nm": "F", "stack_code": "1", "limit": 100.0}
         rows = [stack | {"item": "nox", "value": float(v), "status": "ok", "ts_kst": t, "ratio": v / 100}
                 for t, v in zip(slots, [50, 55, 60, 62, 65, 70, 80, 85, 91, 95])]
-        rows += [stack | {"item": "tsp", "value": 5.0, "status": "ok", "ts_kst": slots[0], "ratio": 0.5},  # not a model item
+        rows += [stack | {"item": "nh3", "value": 5.0, "status": "ok", "ts_kst": slots[0], "ratio": 0.5},  # not a model item
                  stack | {"item": "nox", "value": None, "status": "stopped", "ts_kst": slots[0], "ratio": None}]
         out = ml_ready.to_ml_ready(pd.DataFrame(rows))
         self.assertEqual(list(out.columns), ml_ready.COLUMNS)

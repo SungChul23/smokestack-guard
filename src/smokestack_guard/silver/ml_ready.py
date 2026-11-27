@@ -9,6 +9,8 @@ import pandas as pd
 
 ENTRY_PCT = 90.0
 ML_ITEMS = ["nox", "sox"]
+# 실측 K-TMS(data_source "ktms")에만 더하는 물질. 표에 두는 것이고 학습 대상은 아니다
+KTMS_EXTRA_ITEMS = ["co", "hcl", "tsp"]
 WINDOW = 6  # 30-min slots in 3 hours
 FEATURE_VERSION = LABEL_VERSION = "v1"
 QUALITY_POLICY_VERSION = "v2"
@@ -24,6 +26,10 @@ COLUMNS = (
        "feature_version", "label_version", "quality_policy_version", "data_source",
        "partial_history_usable"]
 )
+
+
+def items_for(data_source: str | None) -> list[str]:
+    return ML_ITEMS + KTMS_EXTRA_ITEMS if data_source == "ktms" else ML_ITEMS
 
 
 def default_data_source(silver_columns) -> str:
@@ -52,8 +58,8 @@ def to_ml_ready(df: pd.DataFrame, data_source: str | None = None) -> pd.DataFram
 
     if "ts_kst" in df.columns:  # silver (tw_cems or ktms): keep the slots the model may use
         data_source = data_source or default_data_source(df.columns)
-        df = df[(df["status"] == "ok") & df["item"].isin(ML_ITEMS)]
-        if "unit" in df.columns:  # ktms has no unit column; its nox/sox are taken as ppm
+        df = df[(df["status"] == "ok") & df["item"].isin(items_for(data_source))]
+        if "unit" in df.columns:  # ktms has no unit column; its items are taken as ppm
             df = df[df["unit"] == "ppm"]
         clock = "ts_local" if "ts_local" in df.columns else "ts_kst"
         if clock == "ts_kst":  # ktms: no single stack id, so area + facility + stack_code

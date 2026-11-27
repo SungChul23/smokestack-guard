@@ -84,6 +84,7 @@ aws s3 cp s3://smokestack-tms-raw-952900391026/silver2/_runs/ktms_ml_ready_check
 - **굴뚝 키 한계(알려진 제약)**: K-TMS에는 안정 식별자가 없다. 같은 지역·사업장명·번호의 다른 굴뚝은 값이 다르면 `ambiguous`로 표시되어 학습에서 빠지고, 사업장명이 바뀌면 이력이 끊긴다. 굴뚝 단위 분석·이력 비교 결과를 읽을 때 감안한다.
 - `measured_at`은 각 출처의 현지 벽시계 시각이다(K-TMS는 KST, 대만은 대만 시각).
 - 단위: K-TMS의 NOx·SOx는 ppm으로 본다. 산소 보정은 하지 않는다.
+- **물질 범위:** 실측 `tms_silver2.ktms_ml_ready`(`data_source = ktms`)에는 `nox`, `sox`에 더해 `co`, `hcl`, `tsp`가 있다. 학습 대상이 아니라 분석·평가용으로 표에 둔 것이다. **소비하는 쪽은 `item_code`를 골라 읽는다**(예: NOx 모델은 `item_code = 'nox'`). 합성(`ktms_synth_ml_ready`)과 대만 표는 `nox`, `sox`만 있다. 다시 계산하기 전 날짜에는 이 물질 행이 없다. 단위(CO·HCl ppm, TSP mg 단위 추정)는 확인하지 못했고 기준대비율은 단위와 무관하다.
 
 ## 6. 바뀔 수 있는 것
 
