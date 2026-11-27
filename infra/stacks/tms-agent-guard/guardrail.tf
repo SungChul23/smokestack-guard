@@ -95,6 +95,29 @@ resource "aws_bedrock_guardrail" "agent" {
     }
   }
 
+  # 018: 한국어 비속어(profanity.tf) + 관리형 비속어 목록(영어 중심). 입력·출력 모두.
+  # 가드레일은 BLOCK으로 두고 실제 차단은 guardrail_enforce의 words로 정한다(018 research R3).
+  word_policy_config {
+    managed_word_lists_config {
+      type           = "PROFANITY"
+      input_action   = "BLOCK"
+      output_action  = "BLOCK"
+      input_enabled  = true
+      output_enabled = true
+    }
+
+    dynamic "words_config" {
+      for_each = local.profanity_words
+      content {
+        text           = words_config.value
+        input_action   = "BLOCK"
+        output_action  = "BLOCK"
+        input_enabled  = true
+        output_enabled = true
+      }
+    }
+  }
+
   sensitive_information_policy_config {
     dynamic "pii_entities_config" {
       for_each = ["EMAIL", "PHONE"]
