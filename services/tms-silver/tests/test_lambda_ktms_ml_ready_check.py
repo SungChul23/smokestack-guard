@@ -346,7 +346,7 @@ def test_lambda_policy_cannot_write_tables():
 
 
 def test_columns_constant_matches_contract():
-    assert len(COLUMNS) == 36
+    assert len(COLUMNS) == 37
 
 
 def test_synthetic_check_reads_its_own_ml_ready_record():

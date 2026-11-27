@@ -39,6 +39,18 @@ class EligibilityTests(unittest.TestCase):
         self.assertEqual(eligible(out, "regression_eligible"), list(range(5, 8)))
         self.assertEqual(out["classification_eligible"].sum(), 0)  # classification unchanged
 
+    def test_partial_history_usable_marks_label_rows_with_incomplete_history(self):
+        # slot 0은 직전 30분이 없고, slot 5부터는 feature_valid, 끝 2칸은 라벨이 없다
+        out = to_ml_ready(silver([10.0] * 16, [100.0] * 16))
+        self.assertEqual(eligible(out, "partial_history_usable"), [1, 2, 3, 4])
+        self.assertFalse((out["partial_history_usable"] & out["classification_eligible"]).any())
+
+    def test_partial_history_usable_needs_lag_30m_and_label(self):
+        # slot 3이 빠지면 slot 4는 직전 30분이 없고 slot 1·2는 +30/+60분이 비어 라벨이 없다
+        out = to_ml_ready(silver([10.0] * 16, [100.0] * 16, drop=[3]))
+        slots = (out["measured_at"] - out["measured_at"].iloc[0]) / pd.Timedelta("30min")
+        self.assertEqual(slots[out["partial_history_usable"]].astype(int).tolist(), [5, 6, 7, 8])
+
     def test_quality_policy_version_is_v2(self):
         self.assertEqual(QUALITY_POLICY_VERSION, "v2")
         self.assertEqual(set(to_ml_ready(silver([10.0] * 8, [100.0] * 8))["quality_policy_version"]), {"v2"})

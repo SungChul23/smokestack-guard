@@ -45,6 +45,7 @@ locals {
     ] : [c, "double"]],
     [for c in ["feature_valid", "classification_eligible", "regression_eligible"] : [c, "boolean"]],
     [for c in ["feature_version", "label_version", "quality_policy_version", "data_source"] : [c, "string"]],
+    [["partial_history_usable", "boolean"]],
   )
 }
 

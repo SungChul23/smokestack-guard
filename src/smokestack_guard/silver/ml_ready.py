@@ -21,7 +21,8 @@ COLUMNS = (
        "hour_sin", "hour_cos", "month_sin", "month_cos", "day_of_week",
        "label_entry_60m", "label_ratio_60m",
        "feature_valid", "classification_eligible", "regression_eligible",
-       "feature_version", "label_version", "quality_policy_version", "data_source"]
+       "feature_version", "label_version", "quality_policy_version", "data_source",
+       "partial_history_usable"]
 )
 
 
@@ -121,6 +122,8 @@ def to_ml_ready(df: pd.DataFrame, data_source: str | None = None) -> pd.DataFram
         limit_changed = (sv.rolling(WINDOW + 2, min_periods=1).max() - sv.rolling(WINDOW + 2, min_periods=1).min()).shift(-2).fillna(0).gt(0)
         g["classification_eligible"] = g["feature_valid"] & g["label_entry_60m"].notna() & ~limit_changed
         g["regression_eligible"] = g["feature_valid"] & g["label_ratio_60m"].notna() & ~limit_changed
+        # 직전 3시간이 비었지만 라벨과 직전 30분 값은 있는 행(결측은 NaN 그대로). classification_eligible이 아니다. #49
+        g["partial_history_usable"] = ~g["feature_valid"] & g["label_entry_60m"].notna() & g["ratio_lag_30m"].notna() & ~limit_changed
 
         g = g[observed.to_numpy()]
         g["stack_code"] = stack_code

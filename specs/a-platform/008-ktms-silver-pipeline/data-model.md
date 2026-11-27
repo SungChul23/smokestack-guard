@@ -48,13 +48,13 @@
 | 파티션 | `days(measured_at)` = KST 날짜 |
 | 키 | `stack_code`, `item_code`, `measured_at` |
 
-- **컬럼**: `ml_ready.COLUMNS`를 그대로 따른다. 지금은 35개이고, 순서와 타입은 `tw_cems_ml_ready`와 같다(005 data-model §2, `infra/stacks/tms-silver/main.tf`의 `ml_ready_columns`).
+- **컬럼**: `ml_ready.COLUMNS`를 그대로 따른다. 지금은 37개이고, 순서와 타입은 `tw_cems_ml_ready`와 같다(005 data-model §2, `infra/stacks/tms-silver/main.tf`의 `ml_ready_columns`).
   - C의 PR #48이 머지되면 맨 끝에 `data_source`(string)가 붙어 36개가 된다. K-TMS 실측은 `ktms`, 합성은 `ktms_synth`이고, 값 계산은 바뀌지 않는다.
   - 잡은 실행할 때마다 `COLUMNS`에 있고 테이블에 없는 컬럼을 끝에 추가한다(`ALTER TABLE ... ADD COLUMNS`). 추가 전 행의 새 컬럼은 null이므로 `rerun --stage ml_ready`로 다시 계산해 채운다.
   - `stack_code`, `item_code`: string
   - `measured_at`: timestamp(시간대 없음)
   - 피처, 라벨 26개: double
-  - `feature_valid`, `classification_eligible`, `regression_eligible`: boolean
+  - `feature_valid`, `classification_eligible`, `regression_eligible`, `partial_history_usable`: boolean
   - 버전 3개: string
 - **K-TMS에서 다른 점**(C 규칙):
   - `stack_code`는 `area_nm|fact_manage_nm|stack_code`다. Silver의 `stack_code`(굴뚝 번호만)와 뜻이 다르다(§2 규칙).
