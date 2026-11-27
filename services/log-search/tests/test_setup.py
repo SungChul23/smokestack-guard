@@ -108,3 +108,14 @@ def test_rag_role_can_read_mapping():
     assert aws_index | {"indices:admin/mappings/get"} <= acts
     assert {"indices:data/read/msearch", "indices:data/write/bulk*",
             "indices:data/read/mget*"} <= set(role["cluster_permissions"])
+
+
+# --- 017 에이전트 가드 기록 ------------------------------------------------
+
+
+def test_activity_template_has_agent_guard_fields():
+    props = s.load(HERE / "opensearch/index-templates/activity.json")["template"]["mappings"]["properties"]
+    j = props["json"]["properties"]
+    assert j["question"]["type"] == "text" and j["question"]["fields"]["keyword"]["type"] == "keyword"
+    assert j["ms"]["type"] == "float"
+    assert all(j[k]["type"] == "keyword" for k in ("layer", "direction", "action", "reason", "tool"))

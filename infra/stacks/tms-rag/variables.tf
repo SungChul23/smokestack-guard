@@ -41,3 +41,9 @@ variable "index_name" {
   type        = string
   default     = "rag-docs"
 }
+
+variable "rag_user_names" {
+  description = "로컬 PC에서 본인 IAM 사용자로 이 지식 기반을 검색할 사용자 이름 (비밀 아님). 그룹 tms-rag-users"
+  type        = list(string)
+  default     = ["de-ai-05"]
+}

@@ -1,0 +1,37 @@
+name: agent-guard
+
+# 에이전트 가드레일(A, 017): 응답 해석 규칙과 시험 도구 시험.
+on:
+  push:
+    paths:
+      - "services/agent-guard/**"
+      - ".github/workflows/agent-guard.yml"
+  pull_request:
+    paths:
+      - "services/agent-guard/**"
+      - ".github/workflows/agent-guard.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/agent-guard
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -r requirements.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: pytest -q

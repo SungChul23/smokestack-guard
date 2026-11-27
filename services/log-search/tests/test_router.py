@@ -123,3 +123,36 @@ def test_send_retries_only_failed_records():
 def test_send_raises_after_retries():
     with pytest.raises(RuntimeError):
         r.send(FakeFirehose(always_fail=True), [(r.STREAM_APP, {"i": 1})], sleep=lambda _s: None)
+
+
+# --- 017 FR-020: 활동 기록 개인정보 가림 ---
+
+FAKE = "주민 900101-1234567 카드 4111-1111-1111-1111 휴대폰 010-1234-5678로 유선 02-123-4567 메일 user@example.com"
+
+
+def test_agent_guard_question_and_message_are_masked():
+    line = json.dumps({"log_type": "activity", "event": "agent_guard", "layer": "regex",
+                       "action": "BLOCKED", "reason": "DATA_TAMPERING", "question": FAKE},
+                      ensure_ascii=False)
+    stream, doc = r.to_docs(cw_event("/tms/app/agent", [line]))[0]
+    assert stream == r.STREAM_ACTIVITY
+    for text in (doc["json"]["question"], doc["message"]):
+        for raw in ("900101-1234567", "4111-1111-1111-1111", "010-1234-5678", "02-123-4567",
+                    "user@example.com"):
+            assert raw not in text
+    assert doc["json"]["question"] == (
+        "주민 [주민번호] 카드 [카드번호] 휴대폰 [전화번호]로 유선 [전화번호] 메일 [이메일]")
+
+
+def test_masking_keeps_numbers_dates_and_labels():
+    q = "2026-11-12 시행, NOx 32.5ppm, 사업장 170902, [전화번호]로 연락 온 건"
+    line = json.dumps({"log_type": "activity", "event": "agent_guard", "question": q},
+                      ensure_ascii=False)
+    _, doc = r.to_docs(cw_event("/tms/app/agent", [line]))[0]
+    assert doc["json"]["question"] == q
+
+
+def test_non_activity_docs_are_not_masked():
+    line = '{"log_type": "request", "path": "/api/day", "note": "010-1234-5678"}'
+    stream, doc = r.to_docs(cw_event("/tms/app/api", [line]))[0]
+    assert stream == r.STREAM_APP and "010-1234-5678" in doc["message"]

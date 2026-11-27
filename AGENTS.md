@@ -64,12 +64,13 @@ infra/
 │   ├── tms-synthetic/    # 학습용 합성 K-TMS 적재: 30분 예약 실행 + Lambda + 실패 보관함(SQS) + 알람
 │   ├── tms-foundation/   # 서비스: Route 53 영역, GitHub OIDC, 비용 알림
 │   ├── tms-network/      # 서비스: VPC, 서브넷, NAT, 보안그룹
+│   ├── tms-agent-guard/  # 에이전트 가드레일(Bedrock Guardrails, 2차 검사) + 버전 + SSM 설정 3개 + 서버 ApplyGuardrail 권한 + 팀원 로컬 시험 그룹 (017)
 │   ├── tms-serving/      # 서비스: 인증서, CloudFront + S3 화면, Cognito
 │   ├── tms-database/     # 서비스: RDS PostgreSQL + 배스천
 │   ├── tms-app/          # 서비스: ECR, 서버 ASG, ALB, 배포 역할
 │   ├── tms-dashboard-load/  # 대시보드용 K-TMS 관측 RDS 적재: 30분·매일 예약 실행 + 상태 머신 + VPC Lambda (012)
 │   ├── tms-log-search/   # 서비스 로그 수집·분석: OpenSearch 도메인 + 라우터 Lambda + Firehose 3개 + 구독 필터 + 실패분 버킷 (014)
-│   └── tms-rag/          # RAG 근거 문서: 문서 버킷 + Bedrock 지식 기반·데이터 소스(벡터는 tms-logs의 rag-docs) + 서비스 역할 + 에이전트 서버 Retrieve 권한 (016)
+│   └── tms-rag/          # RAG 근거 문서: 문서 버킷 + Bedrock 지식 기반·데이터 소스(벡터는 tms-logs의 rag-docs) + 서비스 역할 + 에이전트 서버 Retrieve 권한 + 팀원 로컬 검색 그룹 (016)
 └── modules/
     ├── raw-archive/          # 원본 보존 버킷
     └── scheduled-collector/  # 주기 실행 함수 (Lambda + 역할 + 스케줄 + 로그 + 알람), 수집기·누락률 리포트가 함께 사용
@@ -78,6 +79,7 @@ services/
 ├── tms-missing-rate/     # 전날 슬롯 누락률 리포트 Lambda 코드
 ├── tms-eda/              # JSONL → Parquet 변환 Glue 스크립트 + 백필 명령
 ├── tms-silver/           # Silver Glue 진입 스크립트 + 계약 검사 Lambda + 일괄 실행 명령 (TW CEMS, K-TMS)
+├── agent-guard/          # 가드레일 응답 해석 규칙(guard_result, 에이전트도 같은 규칙) + 시험 문장·시험 도구 (A, 017)
 ├── dashboard-{api,agent,web}/  # 대시보드·에이전트 앱 (D)
 ├── dashboard-load/       # 관측 RDS 적재 Lambda + DB 마이그레이션 SQL + 사람 명령(migrate·load-ref·backfill) (A, 012)
 ├── log-search/           # 로그 라우터 Lambda + OpenSearch 설정 정의·스크립트 + Dashboards 저장 객체 (A, 014)

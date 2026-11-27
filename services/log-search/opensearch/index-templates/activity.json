@@ -73,6 +73,36 @@
             },
             "target": {
               "type": "keyword"
+            },
+            "layer": {
+              "type": "keyword"
+            },
+            "direction": {
+              "type": "keyword"
+            },
+            "action": {
+              "type": "keyword"
+            },
+            "reason": {
+              "type": "keyword"
+            },
+            "tool": {
+              "type": "keyword"
+            },
+            "guardrail_version": {
+              "type": "keyword"
+            },
+            "question": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            },
+            "ms": {
+              "type": "float"
             }
           }
         }
@@ -80,7 +110,7 @@
     }
   },
   "_meta": {
-    "spec": "014",
-    "doc": "specs/a-platform/014-log-opensearch/data-model.md"
+    "spec": "014, 017",
+    "doc": "specs/a-platform/014-log-opensearch/data-model.md, specs/a-platform/017-agent-guardrail/data-model.md §7"
   }
 }
