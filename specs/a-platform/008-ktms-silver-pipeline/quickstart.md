@@ -146,3 +146,29 @@ done
 ```
 
 IAM 정책에 `tms_cleansys/*` 쓰기·삭제 권한이 없는지도 정책 문서로 확인한다(plan의 권한 표).
+
+## 9. 여러 날 ML-ready 다시 계산 (규칙·열이 바뀌었을 때)
+
+ML-ready 규칙이 바뀌면(예: 2026-11-27 열 `partial_history_usable` 추가, 실측 CO·HCl·TSP 추가) 과거 구간을 `--stage ml_ready`로 다시 계산한다. Silver는 그대로 둔다.
+
+1. 계약 검사 Lambda는 실행 범위 전체를 한 번에 읽는다. 평소값(4096MB·300초)으로는 여러 날을 못 읽으므로 올린다(PowerShell, `infra\stacks\tms-silver`).
+   ```powershell
+   terraform apply -var ktms_check_memory_mb=10240 -var ktms_check_timeout_seconds=900
+   ```
+2. 7일씩 나눠 차례로 실행한다(실측 7일·5종에서 검사 최대 약 3.8GB·160초). 실측이 끝난 뒤 합성.
+   ```bash
+   src=ktms   # 합성은 ktms_synth
+   d=2026-10-30
+   while [[ ! "$d" > "2026-11-26" ]]; do
+     e=$(date -d "$d +6 day" +%F); [[ "$e" > "2026-11-26" ]] && e=2026-11-26
+     python run_ktms.py rerun --from $d --to $e --stage ml_ready --source $src || break
+     d=$(date -d "$e +1 day" +%F)
+   done
+   ```
+3. 앞 묶음의 검사는 "위반"이 나올 수 있다. 검사는 표(ML-ready)로 다시 계산하는데, 묶음 마지막 날 23:00·23:30의 라벨에 필요한 다음 날 행이 아직 다시 계산되기 전이기 때문이다(새로 생긴 행에서만 생긴다). 표 값은 Silver로 계산해 맞다. 모든 묶음이 끝난 뒤 검사만 다시 돌려 통과를 남긴다.
+   ```bash
+   aws stepfunctions start-execution --state-machine-arn arn:aws:states:ap-northeast-2:952900391026:stateMachine:tms-silver2-ktms \
+     --input '{"stage":"check","start_date":"2026-10-30","end_date":"2026-11-05","source":"ktms"}'
+   ```
+4. 기본값으로 되돌린다: `terraform apply`(변수 없이).
+5. 확인: 새 열의 null 0, 기존 물질 행 수가 변경 전과 같음. 학습 스냅샷 메일은 다음 날 05:00부터 새 번호를 [최신]으로 보낸다(그 전 번호는 변경 전 표).
