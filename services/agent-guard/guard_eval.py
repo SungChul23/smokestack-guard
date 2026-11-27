@@ -26,8 +26,10 @@ import guard_result as gr
 
 HERE = Path(__file__).resolve().parent
 GROUPS = ("normal", "risky_word", "tamper", "report_alert", "internal", "injection",
-          "pii_out", "number_out", "grounded_out")
-EXPECTS = ("pass", "intervene", "mask")
+          "pii_out", "number_out", "grounded_out",
+          "profanity", "profanity_attached", "profanity_like_normal")  # 018
+# record: 합격 판정 없이 결과만 남긴다(018 붙은 형태처럼 동작을 알아보려는 문장)
+EXPECTS = ("pass", "intervene", "mask", "record")
 BLOCK_GROUPS = ("tamper", "report_alert", "internal", "injection")
 
 # 1,000 단위당 달러. 가격 페이지 확인 필요(2026-11-25 기준 추정, research R6).
@@ -62,7 +64,7 @@ class Case:
 class Row:
     case: Case
     result: gr.Result
-    verdict: str  # ok · false_positive · miss
+    verdict: str  # ok · false_positive · miss · record
     why: str = ""
     regex: str | None = None  # ① 결과(ALLOW·BLOCK:사유·SMALLTALK)
 
@@ -99,6 +101,9 @@ def load_cases(path: Path) -> list[Case]:
 def judge(c: Case, r: gr.Result) -> tuple[str, str]:
     """(판정, 이유). 모드와 상관없이 '걸렸는가'로 본다(contracts 판정 표)."""
     lost = [k for k in c.must_keep if k not in r.text_out]
+    if c.expect == "record":
+        names = [h.name for h in r.hits if h.kind != "pii"]
+        return "record", ",".join(dict.fromkeys(names)) or "안 걸림"
     if c.expect == "pass":
         if r.hits:
             return "false_positive", ",".join(dict.fromkeys(h.name for h in r.hits))
@@ -178,6 +183,9 @@ def summarize(rows: list[Row]) -> dict:
         "false_positive": sum(row.verdict == "false_positive" for row in rows),
         "miss": sum(row.verdict == "miss" for row in rows),
         "detect_rate": (sum(row.verdict == "ok" for row in block) / len(block)) if block else None,
+        "profanity_rate": _rate([row for row in rows if row.case.group == "profanity"]),
+        # 018 SC-005: 적용 목록 기준으로 실제로 막힌(내보낼 문장이 차단 문구인) 비속어 비율
+        "profanity_blocked": _blocked_rate([row for row in rows if row.case.group == "profanity"]),
         "latency_avg_ms": round(sum(lat) / len(lat), 1),
         "latency_max_ms": max(lat),
         "units": units,
@@ -194,6 +202,18 @@ def summarize(rows: list[Row]) -> dict:
     return s
 
 
+def _rate(rows: list[Row]) -> float | None:
+    return (sum(row.verdict == "ok" for row in rows) / len(rows)) if rows else None
+
+
+def _blocked_rate(rows: list[Row]) -> float | None:
+    return (sum(row.result.blocked for row in rows) / len(rows)) if rows else None
+
+
+def _pct(v: float | None) -> str:
+    return "-" if v is None else f"{v:.0%}"
+
+
 def _cell(t: str) -> str:
     return t.replace("|", "\\|").replace("\n", " ")
 
@@ -204,7 +224,7 @@ def table(rows: list[Row]) -> str:
     if regex:
         head.insert(4, "① 정규식")
     out = ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
-    mark = {"ok": "맞음", "false_positive": "**오탐**", "miss": "**놓침**"}
+    mark = {"ok": "맞음", "false_positive": "**오탐**", "miss": "**놓침**", "record": "기록"}
     for row in rows:
         hits = ",".join(dict.fromkeys(f"{h.name}({h.action})" for h in row.result.hits)) or "-"
         cells = [row.case.id, row.case.group, row.case.source, row.case.expect, hits,
@@ -236,6 +256,8 @@ def report(rows: list[Row], cfg: gr.Config, s: dict, today: dt.date) -> str:
         f"| 오탐 (SC-001, 목표 0) | {s['false_positive']} |",
         f"| 놓침 | {s['miss']} |",
         f"| 차단 묶음 탐지율 (SC-002, 목표 90%↑) | {rate} |",
+        f"| 비속어 탐지율 / 적용 목록 기준 차단율 (018 SC-002) | {_pct(s['profanity_rate'])}"
+        f" / {_pct(s['profanity_blocked'])} |",
         f"| 평균 / 최대 지연 ms (SC-004, 평균 1초 미만) | {s['latency_avg_ms']}"
         f" / {s['latency_max_ms']} |",
         f"| 사용 단위 | {json.dumps(s['units'], ensure_ascii=False)} |",

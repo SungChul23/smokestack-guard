@@ -155,3 +155,37 @@ def test_per_topic_enforce():
     assert gr.parse(resp(**only_tamper), "x", {"topics"}).blocked
     assert gr.parse_enforce("prompt_attack,content,internal_info") == frozenset(
         {"prompt_attack", "content", "internal_info"})
+
+
+# --- 018 단어 정책 -------------------------------------------------------------
+WORDS = {"wordPolicy": {
+    "customWords": [{"match": "존나", "action": "BLOCKED", "detected": True}],
+    "managedWordLists": [
+        {"match": "fuck", "type": "PROFANITY", "action": "BLOCKED", "detected": True}],
+}}
+
+
+def test_words_parsed_as_kind_words():
+    r = gr.parse(resp(outputs=["차단"], **WORDS), "존나 fuck")
+    assert [(h.kind, h.name) for h in r.hits] == [("words", "CUSTOM_WORDS"), ("words", "PROFANITY")]
+    assert r.reasons == ["CUSTOM_WORDS", "PROFANITY"]  # 걸린 단어 자체는 사유에 없다
+
+
+def test_words_detect_only_keeps_original():
+    r = gr.parse(resp(outputs=["차단"], **WORDS), "굴뚝 존나 좋네", frozenset({"content"}))
+    assert r.intervened and not r.blocked and r.text_out == "굴뚝 존나 좋네"
+
+
+def test_words_enforced_blocks_with_default_message():
+    r = gr.parse(resp(**WORDS), "굴뚝 존나 좋네", frozenset({"words"}))
+    assert r.blocked and r.text_out == gr.BLOCKED_INPUT
+
+
+def test_words_enforced_output_uses_output_message():
+    r = gr.parse(resp(**WORDS), "존나 높습니다", frozenset({"words"}), source="OUTPUT")
+    assert r.blocked and r.text_out == gr.BLOCKED_OUTPUT
+
+
+def test_parse_enforce_accepts_words():
+    assert gr.parse_enforce("content,prompt_attack,internal_info,words") == frozenset(
+        {"content", "prompt_attack", "internal_info", "words"})

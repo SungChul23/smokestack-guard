@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 
 REGION = "ap-northeast-2"
 PARAM_PREFIX = "/tms/app/config/guardrail-"
-KINDS = ("content", "prompt_attack", "topics", "grounding")
+KINDS = ("content", "prompt_attack", "topics", "grounding", "words")
 # 주제는 이름으로 하나씩 적용할 수 있다(topics = 주제 전부).
 # tamper_request는 감지 신호로만 쓴다(research R3a).
 TOPICS = ("internal_info", "tamper_request")
@@ -47,7 +47,7 @@ class Config:
 
 @dataclass(frozen=True)
 class Hit:
-    """걸린 정책 하나. kind: content·prompt_attack·topics·grounding·pii"""
+    """걸린 정책 하나. kind: content·prompt_attack·topics·grounding·words·pii"""
 
     kind: str
     name: str
@@ -137,6 +137,16 @@ def _hits(assessment: dict) -> list[Hit]:
         if _hit(f.get("action"), f.get("detected")):
             out.append(Hit("grounding", f.get("type", "?"), f.get("action", "NONE"),
                            f"{f.get('score', '')}/{f.get('threshold', '')}"))
+    # 단어 정책(018): 사용자 지정 한국어 비속어 + 관리형 비속어 목록.
+    # detail은 걸린 단어(기록 사유에는 넣지 않음)
+    words = assessment.get("wordPolicy", {})
+    for w in words.get("customWords", []):
+        if _hit(w.get("action"), w.get("detected")):
+            out.append(Hit("words", "CUSTOM_WORDS", w.get("action", "NONE"), w.get("match", "")))
+    for w in words.get("managedWordLists", []):
+        if _hit(w.get("action"), w.get("detected")):
+            name = w.get("type", "PROFANITY")
+            out.append(Hit("words", name, w.get("action", "NONE"), w.get("match", "")))
     sens = assessment.get("sensitiveInformationPolicy", {})
     for e in sens.get("piiEntities", []):
         if _hit(e.get("action"), e.get("detected")):
