@@ -150,8 +150,8 @@ resource "aws_lambda_function" "ktms_check" {
   filename         = data.archive_file.ktms_check.output_path
   source_code_hash = data.archive_file.ktms_check.output_base64sha256
   layers           = [var.pandas_layer_arn, aws_lambda_layer_version.rules.arn]
-  memory_size      = 2048
-  timeout          = 300
+  memory_size      = var.ktms_check_memory_mb
+  timeout          = var.ktms_check_timeout_seconds
 
   environment {
     variables = {

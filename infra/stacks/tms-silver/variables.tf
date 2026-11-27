@@ -80,6 +80,18 @@ variable "ktms_worker_count" {
 # K-TMS ML-ready 계약 검사 (010)
 # ---------------------------------------------------------------------------
 
+variable "ktms_check_memory_mb" {
+  description = "계약 검사 Lambda 메모리(MB). 검사는 실행 범위 전체를 pandas로 읽는다. 매일 실행(2일, 실측 5종 #89) 기준 4096. 여러 날 rerun 때만 -var로 올리고(최대 10240) 끝나면 기본값으로 되돌린다"
+  type        = number
+  default     = 4096
+}
+
+variable "ktms_check_timeout_seconds" {
+  description = "계약 검사 Lambda 제한 시간(초). 매일 실행 300. 여러 날 rerun 때만 -var로 올린다(최대 900)"
+  type        = number
+  default     = 300
+}
+
 variable "ktms_check_mode" {
   description = "계약 위반 시 동작. observe = 알림만 보내고 실행은 성공(첫 배포 기본), block = 알림 뒤 실행 실패. 매일 실행 7번 동안 오탐이 없으면 block으로 바꾼다 (010 quickstart §7)"
   type        = string
