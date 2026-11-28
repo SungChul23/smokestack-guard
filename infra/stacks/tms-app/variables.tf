@@ -61,3 +61,15 @@ variable "github_repository_immutable" {
   type        = string
   default     = "SungChul23@143672987/smokestack-guard@1437820168"
 }
+
+variable "github_web_repository" {
+  description = "화면 배포 역할을 받을 수 있는 GitHub 저장소 (owner/name, #94). main 브랜치만"
+  type        = string
+  default     = "SungChul23/smokestack-guard-web-v2"
+}
+
+variable "github_web_repository_immutable" {
+  description = "같은 저장소의 변하지 않는 sub 형식 (owner@owner_id/name@repo_id). use_immutable_subject를 켜면 GitHub가 이 형식으로 보낸다"
+  type        = string
+  default     = "SungChul23@143672987/smokestack-guard-web-v2@1472580451"
+}

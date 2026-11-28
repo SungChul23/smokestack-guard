@@ -17,3 +17,8 @@ output "alb_dns_name" {
   description = "ALB 기본 주소 (꺼져 있으면 null)"
   value       = var.alb_enabled ? aws_lb.main[0].dns_name : null
 }
+
+output "github_web_deploy_role_arn" {
+  description = "화면 저장소(smokestack-guard-web-v2) GitHub Actions가 받을 배포 역할 ARN (워크플로에 상수로 씀, 비밀 아님)"
+  value       = aws_iam_role.web_deploy.arn
+}

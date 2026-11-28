@@ -22,6 +22,17 @@
   - CloudFront: 화면 배포 1개에 `CreateInvalidation`
 - 워크플로에는 역할 ARN만 쓴다(비밀 아님). 액세스 키는 쓰지 않는다.
 
+## 화면 배포 역할 (`tms-github-web-deploy`, #94)
+
+화면은 별도 저장소 `SungChul23/smokestack-guard-web-v2`의 `.github/workflows/deploy.yml`이 배포한다(UI와 API를 따로 고쳐 나가기 위해).
+
+- 신뢰: GitHub OIDC, 그 저장소의 main 브랜치만. `repo:SungChul23/smokestack-guard-web-v2:ref:refs/heads/main`과 변하지 않는 형식 `repo:SungChul23@143672987/smokestack-guard-web-v2@1472580451:ref:refs/heads/main`.
+- 권한(최소): 서버 배포 역할과 나눠 화면 저장소가 ECR·서버 배포 권한을 갖지 않게 한다.
+  - S3: 화면 버킷 `ListBucket`, 객체 `PutObject`·`DeleteObject`·`GetObject` (`aws s3 sync --delete`)
+  - CloudFront: 화면 배포 1개에 `CreateInvalidation`·`GetInvalidation` (`index.html`)
+  - SSM: `GetParameter(s)` — `/tms/app/config/cognito-user-pool-id`, `cognito-client-id`, `cognito-domain`, `web-distribution-id` (빌드에 넣는 값, 비밀 아님)
+- 워크플로: PR·push 모두 시험·빌드, main push만 업로드. 미리보기 판정(`src/preview/mode.ts`)이 환경 변수 방식이 아니면 빌드를 멈춘다(운영에 가짜 데이터 방지).
+
 ## "현재 버전" 기록
 
 | SSM 파라미터 | 처음 값 | 쓰는 쪽 | 읽는 쪽 |
