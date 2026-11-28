@@ -45,7 +45,7 @@ variable "agent_instance_type" {
 }
 
 variable "web_bucket_name" {
-  description = "화면 버킷 이름 (tms-serving이 만든 것, 배포 역할 권한 대상)"
+  description = "화면 버킷 이름 (tms-serving이 만든 것, 화면 배포 역할 권한 대상)"
   type        = string
   default     = "smokestack-tms-web-952900391026"
 }

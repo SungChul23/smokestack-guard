@@ -26,7 +26,7 @@ uvicorn app.main:app --reload --port 8000
 
 ## 화면용 읽기 라우트·즐겨찾기 (D, spec 318)
 
-모두 로그인한 회원만(`CurrentUser`). 응답 모양은 `services/dashboard-web/src/data/model.ts`와 같다.
+모두 로그인한 회원만(`CurrentUser`). 응답 모양은 화면 저장소 [smokestack-guard-web-v2](https://github.com/SungChul23/smokestack-guard-web-v2)의 `src/data/model.ts`와 같다(#94).
 
 | 라우트 | 내용 |
 |---|---|
