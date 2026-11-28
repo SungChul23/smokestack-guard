@@ -1,4 +1,5 @@
-# GitHub Actions 배포 역할 (contracts/deploy-pipeline.md). main 브랜치만, 장기 키 없음.
+# GitHub Actions 서버 배포 역할 (contracts/deploy-pipeline.md). main 브랜치만, 장기 키 없음.
+# 화면 배포는 별도 저장소의 tms-github-web-deploy(web_deploy_role.tf)가 한다(#94). 아래 두 data는 그 역할이 쓴다.
 
 data "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
@@ -75,13 +76,6 @@ data "aws_iam_policy_document" "deploy" {
     resources = [for p in aws_ssm_parameter.image_tag : p.arn]
   }
 
-  # 화면 빌드에 넣을 Cognito 값, 캐시 무효화할 배포 ID (비밀 아님)
-  statement {
-    sid       = "ReadAppConfig"
-    actions   = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath"]
-    resources = ["arn:aws:ssm:ap-northeast-2:${local.account_id}:parameter/tms/app/config/*"]
-  }
-
   statement {
     sid       = "FindServers"
     actions   = ["ec2:DescribeInstances"]
@@ -112,23 +106,6 @@ data "aws_iam_policy_document" "deploy" {
     resources = ["*"]
   }
 
-  statement {
-    sid       = "WebBucketList"
-    actions   = ["s3:ListBucket"]
-    resources = [data.aws_s3_bucket.web.arn]
-  }
-
-  statement {
-    sid       = "WebBucketWrite"
-    actions   = ["s3:PutObject", "s3:DeleteObject", "s3:GetObject"]
-    resources = ["${data.aws_s3_bucket.web.arn}/*"]
-  }
-
-  statement {
-    sid       = "InvalidateWeb"
-    actions   = ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"]
-    resources = ["arn:aws:cloudfront::${local.account_id}:distribution/${data.aws_ssm_parameter.web_distribution_id.insecure_value}"]
-  }
 }
 
 resource "aws_iam_role_policy" "deploy" {

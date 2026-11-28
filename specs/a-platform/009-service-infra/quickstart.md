@@ -23,7 +23,7 @@ A가 PowerShell에서 `de-ai-22`로 실행한다(AGENTS.md: Terraform은 사람�
 
 1. `tms-network` apply (NAT 0). 확인: VPC 1, 서브넷 6, 보안그룹 4, NAT 0.
 2. `tms-serving` apply. ACM 검증 때문에 수 분 걸린다.
-3. 최소 화면을 한 번 올린다(이후엔 CI가 함): `services/dashboard-web`에서 `npm ci && npm run build` → `aws s3 sync dist s3://smokestack-tms-web-952900391026/`.
+3. 화면은 별도 저장소 smokestack-guard-web-v2의 main push가 올린다(#94, 2026-11-28 이전은 `services/dashboard-web`).
 4. 확인 (SC-001):
    - `https://smokestack-guard.store` → 빈 React 페이지, 경고 없음
    - `https://www.smokestack-guard.store`, `http://smokestack-guard.store` → 루트 https로 이동
