@@ -6,9 +6,11 @@
 |---|---|---|---|
 | `.github/workflows/dashboard-api.yml` | `services/dashboard-api/**` | 린트·테스트·이미지 빌드(푸시 안 함) | 빌드 → ECR → 태그 기록 → 켜진 서버에 배포 |
 | `.github/workflows/dashboard-agent.yml` | `services/dashboard-agent/**` | 같음 | 같음 |
-| `.github/workflows/dashboard-web.yml` | `services/dashboard-web/**` | 린트·빌드 | 빌드 → S3 → `index.html` 무효화 |
+| (화면) web-v2 `.github/workflows/deploy.yml` | 저장소 전체 | 시험(경고만)·빌드 | 빌드 → S3 → `index.html` 무효화 |
 
 각 워크플로는 자기 파일이 바뀔 때도 돈다.
+
+화면(`services/dashboard-web`, `dashboard-web.yml`)은 2026-11-28 별도 저장소로 옮겼다(#94).
 
 ## 배포 역할 (`tms-github-deploy`)
 
@@ -18,9 +20,21 @@
   - SSM: `PutParameter` — `/tms/app/api/image-tag`, `/tms/app/agent/image-tag`
   - SSM: `SendCommand` — 문서 `AWS-RunShellScript` + 태그 `tms:app`가 있는 인스턴스, `GetCommandInvocation`, `ListCommandInvocations`
   - EC2: `DescribeInstances`(켜진 서버 수 확인)
-  - S3: 화면 버킷 `ListBucket`·`PutObject`·`DeleteObject`
-  - CloudFront: 화면 배포 1개에 `CreateInvalidation`
+  - 화면 버킷·CloudFront·앱 설정 읽기 권한은 없다(#94에서 화면 배포 역할로 옮김)
 - 워크플로에는 역할 ARN만 쓴다(비밀 아님). 액세스 키는 쓰지 않는다.
+
+## 화면 배포 역할 (`tms-github-web-deploy`, #94)
+
+화면은 별도 저장소 `SungChul23/smokestack-guard-web-v2`의 `.github/workflows/deploy.yml`이 배포한다(UI와 API를 따로 고쳐 나가기 위해).
+
+- 신뢰: GitHub OIDC, 그 저장소의 main 브랜치만. `repo:SungChul23/smokestack-guard-web-v2:ref:refs/heads/main`과 변하지 않는 형식 `repo:SungChul23@143672987/smokestack-guard-web-v2@1472580451:ref:refs/heads/main`.
+- 권한(최소): 서버 배포 역할과 나눠 화면 저장소가 ECR·서버 배포 권한을 갖지 않게 한다.
+  - S3: 화면 버킷 `ListBucket`, 객체 `PutObject`·`DeleteObject`·`GetObject` (`aws s3 sync --delete`)
+  - CloudFront: 화면 배포 1개에 `CreateInvalidation`·`GetInvalidation` (`index.html`)
+  - SSM: `GetParameter(s)` — `/tms/app/config/cognito-user-pool-id`, `cognito-client-id`, `cognito-domain`, `web-distribution-id` (빌드에 넣는 값, 비밀 아님)
+- 워크플로: PR·push 모두 시험·빌드, main push만 업로드. 미리보기 판정(`src/preview/mode.ts`)이 환경 변수 방식이 아니면 빌드를 멈춘다(운영에 가짜 데이터 방지).
+
+> `tms-app`을 apply할 때는 운영 구성 값을 함께 준다(`-var alb_enabled=…`·`api_desired`·`agent_desired`, `infra/scripts/service-env.ps1`). 값 없이 plan하면 기본값(꺼 둠)으로 계산돼 서버·ALB·`api.` 레코드를 지우는 계획이 나온다. 역할만 바꿀 때는 `-target`(PowerShell에서는 따옴표: `"-target=aws_iam_role_policy.deploy"`).
 
 ## "현재 버전" 기록
 

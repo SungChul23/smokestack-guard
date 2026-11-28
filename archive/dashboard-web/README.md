@@ -1,3 +1,5 @@
+> **보관됨 (2026-11-28, #94)**: 화면은 [smokestack-guard-web-v2](https://github.com/SungChul23/smokestack-guard-web-v2)로 옮겼다. 이 폴더는 참고용이며 배포되지 않는다. 아래 배포 안내는 옮기기 전 내용이다.
+
 # dashboard-web
 
 대시보드 화면(React + Vite). 지금은 배포 길을 확인하는 빈 페이지이고, D가 이 폴더에서 이어서 개발한다.

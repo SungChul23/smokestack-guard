@@ -80,11 +80,12 @@ services/
 ├── tms-eda/              # JSONL → Parquet 변환 Glue 스크립트 + 백필 명령
 ├── tms-silver/           # Silver Glue 진입 스크립트 + 계약 검사 Lambda + 일괄 실행 명령 (TW CEMS, K-TMS)
 ├── agent-guard/          # 가드레일 응답 해석 규칙(guard_result, 에이전트도 같은 규칙) + 시험 문장·시험 도구 (A, 017)
-├── dashboard-{api,agent,web}/  # 대시보드·에이전트 앱 (D)
+├── dashboard-{api,agent}/  # 대시보드 API·에이전트 서버 (D). 화면은 별도 저장소 SungChul23/smokestack-guard-web-v2(#94)
 ├── dashboard-load/       # 관측 RDS 적재 Lambda + DB 마이그레이션 SQL + 사람 명령(migrate·load-ref·backfill) (A, 012)
 ├── log-search/           # 로그 라우터 Lambda + OpenSearch 설정 정의·스크립트 + Dashboards 저장 객체 (A, 014)
 └── rag-docs/            # RAG 문서 원장 + PDF→md 변환·검사 + 메타데이터 + 검색 규칙(rag_query)·질문 도구·시험 질문 (A, 016)
 k_tms_synthetic/          # 평가·시연용 합성 생성기 (B, specs/b-collection/102)
+archive/                  # 쓰지 않는 참고용 코드(배포·CI 대상 아님). dashboard-web: 옮기기 전 화면(#94)
 k_tms_synthetic_train/    # 학습용 합성 생성기 + AWS 적재 진입점 lambda_handler.py (B·A, 103·011)
 ```
 

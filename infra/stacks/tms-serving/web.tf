@@ -1,5 +1,5 @@
 # 화면: 비공개 S3 + CloudFront(OAC) + 루트·www 레코드 (research R7)
-# 화면 파일은 CI(dashboard-web 워크플로)가 올린다. Terraform은 빈 버킷만 만든다.
+# 화면 파일은 별도 저장소 smokestack-guard-web-v2의 deploy 워크플로가 올린다(#94). Terraform은 빈 버킷만 만든다.
 
 resource "aws_s3_bucket" "web" {
   bucket = var.web_bucket_name
