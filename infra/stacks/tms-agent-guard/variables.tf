@@ -16,15 +16,15 @@ variable "guardrail_profile_id" {
 }
 
 variable "guardrail_enforce" {
-  description = "실제로 차단할 정책 목록(쉼표). content, prompt_attack, grounding, 주제 이름(internal_info, tamper_request) 또는 topics(주제 전부) 중. none = 모두 감지만. 개인정보 가림은 항상 적용 (research R3·R3a)"
+  description = "실제로 차단할 정책 목록(쉼표). content, prompt_attack, grounding, words(비속어 단어, 018), 주제 이름(internal_info, tamper_request) 또는 topics(주제 전부) 중. none = 모두 감지만. 개인정보 가림은 항상 적용 (research R3·R3a)"
   type        = string
-  default     = "none"
+  default     = "content,prompt_attack,internal_info,words" # 018: 시험(v5) 뒤 차단. tamper_request·grounding은 감지만
 
   validation {
     condition = var.guardrail_enforce == "none" || alltrue([
-      for v in split(",", var.guardrail_enforce) : contains(["content", "prompt_attack", "topics", "grounding", "internal_info", "tamper_request"], trimspace(v))
+      for v in split(",", var.guardrail_enforce) : contains(["content", "prompt_attack", "topics", "grounding", "words", "internal_info", "tamper_request"], trimspace(v))
     ])
-    error_message = "guardrail_enforce는 none 또는 content, prompt_attack, topics, grounding, internal_info, tamper_request의 쉼표 목록이다."
+    error_message = "guardrail_enforce는 none 또는 content, prompt_attack, topics, grounding, words, internal_info, tamper_request의 쉼표 목록이다."
   }
 }
 

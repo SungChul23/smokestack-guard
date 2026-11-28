@@ -183,3 +183,9 @@ def test_enforce_option_changes_text_only(tmp_path):
         cfg = gr.Config("g", "1", gr.parse_enforce(enforce))
         row = ge.run(ge.load_cases(p), br, cfg)[0]
         assert row.result.blocked is blocked and row.verdict == "ok"
+
+
+def test_record_expect_has_no_verdict():
+    c = case(expect="record", group="profanity_attached", text="시발놈아")
+    assert ge.judge(c, r_of(NONE)) == ("record", "안 걸림")
+    assert ge.judge(c, r_of(topic())) == ("record", "tamper_request")
