@@ -32,8 +32,8 @@
 
 ## Phase 5: 연결 확인 (US4)
 
-- [ ] T015 D에게 [contracts/agent-guard-connection-delta.md](contracts/agent-guard-connection-delta.md) 전달(#66 댓글 초안 → 승인 뒤 게시): 새 `guard_result.py` 복사, `res.blocked` 사용
-- [ ] T016 D 연결 코드 확인(공유받은 뒤): 차단이면 `text_out` 반환·모델 미호출
+- [X] T015 D에게 [contracts/agent-guard-connection-delta.md](contracts/agent-guard-connection-delta.md) 전달(#66 댓글 초안 → 승인 뒤 게시): 새 `guard_result.py` 복사, `res.blocked` 사용
+- [X] T016 D 연결 확인: D 로컬 에이전트에서 "씨발" → CUSTOM_WORDS 차단 문구, "병신이냐?" → INSULTS 차단, 모델 미호출(2026-11-28). 110문장 시험 결과는 research R8
 - [ ] T017 Dashboards "에이전트 가드": 차단 기록 `BLOCKED`, 사유 `CUSTOM_WORDS` 확인(SC-005)
 
 ## Dependencies
@@ -41,3 +41,7 @@
 - T001 → T002·T003·T004 → T009(새 해석 규칙 없이 시험하면 단어 정책이 안 보임)
 - T005~T008 → T009 → T010 → T011 → T012 → T013
 - T015는 T001 이후 언제든, T016·T017은 T013 이후
+
+## 후속 (v6, 2026-11-28)
+
+- [X] T018 D 시험에서 나온 internal_info 오탐 대응: 정의를 좁혀 v6, 시험 `eval_results/2026-11-28.md`. 해결되지 않아 받아들인 오탐으로 기록(research R8)
